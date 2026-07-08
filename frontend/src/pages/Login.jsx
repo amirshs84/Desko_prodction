@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../api/client';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { queryClient } from '../lib/queryClient';
+import { toEnDigits } from '../lib/persianDigits';
 
 const inputClass =
   'w-full px-4 py-3 bg-card/50 text-ink rounded-xl border border-edge-2 ' +
@@ -139,18 +140,36 @@ const Login = () => {
     setPasswordStrength(checkPasswordStrength(pass));
   };
 
+  const normalizePhone = (raw) => toEnDigits(raw).replace(/\D/g, '');
+
+  const phoneApiError = (err, fallback) => {
+    if (!err.response) {
+      return 'اتصال به سرور برقرار نشد. لطفاً اتصال اینترنت یا تنظیمات سرور را بررسی کنید.';
+    }
+    return err.response?.data?.error || fallback;
+  };
+
   /* ── مرحله ۱: بررسی شماره ── */
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (phoneNumber.length !== 11) { setError('شماره تلفن باید ۱۱ رقم باشد'); return; }
+    const normalized = normalizePhone(phoneNumber);
+    if (normalized.length !== 11) {
+      setError('شماره تلفن باید ۱۱ رقم باشد (مثال: 09123456789)');
+      return;
+    }
+    if (!normalized.startsWith('09')) {
+      setError('شماره موبایل باید با 09 شروع شود');
+      return;
+    }
+    setPhoneNumber(normalized);
     setLoading(true);
     try {
-      const res = await authAPI.checkPhone(phoneNumber);
+      const res = await authAPI.checkPhone(normalized);
       setIsExistingUser(res.data.exists && res.data.has_password);
       setStep(2);
-    } catch {
-      setError('خطا در بررسی شماره تلفن');
+    } catch (err) {
+      setError(phoneApiError(err, 'خطا در بررسی شماره تلفن'));
     } finally {
       setLoading(false);
     }
@@ -290,10 +309,12 @@ const Login = () => {
                 <label className="block text-ink-2 mb-2 text-sm font-medium">شماره تلفن</label>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => setPhoneNumber(normalizePhone(e.target.value).slice(0, 11))}
                   placeholder="09123456789"
-                  className={inputClass}
+                  dir="ltr"
+                  className={`${inputClass} text-left`}
                   disabled={loading}
                   maxLength="11"
                 />

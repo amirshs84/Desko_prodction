@@ -1,6 +1,11 @@
 const getBaseURL = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  const envUrl = import.meta.env.VITE_API_URL?.trim();
+  if (envUrl) {
+    return envUrl.endsWith('/') ? envUrl : `${envUrl}/`;
+  }
+  // در بیلد production بدون env، همان origin + nginx proxy
+  if (import.meta.env.PROD) {
+    return '/api/';
   }
   return 'http://localhost:8000/api/';
 };
