@@ -1,0 +1,30 @@
+// Skip lint / extractAnnotations tasks (offline build — no lint-gradle from network)
+allprojects {
+    tasks.whenTaskAdded { task ->
+        def n = task.name
+        if (n.contains('Lint') || n.contains('lint') ||
+            n.contains('extractReleaseAnnotations') ||
+            n.contains('extractDebugAnnotations')) {
+            task.enabled = false
+        }
+    }
+}
+
+subprojects { project ->
+    project.plugins.withId('com.android.library') {
+        project.android {
+            lint {
+                checkReleaseBuilds false
+                abortOnError false
+            }
+        }
+    }
+    project.plugins.withId('com.android.application') {
+        project.android {
+            lint {
+                checkReleaseBuilds false
+                abortOnError false
+            }
+        }
+    }
+}

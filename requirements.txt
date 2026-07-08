@@ -1,0 +1,23 @@
+asgiref==3.11.0
+Django==5.0.2
+django-cors-headers==4.9.0
+django-extensions==3.2.3
+djangorestframework==3.16.1
+djangorestframework-simplejwt==5.5.1
+psycopg2-binary==2.9.11
+PyJWT==2.10.1
+sqlparse==0.5.5
+tzdata==2025.3
+gunicorn==23.0.0
+whitenoise==6.9.0
+dj-database-url==2.3.0
+python-dotenv==1.0.1
+openpyxl==3.1.2
+# --- AI app ---
+celery==5.4.0
+redis==5.2.1
+django-redis==5.4.0
+openai==1.59.6
+httpx==0.28.1
+pypdf==5.1.0
+python-docx==1.1.2

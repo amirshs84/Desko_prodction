@@ -1,0 +1,13 @@
+{
+  "appId": "ir.mindtempo.app",
+  "appName": "Desko",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

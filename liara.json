@@ -1,0 +1,8 @@
+{
+  "app": "timer-backend",
+  "platform": "django",
+  "django": {
+    "collectstatic": true
+  },
+  "port": 8000
+}

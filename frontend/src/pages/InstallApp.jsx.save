@@ -1,0 +1,70 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MdArrowForward, MdIosShare, MdOutlineInstallMobile } from 'react-icons/md';
+import { FaApple, FaAndroid, FaWindows } from 'react-icons/fa';
+import { BsThreeDotsVertical } from 'react-icons/bs';
+import { FiPlusSquare } from 'react-icons/fi';
+
+export default function InstallApp() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="min-h-[100dvh] bg-[#000000] text-gray-100 overflow-y-auto pb-12">
+      {/* Header */}
+      <div className="sticky top-0 bg-black/80 backdrop-blur-xl z-50 border-b border-white/10 px-4 py-4 flex items-center">
+        <button
+          onClick={() => navigate('/timer')}
+          className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"
+        >
+          <MdArrowForward className="w-6 h-6 rotate-180" />
+        </button>
+        <h1 className="text-xl font-bold mr-4 text-emerald-400">نصب اپلیکیشن</h1>
+      </div>
+
+      <div className="max-w-md mx-auto px-4 mt-8 space-y-8">
+        {/* Intro */}
+        <div className="text-center space-y-3">
+          <div className="w-20 h-20 bg-emerald-500/20 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+            <MdOutlineInstallMobile className="w-10 h-10 text-emerald-400" />
+          </div>
+          <h2 className="text-2xl font-bold">تجربه سریع‌تر و بهتر</h2>
+          <p className="text-gray-400 text-sm leading-relaxed">
+            با افزودن این برنامه به صفحه اصلی گوشی خود، بدون نیاز به مرورگر و با سرعت بسیار بالا به تایمر و اطلاعات خود دسترسی داشته باشید.
+          </p>
+        </div>
+
+        {/* iOS Guide */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <FaApple className="w-6 h-6 text-gray-200" />
+            <h3 className="text-lg font-semibold text-white">راهنمای نصب در آیفون (iOS)</h3>
+          </div>
+          <ul className="space-y-4 text-sm text-gray-300">
+            <li className="flex items-start gap-3">
+              <span className="bg-white/10 w-6 h-6 rounded-full flex items-center justify-center shrink-0">۱</span>
+              <p>در نوار پایین مرورگر <strong>Safari</strong>، روی دکمه اشتراک‌گذاری <MdIosShare className="inline text-blue-400 w-5 h-5 mx-1 mb-1" /> کلیک کنید.</p>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="bg-white/10 w-6 h-6 rounded-full flex items-center justify-center shrink-0">۲</span>
+              <p>منو را کمی به پایین بکشید و گزینه <strong>Add to Home Screen</strong> <FiPlusSquare className="inline text-gray-200 w-4 h-4 mx-1" /> را انتخاب کنید.</p>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="bg-white/10 w-6 h-6 rounded-full flex items-center justify-center shrink-0">۳</span>
+              <p>در صفحه باز شده، روی کلمه <strong>Add</strong> در بالا سمت راست کلیک کنید.</p>
+            </li>
+          </ul>
+        </div>
+
+        {/* Android Guide */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <FaAndroid className="w-6 h-6 text-emerald-400" />
+            <h3 className="text-lg font-semibold text-white">راهنمای نصب در اندروید</h3>
+          </div>
+          <ul className="space-y-4 text-sm text-gray-300">
+            <li className="flex items-start gap-3">
+              <span className="bg-white/10 w-6 h-6 rounded-full flex items-center justify-center shrink-0">۱</span>
+              <p>در مرورگر <strong>Chrome</strong>، روی منوی سه نقطه <BsThreeDotsVertical className="inline text-gray-200 w-4 h-4 mx-1" /> در بالا سمت راست کلیک کنید.</p>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="bg-white/10 w-6 h-6 rounded-full flex items-center justify-center 

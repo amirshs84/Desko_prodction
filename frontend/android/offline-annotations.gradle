@@ -1,0 +1,29 @@
+// When extractReleaseAnnotations cannot run (no lint-gradle offline), syncReleaseLibJars still needs typedefs.txt.
+def ensureTypedefsStub = { File buildDir, String variant ->
+    def extractDir = variant == 'release' ? 'extractReleaseAnnotations' : 'extractDebugAnnotations'
+    [
+        "intermediates/annotations_typedef_file/${variant}/${extractDir}",
+        "intermediates/annotations_zip/${variant}/${extractDir}",
+    ].each { rel ->
+        def annDir = new File(buildDir, rel)
+        annDir.mkdirs()
+        def typedefs = new File(annDir, 'typedefs.txt')
+        if (!typedefs.exists()) {
+            typedefs.write('')
+        }
+    }
+}
+
+gradle.projectsEvaluated {
+    rootProject.allprojects { project ->
+        ['release', 'debug'].each { variant -> ensureTypedefsStub(project.buildDir, variant) }
+        ['syncReleaseLibJars', 'syncDebugLibJars'].each { syncName ->
+            project.tasks.matching { it.name == syncName }.configureEach { syncTask ->
+                syncTask.doFirst {
+                    def variant = syncName.contains('Release') ? 'release' : 'debug'
+                    ensureTypedefsStub(project.buildDir, variant)
+                }
+            }
+        }
+    }
+}

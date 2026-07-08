@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "mupdf": "^1.27.0",
+    "mupdf-js": "^2.0.1"
+  }
+}

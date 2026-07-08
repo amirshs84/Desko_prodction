@@ -1,0 +1,285 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Design Tokens — Dark Mode (default)
+   ============================================================ */
+:root {
+  /* --- Backgrounds --- */
+  --t-bg:           #000000;       /* main page background          */
+  --t-card:         #111827;       /* card / surface   (gray-900)   */
+  --t-card-deep:    #0f172a;       /* deeper surface   (gray-950)   */
+  --t-panel:        #1f2937;       /* raised panel     (gray-800)   */
+  --t-panel-hover:  #374151;       /* panel hover      (gray-700)   */
+
+  /* --- Text --- */
+  --t-ink:          #ffffff;       /* primary text                  */
+  --t-ink-2:        #d1d5db;       /* secondary        (gray-300)   */
+  --t-ink-3:        #9ca3af;       /* muted            (gray-400)   */
+  --t-ink-4:        #6b7280;       /* subtle           (gray-500)   */
+
+  /* --- Borders --- */
+  --t-edge:         #1f2937;       /* default border   (gray-800)   */
+  --t-edge-2:       #374151;       /* stronger border  (gray-700)   */
+
+  /* --- Brand / Accent (Emerald) --- */
+  --t-brand:        #34d399;       /* emerald-400  (text accent)    */
+  --t-brand-2:      #10b981;       /* emerald-500  (bg / SVG)       */
+  --t-brand-3:      #059669;       /* emerald-600  (hover)          */
+  --t-brand-dim:    rgba(16, 185, 129, 0.10);
+  --t-brand-glow:   rgba(16, 185, 129, 0.40);
+  --t-brand-border: rgba(16, 185, 129, 0.25);
+
+  /* --- Overlays & Glass --- */
+  --t-overlay:      rgba(0, 0, 0, 0.90);
+  --t-overlay-md:   rgba(0, 0, 0, 0.70);
+  --t-glass:        rgba(255, 255, 255, 0.04);
+
+  /* --- Navigation bar --- */
+  --t-nav:          rgba(17, 24, 39, 0.95);
+
+  /* --- Page gradient (used with bg-page utility) --- */
+  --t-page-gradient: linear-gradient(
+    to bottom right,
+    #022c22,
+    #000000,
+    #042f2e
+  );
+
+  /* --- Grid dot pattern (decorative) --- */
+  --t-grid-dot: rgba(255, 255, 255, 0.15);
+
+  /* --- Animations (theme-independent) --- */
+  --anim-breathing-duration:  8s;
+  --anim-breathing-scale:     1.08;
+  --anim-breathing-opacity:   0.85;
+  --anim-fade-in-duration:    0.3s;
+  --anim-slide-up-duration:   0.4s;
+  --anim-orb-pulse-opacity-min: 0.6;
+  --anim-orb-pulse-scale:     1.04;
+}
+
+/* ============================================================
+   Design Tokens — Light Mode Override
+   ============================================================ */
+.light {
+  /* --- Backgrounds --- */
+  --t-bg:           #f0fdf4;       /* emerald-50 tint               */
+  --t-card:         #ffffff;
+  --t-card-deep:    #f9fafb;       /* gray-50                       */
+  --t-panel:        #f3f4f6;       /* gray-100                      */
+  --t-panel-hover:  #e5e7eb;       /* gray-200                      */
+
+  /* --- Text --- */
+  --t-ink:          #111827;       /* gray-900                      */
+  --t-ink-2:        #374151;       /* gray-700                      */
+  --t-ink-3:        #6b7280;       /* gray-500                      */
+  --t-ink-4:        #9ca3af;       /* gray-400                      */
+
+  /* --- Borders --- */
+  --t-edge:         #e5e7eb;       /* gray-200                      */
+  --t-edge-2:       #d1d5db;       /* gray-300                      */
+
+  /* --- Brand / Accent --- */
+  --t-brand:        #059669;       /* emerald-600 (better contrast) */
+  --t-brand-2:      #10b981;       /* emerald-500                   */
+  --t-brand-3:      #34d399;       /* emerald-400                   */
+  --t-brand-dim:    rgba(5, 150, 105, 0.08);
+  --t-brand-glow:   rgba(5, 150, 105, 0.20);
+  --t-brand-border: rgba(5, 150, 105, 0.30);
+
+  /* --- Overlays & Glass --- */
+  --t-overlay:      rgba(0, 0, 0, 0.50);
+  --t-overlay-md:   rgba(0, 0, 0, 0.40);
+  --t-glass:        rgba(0, 0, 0, 0.03);
+
+  /* --- Navigation bar --- */
+  --t-nav:          rgba(255, 255, 255, 0.95);
+
+  /* --- Page gradient --- */
+  --t-page-gradient: linear-gradient(
+    to bottom right,
+    #ecfdf5,
+    #f0fdf4,
+    #f0fdfa
+  );
+
+  /* --- Grid dot pattern --- */
+  --t-grid-dot: rgba(0, 0, 0, 0.07);
+}
+
+/* ============================================================
+   Tailwind v4 — Dynamic Theme Extension
+   Maps --t-* tokens to Tailwind utility classes.
+   Usage examples:
+     bg-bg, bg-card, bg-panel
+     text-ink, text-ink-2, text-ink-3, text-ink-4
+     border-edge, border-edge-2
+     text-brand, bg-brand
+   ============================================================ */
+@theme inline {
+  /* Backgrounds */
+  --color-bg:           var(--t-bg);
+  --color-card:         var(--t-card);
+  --color-card-deep:    var(--t-card-deep);
+  --color-panel:        var(--t-panel);
+  --color-panel-hover:  var(--t-panel-hover);
+
+  /* Text */
+  --color-ink:          var(--t-ink);
+  --color-ink-2:        var(--t-ink-2);
+  --color-ink-3:        var(--t-ink-3);
+  --color-ink-4:        var(--t-ink-4);
+
+  /* Borders */
+  --color-edge:         var(--t-edge);
+  --color-edge-2:       var(--t-edge-2);
+
+  /* Brand */
+  --color-brand:        var(--t-brand);
+  --color-brand-2:      var(--t-brand-2);
+  --color-brand-3:      var(--t-brand-3);
+}
+
+/* ============================================================
+   Custom Utilities
+   ============================================================ */
+@utility bg-page {
+  background: var(--t-page-gradient);
+}
+
+@utility bg-nav {
+  background-color: var(--t-nav);
+}
+
+@utility safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility safe-area-pl {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+@utility safe-area-pr {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ترکیب ارتفاع BottomNav + فاصله safe area سیستم برای صفحات scrollable */
+@utility pb-nav-safe {
+  padding-bottom: calc(8.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* موقعیت دکمه‌های شناور (FAB) بالای BottomNav + safe area */
+@utility fab-safe-bottom {
+  bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
+@utility text-brand-dim {
+  color: var(--t-brand-dim);
+}
+
+/* ============================================================
+   Base Styles
+   ============================================================ */
+html {
+  /* جلوگیری از rubber-band / overscroll در Safari iOS */
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100%;
+  height: 100dvh;
+}
+
+body {
+  background-color: var(--t-bg);
+  height: 100%;
+  height: 100dvh;
+  /* body نباید اسکرول کند — هر صفحه خودش overflow را مدیریت می‌کند */
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  background-color: var(--t-bg);
+  /* ارتفاع دقیق viewport شامل safe area — صفحات h-full می‌گیرند */
+  height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+
+/* Breathing — 4s دم / 4s بازدم */
+@keyframes breathing {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(var(--anim-breathing-scale));
+    opacity: var(--anim-breathing-opacity);
+  }
+}
+
+.breathing-animation {
+  animation: breathing var(--anim-breathing-duration) ease-in-out infinite;
+}
+
+/* TimerCircle Ripple — موج قطره آب (آرام) */
+@keyframes tcRipple {
+  0%   { transform: scale(1);    opacity: 0.28; }
+  40%  { transform: scale(1.2);  opacity: 0.18; }
+  100% { transform: scale(1.5);  opacity: 0;    }
+}
+
+/* Fade In */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn var(--anim-fade-in-duration) ease-out;
+}
+
+/* Slide Up — Modal */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp var(--anim-slide-up-duration) ease-out;
+}
+
+/* Orb Pulse — SynapseOrb */
+@keyframes orbPulse {
+  0%, 100% {
+    opacity: var(--anim-orb-pulse-opacity-min);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(var(--anim-orb-pulse-scale));
+  }
+}

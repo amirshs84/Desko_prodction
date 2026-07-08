@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+*.log
+local_settings.py
+media/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# AI local storage (attachments, etc.)
+.ai_storage/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
