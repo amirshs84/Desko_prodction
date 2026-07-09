@@ -4,6 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from rest_framework import status
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
 from ....container import get_container
@@ -13,7 +14,7 @@ from ....application.commands.message_commands import (
     SendMessageCommand,
 )
 from ..context import build_request_context
-from ..errors import BaseAIView
+from ..errors import BaseAIView, EventStreamRenderer
 from ..pagination import page_envelope, parse_order, parse_pagination
 from ..serializers import (
     EditMessageSerializer,
@@ -70,6 +71,8 @@ class MessageStreamView(BaseAIView):
     پیش از استریم، وجود و تعلق پیام به مستأجر بررسی می‌شود تا 404/403 درست
     بازگردد (پس از شروع استریم، هدرها رفته و فقط رویداد error ممکن است).
     """
+
+    renderer_classes = [EventStreamRenderer, JSONRenderer]
 
     def get(self, request, message_id: UUID):
         ctx = build_request_context(request)

@@ -41,7 +41,7 @@ export async function* streamAssistantMessage(
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      Accept: 'text/event-stream',
+      Accept: 'text/event-stream, application/json;q=0.9, */*;q=0.8',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     signal,

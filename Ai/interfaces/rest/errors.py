@@ -9,10 +9,29 @@
 """
 from __future__ import annotations
 
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView, exception_handler as drf_default_handler
 
 from ...shared.domain.errors import DomainError
+
+
+class EventStreamRenderer(BaseRenderer):
+    """Renderer برای مذاکرهٔ محتوا روی اندپوینت SSE.
+
+    وقتی کلاینت ``Accept: text/event-stream`` می‌فرستد و خطا رخ می‌دهد، DRF بدون
+    این renderer پاسخ 406 می‌دهد. پاسخ خطا به‌صورت JSON داخل content-type استریم
+    برگردانده می‌شود تا fetch کلاینت بتواند آن را parse کند.
+    """
+
+    media_type = "text/event-stream"
+    format = "event-stream"
+    charset = None
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        import json
+
+        return json.dumps(data, ensure_ascii=False).encode("utf-8")
 
 
 def ai_exception_handler(exc, context):
