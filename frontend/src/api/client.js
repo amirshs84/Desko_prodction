@@ -111,7 +111,7 @@ export const managerAPI = {
   getClass: (classId) => api.get(`manager/classes/${classId}/`),
   updateClass: (classId, data) => api.patch(`manager/classes/${classId}/`, data),
   deleteClass: (classId) => api.delete(`manager/classes/${classId}/`),
-  getClassStudents: (classId) => api.get(`manager/classes/${classId}/students/`),
+  getClassStudents: (classId, params) => api.get(`manager/classes/${classId}/students/`, { params }),
   addClassStudents: (classId, studentIds) => api.post(`manager/classes/${classId}/students/`, { student_ids: studentIds }),
   removeClassStudent: (classId, userId) => api.delete(`manager/classes/${classId}/students/${userId}/`),
   // Online classes

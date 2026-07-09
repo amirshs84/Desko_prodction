@@ -13,7 +13,7 @@ const isLoggedIn = () => !!localStorage.getItem('isLoggedIn');
 
 export const MANAGER_QUERY_KEYS = {
   classes: (filters = {}) => ['manager', 'classes', filters],
-  classStudents: (classId) => ['manager', 'classes', classId, 'students'],
+  classStudents: (classId, filters = {}) => ['manager', 'classes', classId, 'students', filters],
   students: (filters = {}) => ['manager', 'students', filters],
 };
 
@@ -38,6 +38,8 @@ export function useManagerClassesQuery(filters) {
     queryKey: MANAGER_QUERY_KEYS.classes(filters),
     queryFn: () => managerAPI.getClasses(buildClassParams(filters)).then((r) => r.data),
     enabled: isLoggedIn(),
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 
@@ -47,14 +49,25 @@ export function useManagerStudentsQuery(filters, { enabled = true } = {}) {
     queryKey: MANAGER_QUERY_KEYS.students(filters),
     queryFn: () => managerAPI.getStudentList(filters).then((r) => r.data),
     enabled: isLoggedIn() && enabled,
+    // داده مدیر سریع عوض می‌شود؛ کش persist نباید رفرش را بلاک کند
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 
+function invalidateManagerStudents(queryClient) {
+  return queryClient.invalidateQueries({ queryKey: ['manager', 'students'] });
+}
+
 /** دانش‌آموزان یک کلاس */
-export function useClassStudentsQuery(classId, { enabled = true } = {}) {
+export function useClassStudentsQuery(classId, { enabled = true, search = '', grade = '' } = {}) {
+  const filters = {};
+  if (search) filters.search = search;
+  if (grade) filters.grade = grade;
+
   return useQuery({
-    queryKey: MANAGER_QUERY_KEYS.classStudents(classId),
-    queryFn: () => managerAPI.getClassStudents(classId).then((r) => r.data),
+    queryKey: MANAGER_QUERY_KEYS.classStudents(classId, filters),
+    queryFn: () => managerAPI.getClassStudents(classId, filters).then((r) => r.data),
     enabled: isLoggedIn() && !!classId && enabled,
   });
 }
@@ -98,7 +111,8 @@ export function useAddClassStudentsMutation() {
       managerAPI.addClassStudents(classId, studentIds).then((r) => r.data),
     onSuccess: (_data, { classId }) => {
       invalidateManagerClasses(queryClient);
-      queryClient.invalidateQueries({ queryKey: MANAGER_QUERY_KEYS.classStudents(classId) });
+      invalidateManagerStudents(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['manager', 'classes', classId, 'students'] });
     },
   });
 }
@@ -111,7 +125,8 @@ export function useRemoveClassStudentMutation() {
       managerAPI.removeClassStudent(classId, userId).then((r) => r.data),
     onSuccess: (_data, { classId }) => {
       invalidateManagerClasses(queryClient);
-      queryClient.invalidateQueries({ queryKey: MANAGER_QUERY_KEYS.classStudents(classId) });
+      invalidateManagerStudents(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['manager', 'classes', classId, 'students'] });
     },
   });
 }

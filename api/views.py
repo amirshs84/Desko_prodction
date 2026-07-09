@@ -1083,6 +1083,17 @@ class ManagerClassStudentsView(views.APIView):
             .order_by('student__full_name', 'student__phone_number')
         )
 
+        search = request.query_params.get('search', '').strip()
+        if search:
+            enrollments = enrollments.filter(
+                Q(student__full_name__icontains=search)
+                | Q(student__phone_number__icontains=search)
+            )
+
+        grade = request.query_params.get('grade', '').strip()
+        if grade:
+            enrollments = enrollments.filter(student__grade=grade)
+
         students_data = []
         for enrollment in enrollments:
             profile = enrollment.student

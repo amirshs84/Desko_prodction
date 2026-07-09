@@ -42,12 +42,22 @@ export function buildLowestGpaStudents() {
   return [];
 }
 
-/** ۵ برتر هر پایه بر اساس معدل — معدل در بک‌اند نیست */
-export function buildTopStudentsByGrade() {
+/** تا ۵ دانش‌آموز هر پایه — بدون معدل (در بک‌اند نیست) */
+export function buildTopStudentsByGrade(students) {
+  const byGrade = (code) =>
+    (students || [])
+      .filter((s) => s.grade === code)
+      .slice(0, 5)
+      .map((s, index) => ({
+        rank: index + 1,
+        name: s.full_name || '—',
+        gpa: '',
+      }));
+
   return {
-    grade10: [],
-    grade11: [],
-    grade12: [],
+    grade10: byGrade('10'),
+    grade11: byGrade('11'),
+    grade12: byGrade('12'),
   };
 }
 

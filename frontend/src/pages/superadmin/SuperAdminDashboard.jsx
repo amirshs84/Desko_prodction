@@ -3,6 +3,7 @@ import { HiPlus, HiOfficeBuilding, HiUserGroup, HiKey, HiLogout, HiChat, HiUserA
 import { superadminAPI, notificationAPI } from '../../api/client';
 import SuperAdminMessages from './SuperAdminMessages';
 import { performLogout } from '../../utils/auth';
+import { queryClient } from '../../lib/queryClient';
 
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState('schools'); // 'schools' | 'messages' | 'notifications'
@@ -127,6 +128,8 @@ export default function SuperAdminDashboard() {
         grade: manualStudent.grade,
         olympiad_field: manualStudent.olympiad_field,
       });
+      await queryClient.invalidateQueries({ queryKey: ['manager', 'students'] });
+      await queryClient.invalidateQueries({ queryKey: ['manager', 'classes'] });
       alert('دانش‌آموز با موفقیت ثبت شد');
       setShowStudentModal(false);
       setStudentTargetSchool(null);

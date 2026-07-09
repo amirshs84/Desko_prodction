@@ -21,7 +21,10 @@ export function useManagerStudents() {
 
   const gradeAverageData = useMemo(() => buildGradeAverageData(), []);
   const lowestGpaStudents = useMemo(() => buildLowestGpaStudents(), []);
-  const topStudentsByGrade = useMemo(() => buildTopStudentsByGrade(), []);
+  const topStudentsByGrade = useMemo(
+    () => buildTopStudentsByGrade(students),
+    [students],
+  );
   const mostActiveStudents = useMemo(
     () => buildMostActiveStudents(students),
     [students],

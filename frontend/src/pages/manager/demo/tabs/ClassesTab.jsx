@@ -4,7 +4,7 @@ import {
   PieChart, Pie,
 } from 'recharts';
 import {
-  Plus, Calendar, Download, Search, ChevronDown, SlidersHorizontal,
+  Plus, Settings, Download, Search, ChevronDown, SlidersHorizontal,
   Monitor, BookOpen, Users, UserCheck, AlertTriangle, CheckCircle2,
   MoreHorizontal, ChevronLeft, ChevronRight, TrendingUp, Star, ClipboardCheck,
   FileText, UserPlus, Pencil, Trash2, UserCog,
@@ -12,9 +12,9 @@ import {
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
 import { CARD_STYLE } from '../components/DemoUi';
 import { useManagerClasses } from '../hooks/useManagerClasses';
-import { useManagerDashboard } from '../context/ManagerDashboardContext';
 import ClassFormModal from '../components/ClassFormModal';
 import ClassStudentsModal from '../components/ClassStudentsModal';
+import ClassSettingsModal from '../components/ClassSettingsModal';
 import {
   buildCapacitySummary,
   buildGradeDistribution,
@@ -93,7 +93,7 @@ function FooterKpiIcon({ type, color }) {
   }
 }
 
-function ClassesPageHeader({ compact, onCreateClick, onScheduleClick }) {
+function ClassesPageHeader({ compact, onCreateClick, onSettingsClick }) {
   return (
     <div className={`flex ${compact ? 'flex-col gap-4' : 'items-start justify-between gap-4'}`}>
       <div className="flex items-start gap-3">
@@ -122,12 +122,12 @@ function ClassesPageHeader({ compact, onCreateClick, onScheduleClick }) {
         </button>
         <button
           type="button"
-          onClick={onScheduleClick}
+          onClick={onSettingsClick}
           className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold"
           style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#374151' }}
         >
-          <Calendar size={16} color="#10B981" />
-          <span>مشاهده برنامه هفتگی</span>
+          <Settings size={16} color="#10B981" />
+          <span>تنظیمات کلاس‌ها</span>
         </button>
       </div>
     </div>
@@ -633,7 +633,6 @@ function FooterKpiCards({ compact, items }) {
 }
 
 function ClassesBody({ compact }) {
-  const { navigateToTab } = useManagerDashboard();
   const {
     classes,
     paginatedClasses,
@@ -655,6 +654,7 @@ function ClassesBody({ compact }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [studentsModalClass, setStudentsModalClass] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const maxStudents = useMemo(
@@ -737,7 +737,7 @@ function ClassesBody({ compact }) {
       <ClassesPageHeader
         compact={compact}
         onCreateClick={handleCreateClick}
-        onScheduleClick={() => navigateToTab('attendance')}
+        onSettingsClick={() => setSettingsOpen(true)}
       />
 
       {error && (
@@ -790,6 +790,20 @@ function ClassesBody({ compact }) {
       </div>
 
       <FooterKpiCards compact={compact} items={footerKpis} />
+
+      <ClassSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        classes={classes}
+        loading={loading}
+        onEdit={(classItem) => {
+          setEditingClass(classItem);
+          setFormOpen(true);
+        }}
+        onManageStudents={(classItem) => {
+          setStudentsModalClass(classItem);
+        }}
+      />
 
       <ClassFormModal
         open={formOpen}
