@@ -218,6 +218,9 @@ class SchoolSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'name',
+            'phone',
+            'email',
+            'address',
             'invitation_code',
             'normal_study_threshold',
             'is_active',
@@ -411,4 +414,29 @@ class ClassEnrollmentRequestSerializer(serializers.Serializer):
         allow_empty=False,
     )
 
+
+class ManagerSchoolSettingsSerializer(serializers.ModelSerializer):
+    """تنظیمات عمومی مدرسه — قابل ویرایش توسط مدیر"""
+    class Meta:
+        model = School
+        fields = ['id', 'name', 'phone', 'email', 'address', 'invitation_code']
+        read_only_fields = ['id', 'invitation_code']
+
+    def validate_name(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('نام مدرسه الزامی است')
+        return value
+
+
+class ManagerChangePasswordSerializer(serializers.Serializer):
+    """تغییر رمز عبور مدیر"""
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    new_password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['new_password_confirm']:
+            raise serializers.ValidationError({'new_password_confirm': 'رمزهای عبور جدید مطابقت ندارند'})
+        return data
 

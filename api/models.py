@@ -6,6 +6,9 @@ import secrets
 class School(models.Model):
     """مدل مدرسه برای سیستم چندمدرسه‌ای"""
     name = models.CharField(max_length=200, verbose_name='نام مدرسه')
+    phone = models.CharField(max_length=20, blank=True, default='', verbose_name='تلفن')
+    email = models.EmailField(blank=True, default='', verbose_name='ایمیل')
+    address = models.TextField(blank=True, default='', verbose_name='آدرس')
     invitation_code = models.CharField(
         max_length=8, 
         unique=True, 

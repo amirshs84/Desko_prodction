@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Settings, Building2, Calendar, Bell, Shield, SlidersHorizontal,
   ChevronDown, Save, CheckCircle2, Download, Trash2, Lock, Mail, Phone, MapPin,
@@ -6,8 +6,13 @@ import {
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
 import { CARD_STYLE } from '../components/DemoUi';
 import {
+  useManagerSchoolSettingsQuery,
+  useUpdateManagerSchoolMutation,
+  useManagerChangePasswordMutation,
+  extractManagerSettingsError,
+} from '../../../../hooks/useManagerQueries';
+import {
   SETTINGS_SECTIONS,
-  DEFAULT_SCHOOL_INFO,
   ACADEMIC_YEARS,
   NOTIFICATION_SETTINGS,
   DEFAULT_NOTIFICATIONS,
@@ -102,13 +107,54 @@ function SectionIcon({ type, color = '#10B981' }) {
 }
 
 function GeneralSettings() {
-  const [form, setForm] = useState(DEFAULT_SCHOOL_INFO);
+  const { data, isLoading, isError } = useManagerSchoolSettingsQuery();
+  const updateMutation = useUpdateManagerSchoolMutation();
+  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '' });
   const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  useEffect(() => {
+    if (data) {
+      setForm({
+        name: data.name || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        address: data.address || '',
+      });
+    }
+  }, [data]);
+
+  const handleSave = async () => {
+    setErrorMsg(null);
+    try {
+      await updateMutation.mutateAsync({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        address: form.address.trim(),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setErrorMsg(extractManagerSettingsError(err, 'خطا در ذخیره اطلاعات مدرسه'));
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-3xl p-5 text-sm text-gray-500" style={CARD_STYLE}>
+        در حال بارگذاری اطلاعات مدرسه...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-3xl p-5 text-sm text-red-600" style={CARD_STYLE}>
+        خطا در دریافت اطلاعات مدرسه
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-3xl p-5" style={CARD_STYLE}>
@@ -120,15 +166,19 @@ function GeneralSettings() {
         <FormField label="ایمیل" icon={Mail} value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
         <FormField label="آدرس" icon={MapPin} value={form.address} onChange={(v) => setForm({ ...form, address: v })} />
       </div>
+      {errorMsg && (
+        <p className="text-xs font-medium text-red-600 mb-3">{errorMsg}</p>
+      )}
       <div className="flex items-center">
         <SaveFeedback show={saved} />
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white"
+          disabled={updateMutation.isPending}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white disabled:opacity-60"
           style={{ background: '#10B981' }}
         >
           <Save size={16} />
-          <span>ذخیره تغییرات</span>
+          <span>{updateMutation.isPending ? 'در حال ذخیره...' : 'ذخیره تغییرات'}</span>
         </button>
       </div>
     </div>
@@ -227,14 +277,15 @@ function NotificationSettings() {
 }
 
 function SecuritySettings() {
+  const changePasswordMutation = useManagerChangePasswordMutation();
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [twoFactor, setTwoFactor] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
-  const handleChangePassword = () => {
-    if (!currentPass || !newPass) {
+  const handleChangePassword = async () => {
+    if (!currentPass || !newPass || !confirmPass) {
       setFeedback({ type: 'error', text: 'لطفاً تمام فیلدها را پر کنید' });
       return;
     }
@@ -242,15 +293,25 @@ function SecuritySettings() {
       setFeedback({ type: 'error', text: 'رمز عبور جدید با تکرار آن یکسان نیست' });
       return;
     }
-    if (newPass.length < 6) {
-      setFeedback({ type: 'error', text: 'رمز عبور باید حداقل ۶ کاراکتر باشد' });
-      return;
+
+    setFeedback(null);
+    try {
+      const result = await changePasswordMutation.mutateAsync({
+        current_password: currentPass,
+        new_password: newPass,
+        new_password_confirm: confirmPass,
+      });
+      setFeedback({ type: 'success', text: result.message || 'رمز عبور با موفقیت تغییر کرد' });
+      setCurrentPass('');
+      setNewPass('');
+      setConfirmPass('');
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractManagerSettingsError(err, 'خطا در تغییر رمز عبور'),
+      });
     }
-    setFeedback({ type: 'success', text: 'رمز عبور با موفقیت تغییر کرد' });
-    setCurrentPass('');
-    setNewPass('');
-    setConfirmPass('');
-    setTimeout(() => setFeedback(null), 3000);
   };
 
   return (
@@ -263,6 +324,9 @@ function SecuritySettings() {
           <FormField label="رمز جدید" icon={Lock} type="password" value={newPass} onChange={setNewPass} placeholder="••••••••" />
           <FormField label="تکرار رمز جدید" icon={Lock} type="password" value={confirmPass} onChange={setConfirmPass} placeholder="••••••••" />
         </div>
+        <p className="text-xs text-gray-400 mb-3">
+          رمز جدید باید حداقل ۸ کاراکتر و شامل حروف بزرگ، کوچک، عدد و علامت باشد.
+        </p>
         {feedback && (
           <p
             className="text-xs font-medium mb-3"
@@ -273,18 +337,19 @@ function SecuritySettings() {
         )}
         <button
           onClick={handleChangePassword}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white"
+          disabled={changePasswordMutation.isPending}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white disabled:opacity-60"
           style={{ background: '#10B981' }}
         >
           <Lock size={16} />
-          <span>تغییر رمز عبور</span>
+          <span>{changePasswordMutation.isPending ? 'در حال تغییر...' : 'تغییر رمز عبور'}</span>
         </button>
       </div>
 
       <div className="rounded-3xl p-5" style={CARD_STYLE}>
         <ToggleSwitch
           label="ورود دو مرحله‌ای (2FA)"
-          desc="ارسال کد تأیید به موبایل هنگام ورود"
+          desc="ارسال کد تأیید به موبایل هنگام ورود — به‌زودی"
           checked={twoFactor}
           onChange={setTwoFactor}
         />

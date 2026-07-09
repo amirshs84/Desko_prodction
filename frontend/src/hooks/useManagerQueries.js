@@ -20,6 +20,7 @@ export const MANAGER_QUERY_KEYS = {
   notifications: () => ['manager', 'notifications'],
   notificationsUnread: () => ['manager', 'notifications', 'unread'],
   tickets: (filters = {}) => ['manager', 'tickets', filters],
+  schoolSettings: () => ['manager', 'school', 'settings'],
 };
 
 function buildClassParams(filters) {
@@ -35,6 +36,17 @@ function buildClassParams(filters) {
 export function extractManagerClassError(err, fallback = 'خطا در انجام عملیات') {
   const data = err?.response?.data;
   return data?.code?.[0] || data?.name?.[0] || data?.grade?.[0] || data?.error || fallback;
+}
+
+export function extractManagerSettingsError(err, fallback = 'خطا در انجام عملیات') {
+  const data = err?.response?.data;
+  if (!data) return fallback;
+  if (typeof data.error === 'string') return data.error;
+  if (data.name?.[0]) return data.name[0];
+  if (data.email?.[0]) return data.email[0];
+  if (data.new_password_confirm?.[0]) return data.new_password_confirm[0];
+  if (data.current_password?.[0]) return data.current_password[0];
+  return fallback;
 }
 
 /** داشبورد KPI مدیر */
@@ -231,5 +243,34 @@ export function useReplyToTicketMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['manager', 'tickets'] });
     },
+  });
+}
+
+/** تنظیمات عمومی مدرسه */
+export function useManagerSchoolSettingsQuery({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: MANAGER_QUERY_KEYS.schoolSettings(),
+    queryFn: () => managerAPI.getSchoolSettings().then((r) => r.data),
+    enabled: isLoggedIn() && enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+/** به‌روزرسانی اطلاعات مدرسه */
+export function useUpdateManagerSchoolMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => managerAPI.updateSchoolSettings(data).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MANAGER_QUERY_KEYS.schoolSettings() });
+    },
+  });
+}
+
+/** تغییر رمز عبور مدیر */
+export function useManagerChangePasswordMutation() {
+  return useMutation({
+    mutationFn: (data) => managerAPI.changePassword(data).then((r) => r.data),
   });
 }

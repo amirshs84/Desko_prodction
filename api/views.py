@@ -33,6 +33,8 @@ from .serializers import (
     SchoolClassSerializer,
     ClassStudentSerializer,
     ClassEnrollmentRequestSerializer,
+    ManagerSchoolSettingsSerializer,
+    ManagerChangePasswordSerializer,
 )
 from .permissions import IsManager, IsSuperAdmin
 
@@ -1522,6 +1524,60 @@ class ManagerStudentReportPDFView(views.APIView):
             {'message': 'PDF generation will be implemented in next phase. For now, use Excel export.'},
             status=status.HTTP_501_NOT_IMPLEMENTED
         )
+
+
+# ==================== Manager Settings Views ====================
+
+class ManagerSchoolSettingsView(views.APIView):
+    """دریافت و به‌روزرسانی اطلاعات مدرسه توسط مدیر"""
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        school = _get_manager_school(request)
+        if not school:
+            return Response({'error': 'مدیر به هیچ مدرسه‌ای متصل نیست'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ManagerSchoolSettingsSerializer(school)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        school = _get_manager_school(request)
+        if not school:
+            return Response({'error': 'مدیر به هیچ مدرسه‌ای متصل نیست'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ManagerSchoolSettingsSerializer(school, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class ManagerChangePasswordView(views.APIView):
+    """تغییر رمز عبور حساب مدیر"""
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def post(self, request):
+        serializer = ManagerChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        current_password = serializer.validated_data['current_password']
+        new_password = serializer.validated_data['new_password']
+
+        if not user.check_password(current_password):
+            return Response({'error': 'رمز عبور فعلی نادرست است'}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_valid, error_message = validate_password(new_password)
+        if not is_valid:
+            return Response({'error': error_message}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+
+        profile = user.profile
+        profile.is_password_set = True
+        profile.save()
+
+        return Response({'message': 'رمز عبور با موفقیت تغییر کرد'})
 
 
 # ==================== Manager Class Views ====================

@@ -35,6 +35,8 @@ from .views import (
     ManagerClassDetailView,
     ManagerClassStudentsView,
     ManagerClassStudentRemoveView,
+    ManagerSchoolSettingsView,
+    ManagerChangePasswordView,
     # SuperAdmin Panel Views
     SuperAdminSchoolListCreateView,
     SuperAdminSchoolDetailView,
@@ -93,6 +95,8 @@ urlpatterns = [
     path('manager/classes/<int:class_id>/', ManagerClassDetailView.as_view(), name='manager_class_detail'),
     path('manager/classes/<int:class_id>/students/', ManagerClassStudentsView.as_view(), name='manager_class_students'),
     path('manager/classes/<int:class_id>/students/<int:user_id>/', ManagerClassStudentRemoveView.as_view(), name='manager_class_student_remove'),
+    path('manager/school/', ManagerSchoolSettingsView.as_view(), name='manager_school_settings'),
+    path('manager/change-password/', ManagerChangePasswordView.as_view(), name='manager_change_password'),
     
     # SuperAdmin Panel
     path('superadmin/schools/', SuperAdminSchoolListCreateView.as_view(), name='superadmin_schools'),

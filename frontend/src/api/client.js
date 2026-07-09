@@ -115,6 +115,10 @@ export const managerAPI = {
   getClassStudents: (classId, params) => api.get(`manager/classes/${classId}/students/`, { params }),
   addClassStudents: (classId, studentIds) => api.post(`manager/classes/${classId}/students/`, { student_ids: studentIds }),
   removeClassStudent: (classId, userId) => api.delete(`manager/classes/${classId}/students/${userId}/`),
+  // Settings
+  getSchoolSettings: () => api.get('manager/school/'),
+  updateSchoolSettings: (data) => api.patch('manager/school/', data),
+  changePassword: (data) => api.post('manager/change-password/', data),
   // Online classes
   getOnlineClasses: (params) => api.get('online-classes/manager/', { params }),
   assignOnlineClass: (data) => api.post('online-classes/manager/', data),
