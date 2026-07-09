@@ -9,7 +9,7 @@ import {
   FileText, UserPlus,
 } from 'lucide-react';
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
-import { CARD_STYLE } from '../components/DemoUi';
+import { CARD_STYLE, EmptyDataMessage } from '../components/DemoUi';
 import {
   TEACHER_PERFORMANCE_BARS,
   SUBJECT_TEACHER_DISTRIBUTION,
@@ -159,6 +159,9 @@ function PerformanceBarChart() {
   return (
     <div className="rounded-3xl p-5 flex flex-col" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">میانگین ارزیابی عملکرد به تفکیک درس</h3>
+      {TEACHER_PERFORMANCE_BARS.length === 0 ? (
+        <EmptyDataMessage className="py-12" />
+      ) : (
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={TEACHER_PERFORMANCE_BARS} margin={{ top: 20, right: 4, left: -20, bottom: 0 }}>
           <XAxis
@@ -190,6 +193,7 @@ function PerformanceBarChart() {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      )}
       <div className="flex flex-wrap items-center gap-4 mt-2 pt-3 border-t border-gray-100">
         {[
           { label: 'عالی (بالای ۴.۵)', color: '#10B981' },
@@ -210,6 +214,9 @@ function SubjectDistributionChart() {
   return (
     <div className="rounded-3xl p-5" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">توزیع معلمان بر اساس درس</h3>
+      {SUBJECT_TEACHER_DISTRIBUTION.length === 0 ? (
+        <EmptyDataMessage className="py-12" />
+      ) : (
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0">
           <PieChart width={150} height={150}>
@@ -230,7 +237,7 @@ function SubjectDistributionChart() {
           </PieChart>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-xs text-gray-500">مجموع معلمان</span>
-            <span className="text-lg font-bold text-gray-900">۳۳</span>
+            <span className="text-lg font-bold text-gray-900">۰</span>
           </div>
         </div>
         <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -243,6 +250,7 @@ function SubjectDistributionChart() {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -297,7 +305,14 @@ function TeachersTable({ compact }) {
             </tr>
           </thead>
           <tbody>
-            {TEACHERS_TABLE.map((row) => (
+            {TEACHERS_TABLE.length === 0 ? (
+              <tr>
+                <td colSpan={8}>
+                  <EmptyDataMessage />
+                </td>
+              </tr>
+            ) : (
+            TEACHERS_TABLE.map((row) => (
               <tr key={row.code} className="border-b border-gray-50 last:border-0">
                 <td className="py-3.5 px-2 first:pr-0 text-xs font-medium text-gray-500">{row.code}</td>
                 <td className="py-3.5 px-2 text-sm font-semibold text-gray-900">{row.name}</td>
@@ -321,12 +336,13 @@ function TeachersTable({ compact }) {
                   </button>
                 </td>
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
       </div>
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-        <span className="text-xs text-gray-500">نمایش ۱ تا ۶ از ۳۳ ردیف</span>
+        <span className="text-xs text-gray-500">نمایش ۰ از ۰ ردیف</span>
         <div className="flex items-center gap-1">
           <button className="p-1.5 rounded-lg hover:bg-gray-100">
             <ChevronRight size={16} color="#9CA3AF" />
@@ -357,7 +373,10 @@ function TopTeachersWidget() {
     <div className="rounded-3xl p-5" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">برترین معلمان (ارزیابی عملکرد)</h3>
       <div className="flex flex-col gap-4">
-        {TOP_TEACHERS.map((item) => (
+        {TOP_TEACHERS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        TOP_TEACHERS.map((item) => (
           <div key={item.rank} className="flex items-center gap-3">
             <span className="text-lg">{item.medal}</span>
             <div className="flex-1 min-w-0">
@@ -369,7 +388,8 @@ function TopTeachersWidget() {
               <span className="text-sm font-bold text-amber-600">{formatRating(item.rating)}</span>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
@@ -380,7 +400,10 @@ function AttentionNeededWidget() {
     <div className="rounded-3xl p-5" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">معلمان نیازمند توجه</h3>
       <div className="flex flex-col gap-3">
-        {TEACHERS_NEEDING_ATTENTION.map((item) => {
+        {TEACHERS_NEEDING_ATTENTION.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        TEACHERS_NEEDING_ATTENTION.map((item) => {
           const isDanger = item.variant === 'danger';
           return (
             <div
@@ -397,7 +420,8 @@ function AttentionNeededWidget() {
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
@@ -408,7 +432,10 @@ function RecentActivitiesWidget() {
     <div className="rounded-3xl p-5 flex flex-col" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">فعالیت‌های اخیر معلمان</h3>
       <div className="flex flex-col gap-4 flex-1">
-        {RECENT_TEACHER_ACTIVITIES.map((item, i) => (
+        {RECENT_TEACHER_ACTIVITIES.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        RECENT_TEACHER_ACTIVITIES.map((item, i) => (
           <div key={i} className="flex gap-3">
             <div className="flex flex-col items-center">
               <div
@@ -426,7 +453,8 @@ function RecentActivitiesWidget() {
               <p className="text-xs text-gray-400 mt-0.5">{item.time}</p>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>مشاهده همه فعالیت‌ها</span>

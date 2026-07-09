@@ -7,7 +7,7 @@ import {
   FileText, Download, Share2, Calendar,
 } from 'lucide-react';
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
-import { CARD_STYLE } from '../components/DemoUi';
+import { CARD_STYLE, EmptyDataMessage } from '../components/DemoUi';
 import {
   REPORTS_SUMMARY_STATS,
   REPORT_CATEGORIES,
@@ -140,7 +140,7 @@ function ReportCategoriesChart() {
             </Pie>
           </PieChart>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-lg font-bold text-gray-900">۲۸</span>
+            <span className="text-lg font-bold text-gray-900">۰</span>
             <span className="text-xs text-gray-500">کل گزارش‌ها</span>
           </div>
         </div>
@@ -166,7 +166,10 @@ function LatestReportsWidget() {
         <button className="text-xs font-semibold" style={{ color: '#10B981' }}>مشاهده همه</button>
       </div>
       <div className="flex flex-col gap-3 flex-1">
-        {LATEST_REPORTS.map((report, i) => (
+        {LATEST_REPORTS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        LATEST_REPORTS.map((report, i) => (
           <div key={i} className="flex items-center gap-3">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -179,7 +182,8 @@ function LatestReportsWidget() {
               <p className="text-xs text-gray-500">{report.date}</p>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
@@ -190,7 +194,10 @@ function MostUsedReportsWidget() {
     <div className="rounded-3xl p-5 h-full flex flex-col" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">پرکاربردترین گزارش‌ها</h3>
       <div className="flex flex-col gap-3 flex-1">
-        {MOST_USED_REPORTS.map((report, i) => (
+        {MOST_USED_REPORTS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        MOST_USED_REPORTS.map((report, i) => (
           <div key={i} className="flex items-center gap-3">
             <span
               className="text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0"
@@ -200,7 +207,8 @@ function MostUsedReportsWidget() {
             </span>
             <p className="text-sm font-medium text-gray-900 flex-1 truncate">{report.title}</p>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );

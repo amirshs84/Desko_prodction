@@ -400,11 +400,18 @@ function DashboardDesktopBody() {
 
       <div>
         <h2 className="text-base font-bold text-gray-900 mb-4">گزارش‌های مدیریتی</h2>
-        <div className="grid grid-cols-5 gap-4">
-          {reportCards.map((card) => (
-            <ReportCard key={card.id} card={card} />
-          ))}
-        </div>
+        {reportCards.length === 0 ? (
+          <div className="rounded-3xl p-8 text-center" style={CARD_STYLE}>
+            <p className="text-sm text-gray-500">داده‌ای برای نمایش وجود ندارد</p>
+            <p className="text-xs text-gray-400 mt-1">سیستم گزارش‌گیری هنوز به بک‌اند متصل نشده است</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-5 gap-4">
+            {reportCards.map((card) => (
+              <ReportCard key={card.id} card={card} />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="h-6" />

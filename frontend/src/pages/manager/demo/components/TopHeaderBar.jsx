@@ -318,6 +318,11 @@ export default function TopHeaderBar() {
               style={PANEL_STYLE}
             >
               <PanelHeader title="رویدادهای پیش‌رو" />
+              {UPCOMING_EVENTS.length === 0 ? (
+                <div className="py-6 px-4 text-center">
+                  <p className="text-sm text-gray-500">رویدادی برای نمایش وجود ندارد</p>
+                </div>
+              ) : (
               <div className="py-2">
                 {UPCOMING_EVENTS.map((ev) => (
                   <div
@@ -342,10 +347,7 @@ export default function TopHeaderBar() {
                   </div>
                 ))}
               </div>
-              <button className="w-full flex items-center justify-center gap-1 px-4 py-3 border-t border-gray-100 text-xs font-semibold text-emerald-600 hover:bg-gray-50">
-                <span>مشاهده تقویم کامل</span>
-                <ArrowLeft size={14} />
-              </button>
+              )}
             </div>
           )}
         </div>

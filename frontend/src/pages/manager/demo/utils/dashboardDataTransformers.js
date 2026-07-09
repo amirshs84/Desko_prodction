@@ -1,5 +1,4 @@
 import { toPersianDigits, formatCount } from './classDataTransformers';
-import { REPORT_CARDS } from '../data/dashboardMockData';
 
 const AVATAR_COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B'];
 
@@ -286,6 +285,6 @@ export function transformDashboardData(raw) {
     topStudentsMobile,
     performanceKpis,
     mobileStats,
-    reportCards: REPORT_CARDS,
+    reportCards: [],
   };
 }

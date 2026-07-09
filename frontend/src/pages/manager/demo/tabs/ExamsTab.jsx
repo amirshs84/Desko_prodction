@@ -9,7 +9,7 @@ import {
   Calculator, FlaskConical, Languages, BookOpen,
 } from 'lucide-react';
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
-import { CARD_STYLE } from '../components/DemoUi';
+import { CARD_STYLE, EmptyDataMessage } from '../components/DemoUi';
 import {
   EXAM_SUMMARY_STATS,
   SPARKLINE_DATA,
@@ -174,7 +174,10 @@ function CurrentExamsSection() {
     <div className="rounded-3xl p-5" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">آزمون‌های جاری</h3>
       <div className="flex flex-col gap-4">
-        {CURRENT_EXAMS.map((exam) => {
+        {CURRENT_EXAMS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        CURRENT_EXAMS.map((exam) => {
           const statusCfg = EXAM_STATUS_CONFIG[exam.status];
           return (
             <div
@@ -226,7 +229,8 @@ function CurrentExamsSection() {
               )}
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
@@ -237,7 +241,10 @@ function UpcomingExamsWidget() {
     <div className="rounded-3xl p-5 h-full" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">آزمون‌های آینده</h3>
       <div className="flex flex-col gap-3">
-        {UPCOMING_EXAMS.map((exam, i) => (
+        {UPCOMING_EXAMS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        UPCOMING_EXAMS.map((exam, i) => (
           <div key={i} className="flex items-center gap-3">
             <div
               className="w-12 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
@@ -252,7 +259,8 @@ function UpcomingExamsWidget() {
             </div>
             <span className="text-xs font-medium text-gray-600 dir-ltr">{exam.time}</span>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
@@ -314,7 +322,10 @@ function SubjectWeaknessChart() {
     <div className="rounded-3xl p-5" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">نقاط ضعف درسی</h3>
       <div className="flex flex-col gap-4">
-        {SUBJECT_WEAKNESS.map((item) => (
+        {SUBJECT_WEAKNESS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        SUBJECT_WEAKNESS.map((item) => (
           <div key={item.subject}>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm font-medium text-gray-700">{item.subject}</span>
@@ -327,7 +338,8 @@ function SubjectWeaknessChart() {
               />
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
@@ -378,7 +390,10 @@ function SmartAnalysisWidget() {
         <h3 className="font-bold text-gray-900 text-sm">تحلیل هوشمند آزمون‌ها</h3>
       </div>
       <div className="flex flex-col gap-3">
-        {SMART_INSIGHTS.map((item, i) => (
+        {SMART_INSIGHTS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        SMART_INSIGHTS.map((item, i) => (
           <div
             key={i}
             className="flex items-start gap-3 p-3 rounded-2xl"
@@ -387,7 +402,8 @@ function SmartAnalysisWidget() {
             <InsightIcon type={item.icon} color={item.color} />
             <p className="text-sm text-gray-800 leading-snug">{item.text}</p>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
@@ -443,7 +459,10 @@ function StudentRankingWidget() {
     <div className="rounded-3xl p-5 h-full flex flex-col" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">رتبه‌بندی دانش‌آموزان</h3>
       <div className="flex flex-col gap-4 flex-1">
-        {TOP_STUDENTS_RANKING.map((s) => (
+        {TOP_STUDENTS_RANKING.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        TOP_STUDENTS_RANKING.map((s) => (
           <div key={s.rank} className="flex items-center gap-3">
             <span className="text-xl">{s.medal}</span>
             <div
@@ -458,7 +477,8 @@ function StudentRankingWidget() {
             </div>
             <span className="text-sm font-bold text-emerald-600">{s.score}</span>
           </div>
-        ))}
+        ))
+        )}
       </div>
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>لیست کامل رتبه‌بندی</span>
@@ -500,9 +520,17 @@ function ExamsBody({ compact }) {
           <StudentRankingWidget />
         </div>
         <div className={`grid gap-4 ${compact ? 'grid-cols-2' : 'col-span-8 grid-cols-2'}`}>
-          {EXAM_CARDS.map((card) => (
+          {EXAM_CARDS.length === 0 ? (
+            <div className={compact ? 'col-span-2' : 'col-span-2'}>
+              <div className="rounded-3xl p-8" style={CARD_STYLE}>
+                <EmptyDataMessage />
+              </div>
+            </div>
+          ) : (
+          EXAM_CARDS.map((card) => (
             <ExamSubjectCard key={card.subject + card.grade} card={card} />
-          ))}
+          ))
+          )}
         </div>
       </div>
 

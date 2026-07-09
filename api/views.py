@@ -37,6 +37,7 @@ from .serializers import (
     ManagerChangePasswordSerializer,
 )
 from .permissions import IsManager, IsSuperAdmin
+from .jalali_utils import IRAN_TZ, iran_today, build_attendance_trend_30d, make_iran_day_start
 
 
 import re
@@ -557,11 +558,12 @@ class ManagerDashboardKPIView(views.APIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     def get(self, request):
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        now = timezone.localtime()
+        today_date = iran_today()
+        today_start = make_iran_day_start(today_date)
         yesterday_start = today_start - timedelta(days=1)
-        week_start = now - timedelta(days=7)
-        month_ago = now - timedelta(days=30)
+        week_start = today_start - timedelta(days=7)
+        month_ago = today_start - timedelta(days=29)
 
         manager_school = request.user.profile.school
         if not manager_school:
@@ -624,6 +626,7 @@ class ManagerDashboardKPIView(views.APIView):
         if total_students == 0:
             empty_payload['total_classes'] = total_classes
             empty_payload['active_classes'] = active_classes
+            empty_payload['attendance_trend_30d'] = build_attendance_trend_30d({}, 0, today_date)
             serializer = ManagerDashboardKPISerializer(empty_payload)
             return Response(serializer.data)
 
@@ -754,14 +757,14 @@ class ManagerDashboardKPIView(views.APIView):
         yesterday_rate = round((len(active_yesterday) / total_students) * 100, 1) if total_students else 0
         attendance_change_percent = round(attendance_rate - yesterday_rate, 1)
 
-        # 30-day attendance trend (activity proxy)
+        # 30-day attendance trend (activity proxy) — برچسب شمسی
         day_counts = (
             StudySession.objects.filter(
                 user__profile__role='student',
                 user__profile__school=manager_school,
                 start_time__gte=month_ago,
             )
-            .annotate(day=TruncDate('start_time'))
+            .annotate(day=TruncDate('start_time', tzinfo=IRAN_TZ))
             .values('day')
             .annotate(active=Count('user_id', distinct=True))
         )
@@ -773,21 +776,7 @@ class ManagerDashboardKPIView(views.APIView):
             key = day.isoformat() if hasattr(day, 'isoformat') else str(day)[:10]
             day_map[key] = row['active']
 
-        persian_months = [
-            '', 'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
-            'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
-        ]
-        # Approximate Jalali label via Iran calendar string (Gregorian day/month names as fallback labels)
-        attendance_trend_30d = []
-        for i in range(29, -1, -1):
-            day_dt = (today_start - timedelta(days=i)).date()
-            key = day_dt.isoformat()
-            active = day_map.get(key, 0)
-            value = round((active / total_students) * 100) if total_students else 0
-            # Simple Persian-digit date label (day + Gregorian month name mapped loosely)
-            month_name = persian_months[day_dt.month] if 1 <= day_dt.month <= 12 else ''
-            label = f'{day_dt.day} {month_name}'.strip()
-            attendance_trend_30d.append({'date': label, 'value': value, 'iso': key})
+        attendance_trend_30d = build_attendance_trend_30d(day_map, total_students, today_date)
 
         # School performance: blend of attendance + study vs threshold
         avg_week = (
@@ -856,8 +845,7 @@ class ManagerAttendanceView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        now = timezone.now()
-        today = now.date()
+        today = iran_today()
 
         date_str = request.query_params.get('date', '').strip()
         if date_str:
@@ -885,7 +873,7 @@ class ManagerAttendanceView(views.APIView):
         at_risk_min_days = 5
         lookback_days = 14
 
-        day_start = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+        day_start = make_iran_day_start(selected_date)
         day_end = day_start + timedelta(days=1)
         yesterday_start = day_start - timedelta(days=1)
         lookback_start = day_start - timedelta(days=lookback_days)
@@ -908,16 +896,6 @@ class ManagerAttendanceView(views.APIView):
 
         student_user_ids = list(students_qs.values_list('user_id', flat=True))
         total_students = len(student_user_ids)
-
-        persian_months = [
-            '', 'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
-            'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
-        ]
-
-        def day_label(d):
-            month_name = persian_months[d.month] if 1 <= d.month <= 12 else ''
-            short = month_name[:3] if month_name else ''
-            return f'{d.day} {short}'.strip()
 
         def active_user_ids(start, end, user_ids=None):
             qs = StudySession.objects.filter(
@@ -955,7 +933,7 @@ class ManagerAttendanceView(views.APIView):
                     {'name': 'تأخیر', 'value': 0, 'count': 0, 'color': '#F59E0B'},
                     {'name': 'مرخصی', 'value': 0, 'count': 0, 'color': '#3B82F6'},
                 ],
-                'attendance_trend': [],
+                'attendance_trend': build_attendance_trend_30d({}, 0, selected_date),
                 'at_risk_students': [],
                 'classes_most_absence': [],
                 'table': {
@@ -997,14 +975,14 @@ class ManagerAttendanceView(views.APIView):
             {'name': 'مرخصی', 'value': 0, 'count': 0, 'color': '#3B82F6'},
         ]
 
-        # 30-day trend
+        # 30-day trend — برچسب شمسی
         day_counts = (
             StudySession.objects.filter(
                 user_id__in=student_user_ids,
                 start_time__gte=trend_start,
                 start_time__lt=day_end,
             )
-            .annotate(day=TruncDate('start_time'))
+            .annotate(day=TruncDate('start_time', tzinfo=IRAN_TZ))
             .values('day')
             .annotate(active=Count('user_id', distinct=True))
         )
@@ -1016,16 +994,7 @@ class ManagerAttendanceView(views.APIView):
             key = day.isoformat() if hasattr(day, 'isoformat') else str(day)[:10]
             day_map[key] = row['active']
 
-        attendance_trend = []
-        for i in range(29, -1, -1):
-            d = selected_date - timedelta(days=i)
-            active = day_map.get(d.isoformat(), 0)
-            value = round((active / total_students) * 100) if total_students else 0
-            attendance_trend.append({
-                'date': day_label(d),
-                'value': value,
-                'iso': d.isoformat(),
-            })
+        attendance_trend = build_attendance_trend_30d(day_map, total_students, selected_date)
 
         # Active days per student in lookback window (for at-risk)
         active_days_rows = (

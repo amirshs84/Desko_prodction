@@ -69,26 +69,4 @@ export const INITIAL_MESSAGES = [
   },
 ];
 
-export const UPCOMING_EVENTS = [
-  {
-    id: 'e1',
-    title: 'جلسه شورای معلمان',
-    date: 'امروز',
-    time: '۱۴:۰۰',
-    color: '#10B981',
-  },
-  {
-    id: 'e2',
-    title: 'آزمون علوم — پایه هشتم',
-    date: 'شنبه',
-    time: '۰۸:۳۰',
-    color: '#3B82F6',
-  },
-  {
-    id: 'e3',
-    title: 'مهلت ثبت نمرات',
-    date: 'یکشنبه',
-    time: '۲۳:۵۹',
-    color: '#F59E0B',
-  },
-];
+export const UPCOMING_EVENTS = [];

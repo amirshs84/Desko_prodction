@@ -11,6 +11,12 @@ export function DemoCard({ children, className = '' }) {
   );
 }
 
+export function EmptyDataMessage({ className = 'py-8', message = 'داده‌ای موجود نیست' }) {
+  return (
+    <p className={`text-sm text-gray-400 text-center ${className}`}>{message}</p>
+  );
+}
+
 export function CardFooter({ variant = 'info', text }) {
   const isWarning = variant === 'warning';
   return (

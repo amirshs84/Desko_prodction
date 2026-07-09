@@ -6,7 +6,7 @@ import {
   ChevronLeft, Sparkles, Lightbulb, BarChart2,
 } from 'lucide-react';
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
-import { CARD_STYLE } from '../components/DemoUi';
+import { CARD_STYLE, EmptyDataMessage } from '../components/DemoUi';
 import {
   GRADES_SUMMARY_STATS,
   SPARKLINE_TREND,
@@ -242,13 +242,17 @@ function ClassRankingsWidget() {
     <div className="rounded-3xl p-5 flex flex-col h-full" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">رتبه‌بندی کلاس‌ها</h3>
       <div className="flex flex-col gap-3 flex-1">
-        {CLASS_RANKINGS.map((item) => (
+        {CLASS_RANKINGS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        CLASS_RANKINGS.map((item) => (
           <div key={item.rank} className="flex items-center gap-3">
             <span className="w-6 text-center text-sm">{item.medal}</span>
             <span className="text-sm font-medium text-gray-900 flex-1 truncate">{item.name}</span>
             <span className="text-sm font-bold text-emerald-600">{formatScore(item.score)}</span>
           </div>
-        ))}
+        ))
+        )}
       </div>
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>مشاهده همه کلاس‌ها</span>
@@ -263,7 +267,10 @@ function TeacherRankingsWidget() {
     <div className="rounded-3xl p-5 flex flex-col h-full" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">رتبه‌بندی معلمان</h3>
       <div className="flex flex-col gap-4 flex-1">
-        {TEACHER_RANKINGS.map((t) => (
+        {TEACHER_RANKINGS.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        TEACHER_RANKINGS.map((t) => (
           <div key={t.name} className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
@@ -277,7 +284,8 @@ function TeacherRankingsWidget() {
             </div>
             <span className="text-sm font-bold text-gray-800">{formatScore(t.score)}</span>
           </div>
-        ))}
+        ))
+        )}
       </div>
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>مشاهده همه معلمان</span>
@@ -292,7 +300,10 @@ function SubjectDifficultyWidget() {
     <div className="rounded-3xl p-5 flex flex-col h-full" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">سختی درس‌ها</h3>
       <div className="flex flex-col gap-3 flex-1">
-        {SUBJECT_DIFFICULTY.map((item) => (
+        {SUBJECT_DIFFICULTY.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        SUBJECT_DIFFICULTY.map((item) => (
           <div key={item.subject} className="flex items-center gap-3">
             <span className="text-xs text-gray-600 w-20 flex-shrink-0 truncate">{item.subject}</span>
             <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#F3F4F6' }}>
@@ -305,7 +316,8 @@ function SubjectDifficultyWidget() {
               {formatScore(item.score)}
             </span>
           </div>
-        ))}
+        ))
+        )}
       </div>
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>جزئیات بیشتر</span>
@@ -320,7 +332,10 @@ function StudentsAtRiskWidget() {
     <div className="rounded-3xl p-5 flex flex-col h-full" style={CARD_STYLE}>
       <h3 className="font-bold text-gray-900 text-sm mb-4">دانش‌آموزان در معرض افت تحصیلی</h3>
       <div className="flex flex-col gap-3 flex-1">
-        {STUDENTS_AT_RISK.map((s) => (
+        {STUDENTS_AT_RISK.length === 0 ? (
+          <EmptyDataMessage />
+        ) : (
+        STUDENTS_AT_RISK.map((s) => (
           <div key={s.name} className="flex items-center gap-3">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
@@ -334,7 +349,8 @@ function StudentsAtRiskWidget() {
             </div>
             <span className="text-sm font-bold text-red-500">-{formatScore(s.drop)}٪</span>
           </div>
-        ))}
+        ))
+        )}
       </div>
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>مشاهده همه</span>
@@ -352,6 +368,7 @@ function SmartAnalysisWidget() {
         <h3 className="font-bold text-gray-900 text-sm">تحلیل هوشمند</h3>
       </div>
       <p className="text-sm text-gray-700 leading-relaxed flex-1">{SMART_ANALYSIS.summary}</p>
+      {SMART_ANALYSIS.suggestion ? (
       <div
         className="flex items-start gap-2 p-3 rounded-2xl mt-4"
         style={{ background: '#DBEAFE' }}
@@ -359,6 +376,7 @@ function SmartAnalysisWidget() {
         <Lightbulb size={16} color="#3B82F6" className="flex-shrink-0 mt-0.5" />
         <p className="text-xs text-blue-800 leading-relaxed">{SMART_ANALYSIS.suggestion}</p>
       </div>
+      ) : null}
       <button className="flex items-center gap-1 text-xs font-semibold mt-4" style={{ color: '#10B981' }}>
         <span>مشاهده پیشنهادها</span>
         <ChevronLeft size={14} />
