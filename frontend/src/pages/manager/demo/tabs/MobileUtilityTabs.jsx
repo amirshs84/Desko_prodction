@@ -12,7 +12,12 @@ function NotificationTypeIcon({ type }) {
 const TYPE_BG = { warning: '#FEF3C7', success: '#D1FAE5', info: '#F3F4F6' };
 
 function NotificationsBody() {
-  const { notifications, markAllNotificationsRead, markNotificationRead } = useManagerDashboard();
+  const {
+    notifications,
+    notificationsLoading,
+    markAllNotificationsRead,
+    markNotificationRead,
+  } = useManagerDashboard();
 
   return (
     <div className="px-5 py-5 space-y-4">
@@ -22,6 +27,7 @@ function NotificationsBody() {
           <p className="text-xs text-gray-500 mt-0.5">رویدادهای مهم مدرسه</p>
         </div>
         <button
+          type="button"
           onClick={markAllNotificationsRead}
           className="text-xs font-semibold text-emerald-600 px-3 py-1.5 rounded-xl"
           style={{ background: '#ECFDF5' }}
@@ -31,93 +37,45 @@ function NotificationsBody() {
       </div>
 
       <div className="space-y-3">
-        {notifications.map((n) => (
-          <button
-            key={n.id}
-            onClick={() => markNotificationRead(n.id)}
-            className="w-full rounded-3xl p-4 text-right transition-all active:scale-[0.99]"
-            style={{
-              ...CARD_STYLE,
-              border: n.unread ? '1px solid #A7F3D0' : CARD_STYLE.border,
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: TYPE_BG[n.type] || '#F3F4F6' }}
-              >
-                <NotificationTypeIcon type={n.type} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className={`text-sm ${n.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                    {n.title}
-                  </p>
-                  {n.unread && (
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
-                  )}
+        {notificationsLoading && notifications.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-10">در حال بارگذاری...</p>
+        ) : notifications.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-10">هیچ اعلانی وجود ندارد</p>
+        ) : (
+          notifications.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => markNotificationRead(n.id)}
+              className="w-full rounded-3xl p-4 text-right transition-all active:scale-[0.99]"
+              style={{
+                ...CARD_STYLE,
+                border: n.unread ? '1px solid #A7F3D0' : CARD_STYLE.border,
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: TYPE_BG[n.type] || '#F3F4F6' }}
+                >
+                  <NotificationTypeIcon type={n.type} />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{n.desc}</p>
-                <p className="text-[10px] text-gray-400 mt-1.5">{n.time}</p>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MessagesBody() {
-  const { messages, markAllMessagesRead, markMessageRead } = useManagerDashboard();
-
-  return (
-    <div className="px-5 py-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">پیام‌ها</h1>
-          <p className="text-xs text-gray-500 mt-0.5">مکاتبات معلمان و اولیا</p>
-        </div>
-        <button
-          onClick={markAllMessagesRead}
-          className="text-xs font-semibold text-emerald-600 px-3 py-1.5 rounded-xl"
-          style={{ background: '#ECFDF5' }}
-        >
-          خوانده شد
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        {messages.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => markMessageRead(m.id)}
-            className="w-full rounded-3xl p-4 text-right transition-all active:scale-[0.99]"
-            style={{
-              ...CARD_STYLE,
-              border: m.unread ? '1px solid #A7F3D0' : CARD_STYLE.border,
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-                style={{ background: m.unread ? '#10B981' : '#9CA3AF' }}
-              >
-                {m.avatar}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className={`text-sm truncate ${m.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                    {m.from}
-                  </p>
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">{m.time}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm ${n.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                      {n.title}
+                    </p>
+                    {n.unread && (
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{n.desc}</p>
+                  <p className="text-[10px] text-gray-400 mt-1.5">{n.time}</p>
                 </div>
-                <p className="text-[10px] text-emerald-600 font-medium mt-0.5">{m.role}</p>
-                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{m.preview}</p>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))
+        )}
       </div>
     </div>
   );
@@ -137,24 +95,6 @@ export function NotificationsMobile({ onMenuClick }) {
   return (
     <MobilePageShell onMenuClick={onMenuClick}>
       <NotificationsBody />
-    </MobilePageShell>
-  );
-}
-
-export function MessagesDesktop() {
-  return (
-    <DesktopPageShell>
-      <div className="px-8 py-6">
-        <MessagesBody />
-      </div>
-    </DesktopPageShell>
-  );
-}
-
-export function MessagesMobile({ onMenuClick }) {
-  return (
-    <MobilePageShell onMenuClick={onMenuClick}>
-      <MessagesBody />
     </MobilePageShell>
   );
 }

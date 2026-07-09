@@ -183,6 +183,30 @@ class ManagerDashboardKPISerializer(serializers.Serializer):
     top_students_week = serializers.ListField(child=serializers.DictField())
 
 
+class ManagerAttendanceSerializer(serializers.Serializer):
+    """حضور و غیاب مدیر — بر اساس وجود StudySession در روز."""
+    date = serializers.CharField()
+    total_students = serializers.IntegerField()
+    present_count = serializers.IntegerField()
+    absent_count = serializers.IntegerField()
+    delay_count = serializers.IntegerField()
+    leave_count = serializers.IntegerField()
+    teachers_absent = serializers.IntegerField()
+    attendance_rate = serializers.FloatField()
+    attendance_change_percent = serializers.FloatField()
+    absent_change = serializers.IntegerField()
+    delay_change = serializers.IntegerField()
+    teachers_absent_change = serializers.IntegerField()
+    at_risk_count = serializers.IntegerField()
+    at_risk_min_days = serializers.IntegerField()
+    status_distribution = serializers.ListField(child=serializers.DictField())
+    attendance_trend = serializers.ListField(child=serializers.DictField())
+    at_risk_students = serializers.ListField(child=serializers.DictField())
+    classes_most_absence = serializers.ListField(child=serializers.DictField())
+    table = serializers.DictField()
+    class_options = serializers.ListField(child=serializers.DictField())
+
+
 # SuperAdmin Serializers
 class SchoolSerializer(serializers.ModelSerializer):
     """Serializer for School model"""

@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.db.models import Sum, Max, Count, Q, F
+from django.db.models import Sum, Max, Min, Count, Q, F
 from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse
 from datetime import timedelta, datetime
@@ -21,6 +21,7 @@ from .serializers import (
     TicketReplySerializer,
     ManagerStudentListSerializer,
     ManagerDashboardKPISerializer,
+    ManagerAttendanceSerializer,
     SchoolSerializer,
     AssignManagerSerializer,
     SuperAdminManualStudentSerializer,
@@ -437,11 +438,36 @@ class ManagerTicketListView(views.APIView):
             user__profile__role='student'
         ).select_related('user__profile', 'replied_by__profile')
 
+        search = request.query_params.get('search', '').strip()
+        if search:
+            tickets = tickets.filter(
+                Q(user__profile__full_name__icontains=search)
+                | Q(user__profile__phone_number__icontains=search)
+                | Q(message__icontains=search)
+            )
+
+        grade = request.query_params.get('grade', '').strip()
+        if grade:
+            tickets = tickets.filter(user__profile__grade=grade)
+
+        status_filter = request.query_params.get('status', '').strip()
+        if status_filter == 'unanswered':
+            tickets = tickets.filter(reply__isnull=True)
+        elif status_filter == 'answered':
+            tickets = tickets.filter(reply__isnull=False)
+
+        unread_count = ConsultantTicket.objects.filter(
+            ticket_type='consultant',
+            user__profile__school=manager_school,
+            user__profile__role='student',
+            reply__isnull=True,
+        ).count()
+
         serializer = ManagerTicketSerializer(tickets, many=True)
-        unread_count = tickets.filter(reply__isnull=True).count()
         return Response({
             'tickets': serializer.data,
-            'unread_count': unread_count
+            'unread_count': unread_count,
+            'count': tickets.count(),
         })
 
 
@@ -810,6 +836,367 @@ class ManagerDashboardKPIView(views.APIView):
 
         serializer = ManagerDashboardKPISerializer(data)
         return Response(serializer.data)
+
+
+class ManagerAttendanceView(views.APIView):
+    """
+    حضور و غیاب مدرسه بر اساس فعالیت مطالعه.
+    حاضر = حداقل یک StudySession در آن روز؛ غایب = بدون session.
+    تأخیر / مرخصی / معلم در سیستم تعریف نشده → صفر.
+    """
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        manager_school = request.user.profile.school
+        if not manager_school:
+            return Response(
+                {'error': 'مدیر به هیچ مدرسه‌ای متصل نیست'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        today = now.date()
+
+        date_str = request.query_params.get('date', '').strip()
+        if date_str:
+            try:
+                selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'error': 'فرمت تاریخ نامعتبر است (YYYY-MM-DD)'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            selected_date = today
+
+        class_id = request.query_params.get('class_id', '').strip()
+        search = request.query_params.get('search', '').strip()
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = min(100, max(1, int(request.query_params.get('page_size', 20))))
+        except (TypeError, ValueError):
+            page_size = 20
+
+        at_risk_min_days = 5
+        lookback_days = 14
+
+        day_start = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+        day_end = day_start + timedelta(days=1)
+        yesterday_start = day_start - timedelta(days=1)
+        lookback_start = day_start - timedelta(days=lookback_days)
+        trend_start = day_start - timedelta(days=29)
+
+        students_qs = UserProfile.objects.filter(role='student', school=manager_school)
+        if class_id:
+            try:
+                class_id_int = int(class_id)
+            except ValueError:
+                return Response({'error': 'شناسه کلاس نامعتبر است'}, status=status.HTTP_400_BAD_REQUEST)
+            students_qs = students_qs.filter(
+                class_enrollments__school_class_id=class_id_int,
+                class_enrollments__school_class__school=manager_school,
+            ).distinct()
+        if search:
+            students_qs = students_qs.filter(
+                Q(full_name__icontains=search) | Q(phone_number__icontains=search)
+            )
+
+        student_user_ids = list(students_qs.values_list('user_id', flat=True))
+        total_students = len(student_user_ids)
+
+        persian_months = [
+            '', 'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+            'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
+        ]
+
+        def day_label(d):
+            month_name = persian_months[d.month] if 1 <= d.month <= 12 else ''
+            short = month_name[:3] if month_name else ''
+            return f'{d.day} {short}'.strip()
+
+        def active_user_ids(start, end, user_ids=None):
+            qs = StudySession.objects.filter(
+                user__profile__role='student',
+                user__profile__school=manager_school,
+                start_time__gte=start,
+                start_time__lt=end,
+            )
+            if user_ids is not None:
+                qs = qs.filter(user_id__in=user_ids)
+            return set(qs.values_list('user_id', flat=True).distinct())
+
+        if total_students == 0:
+            class_options = [{'id': None, 'name': 'همه کلاس‌ها'}]
+            for sc in SchoolClass.objects.filter(school=manager_school, is_active=True).order_by('name'):
+                class_options.append({'id': sc.id, 'name': sc.name})
+            empty = {
+                'date': selected_date.isoformat(),
+                'total_students': 0,
+                'present_count': 0,
+                'absent_count': 0,
+                'delay_count': 0,
+                'leave_count': 0,
+                'teachers_absent': 0,
+                'attendance_rate': 0,
+                'attendance_change_percent': 0,
+                'absent_change': 0,
+                'delay_change': 0,
+                'teachers_absent_change': 0,
+                'at_risk_count': 0,
+                'at_risk_min_days': at_risk_min_days,
+                'status_distribution': [
+                    {'name': 'حاضر', 'value': 0, 'count': 0, 'color': '#10B981'},
+                    {'name': 'غایب', 'value': 0, 'count': 0, 'color': '#EF4444'},
+                    {'name': 'تأخیر', 'value': 0, 'count': 0, 'color': '#F59E0B'},
+                    {'name': 'مرخصی', 'value': 0, 'count': 0, 'color': '#3B82F6'},
+                ],
+                'attendance_trend': [],
+                'at_risk_students': [],
+                'classes_most_absence': [],
+                'table': {
+                    'count': 0,
+                    'page': page,
+                    'page_size': page_size,
+                    'total_pages': 1,
+                    'results': [],
+                },
+                'class_options': class_options,
+            }
+            return Response(ManagerAttendanceSerializer(empty).data)
+
+        present_ids = active_user_ids(day_start, day_end, student_user_ids)
+        present_count = len(present_ids)
+        absent_count = max(0, total_students - present_count)
+        attendance_rate = round((present_count / total_students) * 100, 1)
+
+        yesterday_present = active_user_ids(yesterday_start, day_start, student_user_ids)
+        yesterday_rate = round((len(yesterday_present) / total_students) * 100, 1)
+        yesterday_absent = max(0, total_students - len(yesterday_present))
+        attendance_change_percent = round(attendance_rate - yesterday_rate, 1)
+        absent_change = absent_count - yesterday_absent
+
+        # Domains not modeled
+        delay_count = 0
+        leave_count = 0
+        teachers_absent = 0
+        delay_change = 0
+        teachers_absent_change = 0
+
+        def pct(n):
+            return round((n / total_students) * 100) if total_students else 0
+
+        status_distribution = [
+            {'name': 'حاضر', 'value': pct(present_count), 'count': present_count, 'color': '#10B981'},
+            {'name': 'غایب', 'value': pct(absent_count), 'count': absent_count, 'color': '#EF4444'},
+            {'name': 'تأخیر', 'value': 0, 'count': 0, 'color': '#F59E0B'},
+            {'name': 'مرخصی', 'value': 0, 'count': 0, 'color': '#3B82F6'},
+        ]
+
+        # 30-day trend
+        day_counts = (
+            StudySession.objects.filter(
+                user_id__in=student_user_ids,
+                start_time__gte=trend_start,
+                start_time__lt=day_end,
+            )
+            .annotate(day=TruncDate('start_time'))
+            .values('day')
+            .annotate(active=Count('user_id', distinct=True))
+        )
+        day_map = {}
+        for row in day_counts:
+            day = row['day']
+            if not day:
+                continue
+            key = day.isoformat() if hasattr(day, 'isoformat') else str(day)[:10]
+            day_map[key] = row['active']
+
+        attendance_trend = []
+        for i in range(29, -1, -1):
+            d = selected_date - timedelta(days=i)
+            active = day_map.get(d.isoformat(), 0)
+            value = round((active / total_students) * 100) if total_students else 0
+            attendance_trend.append({
+                'date': day_label(d),
+                'value': value,
+                'iso': d.isoformat(),
+            })
+
+        # Active days per student in lookback window (for at-risk)
+        active_days_rows = (
+            StudySession.objects.filter(
+                user_id__in=student_user_ids,
+                start_time__gte=lookback_start,
+                start_time__lt=day_end,
+            )
+            .annotate(day=TruncDate('start_time'))
+            .values('user_id', 'day')
+            .distinct()
+        )
+        active_days_map = {}
+        for row in active_days_rows:
+            active_days_map.setdefault(row['user_id'], set()).add(row['day'])
+
+        # Primary class name per student
+        enrollments = (
+            ClassEnrollment.objects
+            .filter(student__user_id__in=student_user_ids, school_class__school=manager_school)
+            .select_related('school_class', 'student')
+            .order_by('enrolled_at')
+        )
+        class_name_map = {}
+        for enr in enrollments:
+            uid = enr.student.user_id
+            if uid not in class_name_map:
+                class_name_map[uid] = enr.school_class.name
+
+        avatar_colors = ['#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#14B8A6']
+
+        def initials_for(name, phone):
+            parts = (name or '').strip().split()
+            if len(parts) >= 2:
+                return f'{parts[0][0]}.{parts[1][0]}'
+            if parts:
+                return parts[0][:2]
+            return (phone or '—')[:2]
+
+        at_risk_students = []
+        for profile in students_qs.only('user_id', 'full_name', 'phone_number'):
+            active_set = active_days_map.get(profile.user_id, set())
+            absent_days = lookback_days - len(active_set)
+            if absent_days >= at_risk_min_days:
+                at_risk_students.append({
+                    'user_id': profile.user_id,
+                    'name': profile.full_name or profile.phone_number or '—',
+                    'class_name': class_name_map.get(profile.user_id, '—'),
+                    'days': absent_days,
+                    'initials': initials_for(profile.full_name, profile.phone_number),
+                    'color': avatar_colors[profile.user_id % len(avatar_colors)],
+                })
+        at_risk_students.sort(key=lambda x: x['days'], reverse=True)
+        at_risk_count = len(at_risk_students)
+
+        # Classes with most absence (today, school-wide unless filtered)
+        classes_most_absence = []
+        class_qs = SchoolClass.objects.filter(school=manager_school, is_active=True)
+        if class_id:
+            class_qs = class_qs.filter(id=int(class_id))
+        class_colors = ['#EF4444', '#F97316', '#F59E0B', '#14B8A6', '#10B981']
+        for sc in class_qs.prefetch_related('enrollments'):
+            enrolled_ids = list(sc.enrollments.values_list('student__user_id', flat=True))
+            if not enrolled_ids:
+                continue
+            present_in_class = len(present_ids.intersection(enrolled_ids))
+            absent_in_class = len(enrolled_ids) - present_in_class
+            rate = round((absent_in_class / len(enrolled_ids)) * 100, 1)
+            classes_most_absence.append({
+                'class_id': sc.id,
+                'name': sc.name,
+                'rate': rate,
+                'absent_count': absent_in_class,
+                'total_students': len(enrolled_ids),
+            })
+        classes_most_absence.sort(key=lambda x: x['rate'], reverse=True)
+        classes_most_absence = classes_most_absence[:5]
+        for idx, item in enumerate(classes_most_absence):
+            item['color'] = class_colors[min(idx, len(class_colors) - 1)]
+
+        # Session aggregates for selected day (entry/exit/duration)
+        session_aggs = (
+            StudySession.objects.filter(
+                user_id__in=student_user_ids,
+                start_time__gte=day_start,
+                start_time__lt=day_end,
+            )
+            .values('user_id')
+            .annotate(
+                first_start=Min('start_time'),
+                last_end=Max('end_time'),
+                last_start=Max('start_time'),
+                total_seconds=Sum('duration_seconds'),
+                session_count=Count('id'),
+            )
+        )
+        session_map = {row['user_id']: row for row in session_aggs}
+
+        def format_time(dt):
+            if not dt:
+                return None
+            local = timezone.localtime(dt) if timezone.is_aware(dt) else dt
+            return local.strftime('%H:%M')
+
+        # Table rows
+        table_rows = []
+        for profile in students_qs.select_related('user').order_by('full_name', 'phone_number'):
+            uid = profile.user_id
+            sess = session_map.get(uid)
+            is_present = uid in present_ids
+            entry = format_time(sess['first_start']) if sess else None
+            exit_time = None
+            if sess:
+                if sess['last_end']:
+                    exit_time = format_time(sess['last_end'])
+                elif sess['last_start'] and sess['total_seconds']:
+                    approx_end = sess['last_start'] + timedelta(seconds=sess['total_seconds'])
+                    exit_time = format_time(approx_end)
+            table_rows.append({
+                'user_id': uid,
+                'name': profile.full_name or profile.phone_number or '—',
+                'initials': initials_for(profile.full_name, profile.phone_number),
+                'color': avatar_colors[uid % len(avatar_colors)],
+                'class_name': class_name_map.get(uid, '—'),
+                'status': 'present' if is_present else 'absent',
+                'entry': entry,
+                'exit': exit_time,
+                'note': '—' if is_present else 'بدون فعالیت مطالعه',
+                'today_total_seconds': (sess['total_seconds'] if sess else 0) or 0,
+                'session_count': (sess['session_count'] if sess else 0) or 0,
+            })
+
+        # Sort: absent first then present, then name
+        table_rows.sort(key=lambda r: (0 if r['status'] == 'absent' else 1, r['name']))
+        total_count = len(table_rows)
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        page = min(page, total_pages)
+        start_idx = (page - 1) * page_size
+        page_results = table_rows[start_idx:start_idx + page_size]
+
+        class_options = [{'id': None, 'name': 'همه کلاس‌ها'}]
+        for sc in SchoolClass.objects.filter(school=manager_school, is_active=True).order_by('name'):
+            class_options.append({'id': sc.id, 'name': sc.name})
+
+        data = {
+            'date': selected_date.isoformat(),
+            'total_students': total_students,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'delay_count': delay_count,
+            'leave_count': leave_count,
+            'teachers_absent': teachers_absent,
+            'attendance_rate': attendance_rate,
+            'attendance_change_percent': attendance_change_percent,
+            'absent_change': absent_change,
+            'delay_change': delay_change,
+            'teachers_absent_change': teachers_absent_change,
+            'at_risk_count': at_risk_count,
+            'at_risk_min_days': at_risk_min_days,
+            'status_distribution': status_distribution,
+            'attendance_trend': attendance_trend,
+            'at_risk_students': at_risk_students[:10],
+            'classes_most_absence': classes_most_absence,
+            'table': {
+                'count': total_count,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': total_pages,
+                'results': page_results,
+            },
+            'class_options': class_options,
+        }
+        return Response(ManagerAttendanceSerializer(data).data)
 
 
 class ManagerStudentListView(views.APIView):

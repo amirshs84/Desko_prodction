@@ -7,7 +7,7 @@
  *  - mutationها بعد از موفقیت cache را invalidate می‌کنند
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { managerAPI } from '../api/client';
+import { managerAPI, notificationAPI } from '../api/client';
 
 const isLoggedIn = () => !!localStorage.getItem('isLoggedIn');
 
@@ -16,6 +16,10 @@ export const MANAGER_QUERY_KEYS = {
   classStudents: (classId, filters = {}) => ['manager', 'classes', classId, 'students', filters],
   students: (filters = {}) => ['manager', 'students', filters],
   dashboard: () => ['manager', 'dashboard'],
+  attendance: (filters = {}) => ['manager', 'attendance', filters],
+  notifications: () => ['manager', 'notifications'],
+  notificationsUnread: () => ['manager', 'notifications', 'unread'],
+  tickets: (filters = {}) => ['manager', 'tickets', filters],
 };
 
 function buildClassParams(filters) {
@@ -38,6 +42,24 @@ export function useManagerDashboardQuery({ enabled = true } = {}) {
   return useQuery({
     queryKey: MANAGER_QUERY_KEYS.dashboard(),
     queryFn: () => managerAPI.getDashboardKPI().then((r) => r.data),
+    enabled: isLoggedIn() && enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+/** حضور و غیاب مدیر (بر اساس StudySession) */
+export function useManagerAttendanceQuery(filters = {}, { enabled = true } = {}) {
+  const params = {};
+  if (filters.date) params.date = filters.date;
+  if (filters.class_id) params.class_id = filters.class_id;
+  if (filters.search) params.search = filters.search;
+  if (filters.page) params.page = filters.page;
+  if (filters.page_size) params.page_size = filters.page_size;
+
+  return useQuery({
+    queryKey: MANAGER_QUERY_KEYS.attendance(params),
+    queryFn: () => managerAPI.getAttendance(params).then((r) => r.data),
     enabled: isLoggedIn() && enabled,
     staleTime: 0,
     refetchOnMount: 'always',
@@ -147,4 +169,67 @@ export function useRemoveClassStudentMutation() {
 export function useInvalidateManagerClasses() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: ['manager', 'classes'] });
+}
+
+/** لیست اعلان‌های مدیر (همان endpoint دانش‌آموز) */
+export function useManagerNotificationsQuery({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: MANAGER_QUERY_KEYS.notifications(),
+    queryFn: () => notificationAPI.getNotifications().then((r) => r.data),
+    enabled: isLoggedIn() && enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 30_000,
+  });
+}
+
+/** تعداد اعلان‌های نخوانده */
+export function useManagerUnreadNotificationsQuery({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: MANAGER_QUERY_KEYS.notificationsUnread(),
+    queryFn: () => notificationAPI.getUnreadCount().then((r) => r.data),
+    enabled: isLoggedIn() && enabled,
+    staleTime: 0,
+    refetchInterval: 30_000,
+  });
+}
+
+/** علامت‌گذاری همه اعلان‌ها به‌عنوان خوانده‌شده */
+export function useMarkAllNotificationsReadMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => notificationAPI.markAllRead().then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manager', 'notifications'] });
+    },
+  });
+}
+
+/** لیست پیام‌های مشاوره دانش‌آموزان */
+export function useManagerTicketsQuery(filters = {}, { enabled = true } = {}) {
+  const params = {};
+  if (filters.search) params.search = filters.search;
+  if (filters.grade) params.grade = filters.grade;
+  if (filters.status) params.status = filters.status;
+
+  return useQuery({
+    queryKey: MANAGER_QUERY_KEYS.tickets(params),
+    queryFn: () => managerAPI.getTickets(params).then((r) => r.data),
+    enabled: isLoggedIn() && enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 30_000,
+  });
+}
+
+/** پاسخ به پیام دانش‌آموز */
+export function useReplyToTicketMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ticketId, reply }) =>
+      managerAPI.replyToTicket(ticketId, reply).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manager', 'tickets'] });
+    },
+  });
 }

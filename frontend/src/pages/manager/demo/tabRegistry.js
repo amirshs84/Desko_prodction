@@ -8,8 +8,8 @@ import { GradesDesktop, GradesMobile } from './tabs/GradesTab';
 import { ReportsDesktop, ReportsMobile } from './tabs/ReportsTab';
 import { SettingsDesktop, SettingsMobile } from './tabs/SettingsTab';
 import { SupportDesktop, SupportMobile } from './tabs/SupportTab';
+import { MessagesDesktop, MessagesMobile } from './tabs/MessagesTab';
 import {
-  MessagesDesktop, MessagesMobile,
   NotificationsDesktop, NotificationsMobile,
 } from './tabs/MobileUtilityTabs';
 import { DEFAULT_TAB_ID } from './constants/navItems';

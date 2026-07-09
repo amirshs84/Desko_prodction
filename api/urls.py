@@ -24,6 +24,7 @@ from .views import (
     NotificationMarkReadView,
     # Manager Panel Views
     ManagerDashboardKPIView,
+    ManagerAttendanceView,
     ManagerStudentListView,
     ManagerStudentProfileView,
     ManagerExportExcelView,
@@ -81,6 +82,7 @@ urlpatterns = [
     
     # Manager Panel
     path('manager/dashboard/', ManagerDashboardKPIView.as_view(), name='manager_dashboard_kpi'),
+    path('manager/attendance/', ManagerAttendanceView.as_view(), name='manager_attendance'),
     path('manager/students/', ManagerStudentListView.as_view(), name='manager_student_list'),
     path('manager/students/<int:user_id>/profile/', ManagerStudentProfileView.as_view(), name='manager_student_profile'),
     path('manager/export/excel/', ManagerExportExcelView.as_view(), name='manager_export_excel'),

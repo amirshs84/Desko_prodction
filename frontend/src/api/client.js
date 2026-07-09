@@ -96,6 +96,7 @@ export const ticketAPI = {
 // Manager Panel API
 export const managerAPI = {
   getDashboardKPI: () => api.get('manager/dashboard/'),
+  getAttendance: (params) => api.get('manager/attendance/', { params }),
   getStudentList: (params) => api.get('manager/students/', { params }),
   getStudentProfile: (userId) => api.get(`manager/students/${userId}/profile/`),
   /** دانلود با axios تا هدر Authorization مثل سایدر API ست شود */
@@ -103,7 +104,7 @@ export const managerAPI = {
     params,
     responseType: 'blob',
   }),
-  getTickets: () => api.get('manager/tickets/'),
+  getTickets: (params) => api.get('manager/tickets/', { params }),
   replyToTicket: (ticketId, reply) => api.post(`manager/tickets/${ticketId}/reply/`, { reply }),
   // Classes
   getClasses: (params) => api.get('manager/classes/', { params }),

@@ -59,13 +59,16 @@ export default function TopHeaderBar() {
     academicYears,
     goToSettings,
     notifications,
+    notificationsLoading,
     markAllNotificationsRead,
     markNotificationRead,
     unreadNotificationCount,
     messages,
+    messagesLoading,
     markAllMessagesRead,
     markMessageRead,
     unreadMessageCount,
+    navigateToTab,
   } = useManagerDashboard();
 
   const headerRef = useRef(null);
@@ -181,32 +184,39 @@ export default function TopHeaderBar() {
                 onAction={markAllNotificationsRead}
               />
               <div className="max-h-72 overflow-y-auto">
-                {notifications.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => markNotificationRead(n.id)}
-                    className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-gray-50 border-b border-gray-50 last:border-0"
-                  >
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: notifTypeBg[n.type] || '#F3F4F6' }}
+                {notificationsLoading && notifications.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">در حال بارگذاری...</p>
+                ) : notifications.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">هیچ اعلانی وجود ندارد</p>
+                ) : (
+                  notifications.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => markNotificationRead(n.id)}
+                      className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-gray-50 border-b border-gray-50 last:border-0"
                     >
-                      <NotificationTypeIcon type={n.type} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-sm truncate ${n.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                          {n.title}
-                        </p>
-                        {n.unread && (
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
-                        )}
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: notifTypeBg[n.type] || '#F3F4F6' }}
+                      >
+                        <NotificationTypeIcon type={n.type} />
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{n.desc}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">{n.time}</p>
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm truncate ${n.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                            {n.title}
+                          </p>
+                          {n.unread && (
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#10B981' }} />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{n.desc}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{n.time}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -224,7 +234,9 @@ export default function TopHeaderBar() {
               <span
                 className="absolute top-1.5 right-1.5 min-w-[8px] h-2 px-0.5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
                 style={{ background: '#EF4444' }}
-              />
+              >
+                {unreadMessageCount > 9 ? '۹+' : unreadMessageCount}
+              </span>
             )}
           </button>
 
@@ -239,32 +251,50 @@ export default function TopHeaderBar() {
                 onAction={markAllMessagesRead}
               />
               <div className="max-h-72 overflow-y-auto">
-                {messages.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => markMessageRead(m.id)}
-                    className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-gray-50 border-b border-gray-50 last:border-0"
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-                      style={{ background: m.unread ? '#10B981' : '#9CA3AF' }}
+                {messagesLoading && messages.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">در حال بارگذاری...</p>
+                ) : messages.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">پیام جدیدی نیست</p>
+                ) : (
+                  messages.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        markMessageRead(m.id);
+                        closePanel();
+                        navigateToTab('messages');
+                      }}
+                      className="w-full flex items-start gap-3 px-4 py-3 text-right hover:bg-gray-50 border-b border-gray-50 last:border-0"
                     >
-                      {m.avatar}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm truncate ${m.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                          {m.from}
-                        </p>
-                        <span className="text-[10px] text-gray-400 flex-shrink-0">{m.time}</span>
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
+                        style={{ background: m.unread ? '#10B981' : '#9CA3AF' }}
+                      >
+                        {m.avatar}
                       </div>
-                      <p className="text-[10px] text-emerald-600 font-medium">{m.role}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{m.preview}</p>
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm truncate ${m.unread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                            {m.from}
+                          </p>
+                          <span className="text-[10px] text-gray-400 flex-shrink-0">{m.time}</span>
+                        </div>
+                        <p className="text-[10px] text-emerald-600 font-medium">{m.role}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{m.preview}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
-              <button className="w-full flex items-center justify-center gap-1 px-4 py-3 border-t border-gray-100 text-xs font-semibold text-emerald-600 hover:bg-gray-50">
+              <button
+                type="button"
+                onClick={() => {
+                  closePanel();
+                  navigateToTab('messages');
+                }}
+                className="w-full flex items-center justify-center gap-1 px-4 py-3 border-t border-gray-100 text-xs font-semibold text-emerald-600 hover:bg-gray-50"
+              >
                 <span>مشاهده همه پیام‌ها</span>
                 <ArrowLeft size={14} />
               </button>
