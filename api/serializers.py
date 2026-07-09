@@ -148,7 +148,7 @@ class ManagerStudentListSerializer(serializers.Serializer):
 
 
 class ManagerDashboardKPISerializer(serializers.Serializer):
-    """Serializer for KPI cards in manager dashboard"""
+    """Serializer for KPI cards in manager dashboard (legacy + demo overview)."""
     avg_study_today = serializers.CharField()
     avg_study_today_seconds = serializers.IntegerField()
     change_percent = serializers.FloatField()
@@ -156,6 +156,31 @@ class ManagerDashboardKPISerializer(serializers.Serializer):
     absent_count = serializers.IntegerField()
     active_now = serializers.IntegerField()
     total_students = serializers.IntegerField()
+
+    # Demo dashboard overview
+    total_teachers = serializers.IntegerField()
+    total_exams = serializers.IntegerField()
+    total_classes = serializers.IntegerField()
+    active_classes = serializers.IntegerField()
+    at_risk_count = serializers.IntegerField()
+    students_change_percent = serializers.FloatField()
+    teachers_change_percent = serializers.FloatField()
+    exams_change_percent = serializers.FloatField()
+    classes_change_percent = serializers.FloatField()
+    at_risk_change = serializers.IntegerField()
+    avg_grade = serializers.FloatField(allow_null=True)
+    avg_grade_change_percent = serializers.FloatField()
+    attendance_rate = serializers.FloatField()
+    attendance_change_percent = serializers.FloatField()
+    school_performance = serializers.FloatField()
+    school_performance_change_percent = serializers.FloatField()
+    parent_participation = serializers.FloatField()
+    curriculum_progress = serializers.FloatField()
+    student_teacher_ratio = serializers.CharField()
+    student_participation_rate = serializers.FloatField()
+    attendance_trend_30d = serializers.ListField(child=serializers.DictField())
+    performance_distribution = serializers.ListField(child=serializers.DictField())
+    top_students_week = serializers.ListField(child=serializers.DictField())
 
 
 # SuperAdmin Serializers

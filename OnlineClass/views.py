@@ -122,7 +122,7 @@ class ManagerOnlineClassDetailView(views.APIView):
 
 
 class StudentOnlineClassListView(views.APIView):
-    """لیست کلاس‌های آنلاین دانش‌آموز (بر اساس عضویت در کلاس درسی)."""
+    """لیست کلاس‌های دانش‌آموز بر اساس عضویت در کلاس درسی (حتی بدون لینک آنلاین)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -133,11 +133,11 @@ class StudentOnlineClassListView(views.APIView):
         if profile.role != 'student':
             return Response({'error': 'فقط دانش‌آموزان به این بخش دسترسی دارند'}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = services.list_student_online_classes(profile)
-        serializer = StudentOnlineClassSerializer(qs, many=True)
+        items = services.list_student_online_classes(profile)
+        serializer = StudentOnlineClassSerializer(items, many=True)
         return Response({
             'online_classes': serializer.data,
-            'count': qs.count(),
+            'count': len(items),
         })
 
 

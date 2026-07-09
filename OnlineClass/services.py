@@ -61,17 +61,45 @@ def get_manager_online_class(school, online_class_id: int) -> OnlineClass | None
 
 
 def list_student_online_classes(profile: UserProfile):
-    return (
-        OnlineClass.objects
+    """
+    کلاس‌های درسی که دانش‌آموز در آن‌ها عضو است.
+    اگر اتاق آنلاین (Skyroom) تخصیص نشده باشد، باز هم در لیست می‌آید
+    ولی can_join=False خواهد بود.
+    """
+    enrollments = (
+        ClassEnrollment.objects
         .filter(
-            is_active=True,
-            school_class__enrollments__student=profile,
+            student=profile,
             school_class__is_active=True,
         )
-        .select_related('school_class', 'school_class__school')
-        .distinct()
-        .order_by('school_class__name')
+        .select_related('school_class', 'school_class__online_class')
+        .order_by('school_class__name', 'school_class__code')
     )
+
+    results = []
+    for enrollment in enrollments:
+        school_class = enrollment.school_class
+        try:
+            online = school_class.online_class
+        except OnlineClass.DoesNotExist:
+            online = None
+
+        has_room = online is not None
+        is_online_active = bool(online and online.is_active)
+        results.append({
+            'id': online.id if online else None,
+            'online_class_id': online.id if online else None,
+            'school_class_id': school_class.id,
+            'school_class_name': school_class.name,
+            'school_class_code': school_class.code,
+            'grade_display': school_class.get_grade_display() if school_class.grade else '',
+            'title': (online.title if online and online.title else school_class.name),
+            'is_active': school_class.is_active,
+            'has_online_room': has_room,
+            'is_online_active': is_online_active,
+            'can_join': is_online_active,
+        })
+    return results
 
 
 def get_student_online_class(profile: UserProfile, online_class_id: int) -> OnlineClass | None:

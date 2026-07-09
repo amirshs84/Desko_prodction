@@ -43,23 +43,20 @@ class OnlineClassSerializer(serializers.ModelSerializer):
         return obj.school_class.enrollments.count()
 
 
-class StudentOnlineClassSerializer(serializers.ModelSerializer):
-    school_class_id = serializers.IntegerField(source='school_class.id', read_only=True)
-    school_class_name = serializers.CharField(source='school_class.name', read_only=True)
-    school_class_code = serializers.CharField(source='school_class.code', read_only=True)
-    grade_display = serializers.CharField(source='school_class.get_grade_display', read_only=True)
+class StudentOnlineClassSerializer(serializers.Serializer):
+    """کلاس‌های ثبت‌نام‌شده دانش‌آموز (با یا بدون اتاق آنلاین)."""
 
-    class Meta:
-        model = OnlineClass
-        fields = [
-            'id',
-            'school_class_id',
-            'school_class_name',
-            'school_class_code',
-            'grade_display',
-            'title',
-            'is_active',
-        ]
+    id = serializers.IntegerField(allow_null=True, required=False)
+    online_class_id = serializers.IntegerField(allow_null=True, required=False)
+    school_class_id = serializers.IntegerField()
+    school_class_name = serializers.CharField()
+    school_class_code = serializers.CharField(allow_blank=True)
+    grade_display = serializers.CharField(allow_blank=True)
+    title = serializers.CharField()
+    is_active = serializers.BooleanField()
+    has_online_room = serializers.BooleanField()
+    is_online_active = serializers.BooleanField()
+    can_join = serializers.BooleanField()
 
 
 class AssignOnlineClassSerializer(serializers.Serializer):

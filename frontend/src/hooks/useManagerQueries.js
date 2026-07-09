@@ -15,6 +15,7 @@ export const MANAGER_QUERY_KEYS = {
   classes: (filters = {}) => ['manager', 'classes', filters],
   classStudents: (classId, filters = {}) => ['manager', 'classes', classId, 'students', filters],
   students: (filters = {}) => ['manager', 'students', filters],
+  dashboard: () => ['manager', 'dashboard'],
 };
 
 function buildClassParams(filters) {
@@ -30,6 +31,17 @@ function buildClassParams(filters) {
 export function extractManagerClassError(err, fallback = 'خطا در انجام عملیات') {
   const data = err?.response?.data;
   return data?.code?.[0] || data?.name?.[0] || data?.grade?.[0] || data?.error || fallback;
+}
+
+/** داشبورد KPI مدیر */
+export function useManagerDashboardQuery({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: MANAGER_QUERY_KEYS.dashboard(),
+    queryFn: () => managerAPI.getDashboardKPI().then((r) => r.data),
+    enabled: isLoggedIn() && enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
 }
 
 /** لیست کلاس‌های مدرسه */

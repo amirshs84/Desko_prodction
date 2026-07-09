@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import Sum, Max, Count, Q, F
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDate
 from django.http import HttpResponse
 from datetime import timedelta, datetime
 from .models import UserProfile, Subject, StudySession, ConsultantTicket, School, PDFReadProgress, Notification, NotificationRead, CalendarEvent, SchoolClass, ClassEnrollment
@@ -522,103 +522,259 @@ class SuperAdminTicketReplyView(views.APIView):
 
 class ManagerDashboardKPIView(views.APIView):
     """
-    KPI Dashboard for managers - Bird's-eye view of school performance
+    KPI Dashboard for managers - Bird's-eye view of school performance.
+    Includes legacy study KPIs plus demo overview fields.
+    Domains without models (teachers, exams, grades, parents, curriculum) return 0.
     """
     permission_classes = [IsAuthenticated, IsManager]
-    
+
     def get(self, request):
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         yesterday_start = today_start - timedelta(days=1)
-        yesterday_end = today_start
-        
-        # Get all students in the manager's school
+        week_start = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+
         manager_school = request.user.profile.school
         if not manager_school:
             return Response({
                 'error': 'مدیر به هیچ مدرسه‌ای متصل نیست'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
-        students = User.objects.filter(
-            profile__role='student',
-            profile__school=manager_school
-        )
-        total_students = students.count()
-        
+
+        students_qs = UserProfile.objects.filter(role='student', school=manager_school)
+        total_students = students_qs.count()
+
+        empty_payload = {
+            'avg_study_today': '0:00',
+            'avg_study_today_seconds': 0,
+            'change_percent': 0,
+            'top_student': {'name': 'هیچ کس', 'total': 0},
+            'absent_count': 0,
+            'active_now': 0,
+            'total_students': 0,
+            'total_teachers': 0,
+            'total_exams': 0,
+            'total_classes': 0,
+            'active_classes': 0,
+            'at_risk_count': 0,
+            'students_change_percent': 0,
+            'teachers_change_percent': 0,
+            'exams_change_percent': 0,
+            'classes_change_percent': 0,
+            'at_risk_change': 0,
+            'avg_grade': None,
+            'avg_grade_change_percent': 0,
+            'attendance_rate': 0,
+            'attendance_change_percent': 0,
+            'school_performance': 0,
+            'school_performance_change_percent': 0,
+            'parent_participation': 0,
+            'curriculum_progress': 0,
+            'student_teacher_ratio': '0:0',
+            'student_participation_rate': 0,
+            'attendance_trend_30d': [],
+            'performance_distribution': [
+                {'name': 'عالی', 'value': 0, 'color': '#10B981'},
+                {'name': 'خوب', 'value': 0, 'color': '#34D399'},
+                {'name': 'متوسط', 'value': 0, 'color': '#F59E0B'},
+                {'name': 'نیاز به بهبود', 'value': 0, 'color': '#EF4444'},
+            ],
+            'top_students_week': [],
+        }
+
+        classes_qs = SchoolClass.objects.filter(school=manager_school)
+        total_classes = classes_qs.count()
+        active_classes = classes_qs.filter(is_active=True).count()
+
+        # Domains not modeled yet
+        total_teachers = 0
+        total_exams = 0
+        avg_grade = None
+        parent_participation = 0
+        curriculum_progress = 0
+
         if total_students == 0:
-            return Response({
-                'avg_study_today': '0:00',
-                'avg_study_today_seconds': 0,
-                'change_percent': 0,
-                'top_student': {'name': 'هیچ کس', 'total': 0},
-                'absent_count': 0,
-                'active_now': 0,
-                'total_students': 0
-            })
-        
-        # Average study time today
+            empty_payload['total_classes'] = total_classes
+            empty_payload['active_classes'] = active_classes
+            serializer = ManagerDashboardKPISerializer(empty_payload)
+            return Response(serializer.data)
+
+        # --- Legacy study KPIs ---
         today_totals = StudySession.objects.filter(
             user__profile__role='student',
             user__profile__school=manager_school,
-            start_time__gte=today_start
+            start_time__gte=today_start,
         ).aggregate(total=Sum('duration_seconds'))['total'] or 0
-        
-        avg_today = today_totals // total_students if total_students > 0 else 0
-        
-        # Average study time yesterday for comparison
+        avg_today = today_totals // total_students
+
         yesterday_totals = StudySession.objects.filter(
             user__profile__role='student',
             user__profile__school=manager_school,
             start_time__gte=yesterday_start,
-            start_time__lt=yesterday_end
+            start_time__lt=today_start,
         ).aggregate(total=Sum('duration_seconds'))['total'] or 0
-        
-        avg_yesterday = yesterday_totals // total_students if total_students > 0 else 0
-        
-        # Calculate change percent
+        avg_yesterday = yesterday_totals // total_students
+
         if avg_yesterday > 0:
             change_percent = ((avg_today - avg_yesterday) / avg_yesterday) * 100
         else:
             change_percent = 100 if avg_today > 0 else 0
-        
-        # Format avg_today as HH:MM
+
         hours = avg_today // 3600
         minutes = (avg_today % 3600) // 60
-        avg_today_str = f"{hours}:{minutes:02d}"
-        
-        # Top student today
+        avg_today_str = f'{hours}:{minutes:02d}'
+
         top_student_data = StudySession.objects.filter(
             user__profile__role='student',
             user__profile__school=manager_school,
-            start_time__gte=today_start
-        ).values('user').annotate(
-            total=Sum('duration_seconds')
-        ).order_by('-total').first()
-        
+            start_time__gte=today_start,
+        ).values('user').annotate(total=Sum('duration_seconds')).order_by('-total').first()
+
         if top_student_data:
-            top_user = User.objects.get(id=top_student_data['user'])
+            top_user = User.objects.select_related('profile').get(id=top_student_data['user'])
             top_student = {
                 'name': top_user.profile.full_name or top_user.profile.phone_number,
-                'total': top_student_data['total']
+                'total': top_student_data['total'],
             }
         else:
             top_student = {'name': 'هیچ کس', 'total': 0}
-        
-        # Absent students (no activity today)
-        active_users_today = StudySession.objects.filter(
-            start_time__gte=today_start,
-            user__profile__school=manager_school,
-            user__profile__role='student'
-        ).values_list('user_id', flat=True).distinct()
-        absent_count = max(0, total_students - len(set(active_users_today)))
-        
-        # Active now (students with is_studying=True in their profile)
+
+        active_users_today = set(
+            StudySession.objects.filter(
+                start_time__gte=today_start,
+                user__profile__school=manager_school,
+                user__profile__role='student',
+            ).values_list('user_id', flat=True).distinct()
+        )
+        absent_count = max(0, total_students - len(active_users_today))
+
         active_now = UserProfile.objects.filter(
             role='student',
             school=manager_school,
-            is_studying=True
+            is_studying=True,
         ).count()
-        
+
+        # --- Week totals per student (for top / at-risk / distribution) ---
+        week_rows = (
+            StudySession.objects.filter(
+                user__profile__role='student',
+                user__profile__school=manager_school,
+                start_time__gte=week_start,
+            )
+            .values('user_id', 'user__profile__full_name', 'user__profile__phone_number', 'user__profile__grade')
+            .annotate(week_total=Sum('duration_seconds'))
+        )
+        week_map = {row['user_id']: row for row in week_rows}
+
+        threshold = manager_school.normal_study_threshold or 21600
+        weekly_threshold = threshold * 3
+        at_risk_count = 0
+        for profile in students_qs.only('user_id'):
+            week_total = week_map.get(profile.user_id, {}).get('week_total', 0) or 0
+            if week_total < weekly_threshold:
+                at_risk_count += 1
+
+        # Top 5 by week study time — score = hours (1 decimal)
+        top_sorted = sorted(week_map.values(), key=lambda r: r['week_total'] or 0, reverse=True)[:5]
+        grade_labels = dict(UserProfile.GRADE_CHOICES)
+        top_students_week = []
+        for idx, row in enumerate(top_sorted, start=1):
+            grade_code = row.get('user__profile__grade') or ''
+            top_students_week.append({
+                'rank': idx,
+                'name': row.get('user__profile__full_name') or row.get('user__profile__phone_number') or '—',
+                'grade': grade_labels.get(grade_code, grade_code) if grade_code else '',
+                'score': round((row.get('week_total') or 0) / 3600, 1),
+                'week_total': row.get('week_total') or 0,
+            })
+
+        # Performance distribution by week_total buckets
+        excellent = good = average = needs = 0
+        for profile in students_qs.only('user_id'):
+            wt = week_map.get(profile.user_id, {}).get('week_total', 0) or 0
+            if wt >= weekly_threshold * 1.5:
+                excellent += 1
+            elif wt >= weekly_threshold:
+                good += 1
+            elif wt >= weekly_threshold * 0.5:
+                average += 1
+            else:
+                needs += 1
+
+        def pct(n):
+            return round((n / total_students) * 100) if total_students else 0
+
+        performance_distribution = [
+            {'name': 'عالی', 'value': pct(excellent), 'color': '#10B981'},
+            {'name': 'خوب', 'value': pct(good), 'color': '#34D399'},
+            {'name': 'متوسط', 'value': pct(average), 'color': '#F59E0B'},
+            {'name': 'نیاز به بهبود', 'value': pct(needs), 'color': '#EF4444'},
+        ]
+
+        # Attendance rate today (proxy: students with any session today)
+        attendance_rate = round((len(active_users_today) / total_students) * 100, 1) if total_students else 0
+
+        # Yesterday attendance for change
+        active_yesterday = set(
+            StudySession.objects.filter(
+                start_time__gte=yesterday_start,
+                start_time__lt=today_start,
+                user__profile__school=manager_school,
+                user__profile__role='student',
+            ).values_list('user_id', flat=True).distinct()
+        )
+        yesterday_rate = round((len(active_yesterday) / total_students) * 100, 1) if total_students else 0
+        attendance_change_percent = round(attendance_rate - yesterday_rate, 1)
+
+        # 30-day attendance trend (activity proxy)
+        day_counts = (
+            StudySession.objects.filter(
+                user__profile__role='student',
+                user__profile__school=manager_school,
+                start_time__gte=month_ago,
+            )
+            .annotate(day=TruncDate('start_time'))
+            .values('day')
+            .annotate(active=Count('user_id', distinct=True))
+        )
+        day_map = {}
+        for row in day_counts:
+            day = row['day']
+            if not day:
+                continue
+            key = day.isoformat() if hasattr(day, 'isoformat') else str(day)[:10]
+            day_map[key] = row['active']
+
+        persian_months = [
+            '', 'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+            'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
+        ]
+        # Approximate Jalali label via Iran calendar string (Gregorian day/month names as fallback labels)
+        attendance_trend_30d = []
+        for i in range(29, -1, -1):
+            day_dt = (today_start - timedelta(days=i)).date()
+            key = day_dt.isoformat()
+            active = day_map.get(key, 0)
+            value = round((active / total_students) * 100) if total_students else 0
+            # Simple Persian-digit date label (day + Gregorian month name mapped loosely)
+            month_name = persian_months[day_dt.month] if 1 <= day_dt.month <= 12 else ''
+            label = f'{day_dt.day} {month_name}'.strip()
+            attendance_trend_30d.append({'date': label, 'value': value, 'iso': key})
+
+        # School performance: blend of attendance + study vs threshold
+        avg_week = (
+            StudySession.objects.filter(
+                user__profile__role='student',
+                user__profile__school=manager_school,
+                start_time__gte=week_start,
+            ).aggregate(total=Sum('duration_seconds'))['total'] or 0
+        ) // total_students
+        study_score = min(100, round((avg_week / weekly_threshold) * 100)) if weekly_threshold else 0
+        school_performance = round((attendance_rate * 0.4) + (study_score * 0.6), 1)
+
+        student_participation_rate = attendance_rate
+        student_teacher_ratio = f'{total_students}:0' if total_teachers == 0 else f'{round(total_students / total_teachers)}:1'
+
         data = {
             'avg_study_today': avg_today_str,
             'avg_study_today_seconds': avg_today,
@@ -626,9 +782,32 @@ class ManagerDashboardKPIView(views.APIView):
             'top_student': top_student,
             'absent_count': absent_count,
             'active_now': active_now,
-            'total_students': total_students
+            'total_students': total_students,
+            'total_teachers': total_teachers,
+            'total_exams': total_exams,
+            'total_classes': total_classes,
+            'active_classes': active_classes,
+            'at_risk_count': at_risk_count,
+            'students_change_percent': 0,
+            'teachers_change_percent': 0,
+            'exams_change_percent': 0,
+            'classes_change_percent': 0,
+            'at_risk_change': 0,
+            'avg_grade': avg_grade,
+            'avg_grade_change_percent': 0,
+            'attendance_rate': attendance_rate,
+            'attendance_change_percent': attendance_change_percent,
+            'school_performance': school_performance,
+            'school_performance_change_percent': 0,
+            'parent_participation': parent_participation,
+            'curriculum_progress': curriculum_progress,
+            'student_teacher_ratio': student_teacher_ratio,
+            'student_participation_rate': student_participation_rate,
+            'attendance_trend_30d': attendance_trend_30d,
+            'performance_distribution': performance_distribution,
+            'top_students_week': top_students_week,
         }
-        
+
         serializer = ManagerDashboardKPISerializer(data)
         return Response(serializer.data)
 

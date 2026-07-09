@@ -25,7 +25,7 @@ const OnlineClass = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          const msg = err.response?.data?.error || 'خطا در دریافت کلاس‌های آنلاین';
+          const msg = err.response?.data?.error || 'خطا در دریافت کلاس‌ها';
           setError(msg);
         }
       } finally {
@@ -36,11 +36,17 @@ const OnlineClass = () => {
     return () => { cancelled = true; };
   }, [navigate]);
 
-  const handleJoin = useCallback(async (classId) => {
-    setJoiningId(classId);
+  const handleJoin = useCallback(async (item) => {
+    const onlineClassId = item.online_class_id ?? item.id;
+    if (!item.can_join || !onlineClassId) {
+      setError('کلاسی ندارید');
+      return;
+    }
+
+    setJoiningId(item.school_class_id);
     setError('');
     try {
-      const { data } = await onlineClassAPI.joinClass(classId);
+      const { data } = await onlineClassAPI.joinClass(onlineClassId);
       if (data.login_url) {
         window.open(data.login_url, '_blank', 'noopener,noreferrer');
       }
@@ -82,55 +88,63 @@ const OnlineClass = () => {
           </div>
         )}
 
-        {!loading && !error && classes.length === 0 && (
+        {!loading && classes.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="text-6xl mb-6">📹</div>
-            <h2 className="text-xl font-bold text-ink-2 mb-2">کلاس آنلاینی ندارید</h2>
+            <h2 className="text-xl font-bold text-ink-2 mb-2">کلاسی ندارید</h2>
             <p className="text-sm text-ink-3 leading-relaxed max-w-sm">
-              پس از تخصیص کلاس آنلاین توسط مدیر مدرسه، اینجا نمایش داده می‌شود.
+              پس از ثبت‌نام در کلاس توسط مدیر مدرسه، اینجا نمایش داده می‌شود.
             </p>
           </div>
         )}
 
         {!loading && classes.length > 0 && (
           <div className="space-y-3">
-            {classes.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-edge bg-card p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-bold text-ink truncate">{item.title}</h2>
-                    <p className="mt-1 text-sm text-ink-3">
-                      {item.school_class_name}
-                      {item.grade_display ? ` · ${item.grade_display}` : ''}
-                    </p>
-                    {item.school_class_code && (
-                      <p className="mt-0.5 text-xs text-ink-3">کد: {item.school_class_code}</p>
-                    )}
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      item.is_active
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {item.is_active ? 'فعال' : 'غیرفعال'}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleJoin(item.id)}
-                  disabled={!item.is_active || joiningId === item.id}
-                  className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            {classes.map((item) => {
+              const canJoin = Boolean(item.can_join && (item.online_class_id ?? item.id));
+              const isJoining = joiningId === item.school_class_id;
+              return (
+                <div
+                  key={item.school_class_id}
+                  className="rounded-2xl border border-edge bg-card p-4 shadow-sm"
                 >
-                  {joiningId === item.id ? 'در حال آماده‌سازی...' : 'ورود به کلاس آنلاین'}
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-bold text-ink truncate">{item.title || item.school_class_name}</h2>
+                      <p className="mt-1 text-sm text-ink-3">
+                        {item.school_class_name}
+                        {item.grade_display ? ` · ${item.grade_display}` : ''}
+                      </p>
+                      {item.school_class_code && (
+                        <p className="mt-0.5 text-xs text-ink-3">کد: {item.school_class_code}</p>
+                      )}
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        item.is_active
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {item.is_active ? 'فعال' : 'غیرفعال'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleJoin(item)}
+                    disabled={isJoining}
+                    className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isJoining
+                      ? 'در حال آماده‌سازی...'
+                      : canJoin
+                        ? 'ورود به کلاس آنلاین'
+                        : 'ورود به کلاس'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
