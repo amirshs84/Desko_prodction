@@ -36,6 +36,8 @@ const Login = () => {
   const [step, setStep] = useState(1); // 1: phone  2: password  3: profile
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isExistingUser, setIsExistingUser] = useState(false);
+  /** کاربر از قبل ساخته شده (مدیر/مشاور) ولی هنوز رمز ندارد */
+  const [needsFirstPassword, setNeedsFirstPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [fullName, setFullName] = useState('');
@@ -74,6 +76,7 @@ const Login = () => {
       let target = '/timer';
       if (profile.is_superadmin) target = '/superadmin';
       else if (profile.role === 'manager') target = '/manager';
+      else if (profile.role === 'consultant') target = '/consultant';
       window.location.replace(target);
     };
 
@@ -166,7 +169,10 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await authAPI.checkPhone(normalized);
-      setIsExistingUser(res.data.exists && res.data.has_password);
+      const exists = !!res.data.exists;
+      const hasPassword = !!res.data.has_password;
+      setIsExistingUser(exists && hasPassword);
+      setNeedsFirstPassword(exists && !hasPassword);
       setStep(2);
     } catch (err) {
       setError(phoneApiError(err, 'خطا در بررسی شماره تلفن'));
@@ -194,6 +200,7 @@ const Login = () => {
       let target = '/timer';
       if (profile.is_superadmin) target = '/superadmin';
       else if (profile.role === 'manager') target = '/manager';
+      else if (profile.role === 'consultant') target = '/consultant';
       window.location.replace(target);
     };
 
@@ -264,6 +271,7 @@ const Login = () => {
       let target = '/timer';
       if (profile.is_superadmin) target = '/superadmin';
       else if (profile.role === 'manager') target = '/manager';
+      else if (profile.role === 'consultant') target = '/consultant';
       window.location.replace(target);
     } catch (error) {
       setError(error.response?.data?.invitation_code?.[0] || 'خطا در تکمیل پروفایل');
@@ -332,7 +340,13 @@ const Login = () => {
           {step === 2 && (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
               <button type="button"
-                onClick={() => { setStep(1); setPassword(''); setPasswordConfirm(''); setError(''); }}
+                onClick={() => {
+                  setStep(1);
+                  setPassword('');
+                  setPasswordConfirm('');
+                  setError('');
+                  setNeedsFirstPassword(false);
+                }}
                 className="text-ink-3 hover:text-ink text-sm mb-4">
                 ← تغییر شماره تلفن
               </button>
@@ -358,8 +372,14 @@ const Login = () => {
               ) : (
                 <>
                   <div className="text-center mb-6">
-                    <p className="text-brand font-semibold mb-1">ثبت نام</p>
-                    <p className="text-ink-3 text-sm">رمز عبور خود را انتخاب کنید</p>
+                    <p className="text-brand font-semibold mb-1">
+                      {needsFirstPassword ? 'تعیین رمز عبور' : 'ثبت نام'}
+                    </p>
+                    <p className="text-ink-3 text-sm">
+                      {needsFirstPassword
+                        ? 'حساب شما ساخته شده؛ لطفاً رمز عبور خود را تعیین کنید'
+                        : 'رمز عبور خود را انتخاب کنید'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-ink-2 mb-2 text-sm font-medium">رمز عبور</label>

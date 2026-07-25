@@ -118,6 +118,8 @@ export function EventModal({
 
   if (!open) return null
 
+  const locked = existing?.kind === 'immutable'
+
   const date = existing
     ? { jy: existing.jy, jm: existing.jm, jd: existing.jd }
     : initial.date
@@ -184,18 +186,26 @@ export function EventModal({
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20 sm:hidden" />
 
         <div className="border-b border-[var(--t-edge)] px-3 py-3">
-          <div className="text-sm font-bold text-[var(--t-ink)]">رویداد</div>
+          <div className="text-sm font-bold text-[var(--t-ink)]">
+            {locked ? 'رویداد ثابت (فقط مشاهده)' : 'رویداد'}
+          </div>
+          {locked ? (
+            <p className="mt-1 text-[11px] text-amber-300/90">
+              این رویداد توسط مدرسه قفل شده و قابل جابه‌جایی یا حذف نیست.
+            </p>
+          ) : null}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scroll-touch px-3 py-3">
           <div className="relative flex items-start gap-2 border-b border-[var(--t-edge)] pb-3">
             <input
               id={titleId}
-              className="min-h-[44px] flex-1 rounded-lg bg-[var(--t-panel)] px-3 py-2 text-base text-[var(--t-ink)] outline-none ring-0 placeholder:text-[var(--t-ink-3)] focus:ring-2 focus:ring-[var(--t-brand-2)]"
+              className="min-h-[44px] flex-1 rounded-lg bg-[var(--t-panel)] px-3 py-2 text-base text-[var(--t-ink)] outline-none ring-0 placeholder:text-[var(--t-ink-3)] focus:ring-2 focus:ring-[var(--t-brand-2)] disabled:opacity-70"
               placeholder="عنوان"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               dir="rtl"
+              disabled={locked}
             />
             <div className="relative shrink-0" ref={colorPopoverRef}>
               <button
@@ -345,7 +355,7 @@ export function EventModal({
           className="flex shrink-0 flex-col gap-2 border-t border-[var(--t-edge)] px-4 py-3"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}
         >
-          {mode === 'edit' && onDelete ? (
+          {mode === 'edit' && onDelete && !locked ? (
             <button
               type="button"
               className="min-h-[40px] w-full rounded-xl border border-red-800/50 bg-red-900/20 text-sm font-semibold text-red-400"
@@ -365,33 +375,35 @@ export function EventModal({
           ) : null}
 
           <div className="flex flex-row-reverse justify-between gap-3">
-            <button
-              type="button"
-              className="min-h-[44px] flex-1 rounded-xl bg-[var(--t-brand-2)] text-sm font-semibold text-black"
-              onClick={() => {
-                onSave(
-                  {
-                    date,
-                    title,
-                    description,
-                    allDay,
-                    startMinutes: allDay ? 0 : startM,
-                    endMinutes: allDay ? 1440 : endM,
-                    color: picked,
-                    repeat: mode === 'create' ? repeatScope : 'none',
-                  },
-                  mode === 'edit' ? editScope : 'single',
-                )
-              }}
-            >
-              {mode === 'create' ? 'ذخیره' : 'به‌روزرسانی'}
-            </button>
+            {!locked ? (
+              <button
+                type="button"
+                className="min-h-[44px] flex-1 rounded-xl bg-[var(--t-brand-2)] text-sm font-semibold text-black"
+                onClick={() => {
+                  onSave(
+                    {
+                      date,
+                      title,
+                      description,
+                      allDay,
+                      startMinutes: allDay ? 0 : startM,
+                      endMinutes: allDay ? 1440 : endM,
+                      color: picked,
+                      repeat: mode === 'create' ? repeatScope : 'none',
+                    },
+                    mode === 'edit' ? editScope : 'single',
+                  )
+                }}
+              >
+                {mode === 'create' ? 'ذخیره' : 'به‌روزرسانی'}
+              </button>
+            ) : null}
             <button
               type="button"
               className="min-h-[44px] flex-1 rounded-xl text-sm font-semibold text-[var(--t-ink-2)]"
               onClick={onClose}
             >
-              انصراف
+              {locked ? 'بستن' : 'انصراف'}
             </button>
           </div>
         </div>

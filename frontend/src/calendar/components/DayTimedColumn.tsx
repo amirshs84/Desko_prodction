@@ -109,12 +109,18 @@ export function DayTimedColumn({
         const { top, height } = pixelsForRange(ev.startMinutes, ev.endMinutes)
         const w = 100 / ev.laneCount
         const laneOffset = (ev.lane / ev.laneCount) * 100
+        const locked = ev.kind === 'immutable'
         return (
           <button
             key={ev.id}
             type="button"
             data-cal-event="1"
-            className="absolute z-10 overflow-hidden rounded-md border border-black/30 px-1.5 py-1 text-start text-xs leading-tight shadow-md active:scale-[0.99]"
+            data-immutable={locked ? '1' : '0'}
+            className={`absolute z-10 overflow-hidden rounded-md border px-1.5 py-1 text-start text-xs leading-tight shadow-md ${
+              locked
+                ? 'border-amber-700/50 cursor-default'
+                : 'border-black/30 active:scale-[0.99]'
+            }`}
             style={{
               top,
               height,
@@ -124,6 +130,10 @@ export function DayTimedColumn({
               width: `${w}%`,
               background: ev.color,
               color: '#081016',
+              opacity: locked ? 0.92 : 1,
+              backgroundImage: locked
+                ? 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 8px)'
+                : undefined,
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
@@ -131,7 +141,10 @@ export function DayTimedColumn({
               onEdit(ev)
             }}
           >
-            <div className="truncate font-bold">{ev.title}</div>
+            <div className="truncate font-bold">
+              {locked ? '🔒 ' : ''}
+              {ev.title}
+            </div>
             <div className="truncate text-[10px] opacity-75">{minutesToLabel(ev.startMinutes)}</div>
           </button>
         )

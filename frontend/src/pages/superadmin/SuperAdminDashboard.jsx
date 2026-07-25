@@ -12,9 +12,13 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showConsultantModal, setShowConsultantModal] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState(null);
   const [newSchool, setNewSchool] = useState({ name: '', normal_study_threshold: 21600 });
   const [managerPhone, setManagerPhone] = useState('');
+  const [consultantPhone, setConsultantPhone] = useState('');
+  const [consultants, setConsultants] = useState([]);
+  const [consultantsLoading, setConsultantsLoading] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [studentTargetSchool, setStudentTargetSchool] = useState(null);
   const [manualStudent, setManualStudent] = useState({
@@ -114,7 +118,65 @@ export default function SuperAdminDashboard() {
       fetchSchools();
     } catch (error) {
       console.error('Error assigning manager:', error);
-      alert('خطا در اختصاص مدیر');
+      const msg = error.response?.data?.error
+        || error.response?.data?.phone_number?.[0]
+        || 'خطا در اختصاص مدیر';
+      alert(msg);
+    }
+  };
+
+  const openConsultantModal = async (school) => {
+    setSelectedSchool(school);
+    setShowConsultantModal(true);
+    setConsultantPhone('');
+    setConsultantsLoading(true);
+    try {
+      const res = await superadminAPI.getConsultants(school.id);
+      setConsultants(res.data || []);
+    } catch (error) {
+      console.error('Error fetching consultants:', error);
+      setConsultants([]);
+      alert('خطا در دریافت فهرست مشاوران');
+    } finally {
+      setConsultantsLoading(false);
+    }
+  };
+
+  const refreshConsultants = async (schoolId) => {
+    const res = await superadminAPI.getConsultants(schoolId);
+    setConsultants(res.data || []);
+  };
+
+  const handleAssignConsultant = async (e) => {
+    e.preventDefault();
+    if (!selectedSchool) return;
+    try {
+      await superadminAPI.assignConsultant(selectedSchool.id, {
+        phone_number: consultantPhone.trim(),
+      });
+      alert(`مشاور با موفقیت به ${selectedSchool.name} اختصاص یافت`);
+      setConsultantPhone('');
+      await refreshConsultants(selectedSchool.id);
+      fetchSchools();
+    } catch (error) {
+      console.error('Error assigning consultant:', error);
+      const msg = error.response?.data?.error
+        || error.response?.data?.phone_number?.[0]
+        || 'خطا در اختصاص مشاور';
+      alert(msg);
+    }
+  };
+
+  const handleRevokeConsultant = async (phone) => {
+    if (!selectedSchool) return;
+    if (!confirm(`دسترسی مشاور ${phone} لغو شود؟`)) return;
+    try {
+      await superadminAPI.revokeConsultant(selectedSchool.id, { phone_number: phone });
+      await refreshConsultants(selectedSchool.id);
+    } catch (error) {
+      console.error('Error revoking consultant:', error);
+      const msg = error.response?.data?.error || 'خطا در لغو دسترسی مشاور';
+      alert(msg);
     }
   };
 
@@ -403,16 +465,23 @@ export default function SuperAdminDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setStudentTargetSchool(school);
-                      setShowStudentModal(true);
-                    }}
-                    className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-semibold text-sm flex items-center justify-center gap-1"
+                    onClick={() => openConsultantModal(school)}
+                    className="flex-1 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors font-semibold text-sm"
                   >
-                    <HiUserAdd className="text-lg shrink-0" />
-                    دانش‌آموز
+                    تعیین مشاور
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudentTargetSchool(school);
+                    setShowStudentModal(true);
+                  }}
+                  className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-semibold text-sm flex items-center justify-center gap-1"
+                >
+                  <HiUserAdd className="text-lg shrink-0" />
+                  ثبت دانش‌آموز
+                </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteSchool(school)}
@@ -595,7 +664,7 @@ export default function SuperAdminDashboard() {
                   maxLength={11}
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  اگر کاربر وجود نداشته باشد، به صورت خودکار ساخته می‌شود
+                  اگر کاربر وجود نداشته باشد، به صورت خودکار ساخته می‌شود. در ورود اول باید رمز تعیین کند.
                 </p>
               </div>
               <div className="flex gap-3 pt-4">
@@ -617,6 +686,88 @@ export default function SuperAdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Consultant Modal */}
+      {showConsultantModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">تعیین مشاور</h2>
+            <p className="text-gray-600 text-sm mb-4">مدرسه: {selectedSchool?.name}</p>
+            <p className="text-xs text-gray-500 mb-4">
+              هر مدرسه می‌تواند چند مشاور داشته باشد. مشاور در ورود اول (اگر رمز نداشته باشد) باید رمز تعیین کند و سپس به پنل مشاور می‌رود.
+            </p>
+
+            <form onSubmit={handleAssignConsultant} className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">شماره تلفن مشاور</label>
+                <input
+                  type="tel"
+                  value={consultantPhone}
+                  onChange={(e) => setConsultantPhone(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
+                  required
+                  placeholder="09123456789"
+                  pattern="09[0-9]{9}"
+                  maxLength={11}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full px-4 py-3 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-colors font-semibold"
+              >
+                افزودن مشاور
+              </button>
+            </form>
+
+            <div className="border-t border-gray-100 pt-4">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">مشاوران فعلی</h3>
+              {consultantsLoading && (
+                <p className="text-sm text-gray-400">در حال بارگذاری…</p>
+              )}
+              {!consultantsLoading && consultants.length === 0 && (
+                <p className="text-sm text-gray-400">هنوز مشاوری تعیین نشده است</p>
+              )}
+              <ul className="space-y-2">
+                {consultants.map((c) => (
+                  <li
+                    key={c.user_id || c.phone_number}
+                    className="flex items-center justify-between gap-2 rounded-xl bg-gray-50 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {c.full_name || 'بدون نام'}
+                      </p>
+                      <p className="text-xs text-gray-500 font-mono">{c.phone_number}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {c.is_password_set ? 'رمز تنظیم شده' : 'در انتظار تعیین رمز'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeConsultant(c.phone_number)}
+                      className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
+                    >
+                      لغو
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowConsultantModal(false);
+                setConsultantPhone('');
+                setConsultants([]);
+              }}
+              className="w-full mt-6 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
+            >
+              بستن
+            </button>
           </div>
         </div>
       )}

@@ -7,6 +7,8 @@ export type EventRepeatScope = 'none' | 'full_week' | 'odd_days' | 'even_days' |
 /** ویرایش/حذف فقط این رویداد یا کل گروه تکرار */
 export type EventEditScope = 'single' | 'group'
 
+export type CalendarEventKind = 'mutable' | 'immutable'
+
 export interface CalendarEventRecord {
   id: string
   /** شناسه گروه — رویدادهای ایجادشده با تکرار */
@@ -23,6 +25,10 @@ export interface CalendarEventRecord {
   color: string
   allDay: boolean
   createdAt: string
+  /** ثابت مدرسه — قابل جابه‌جایی/حذف توسط دانش‌آموز یا مشاور نیست */
+  kind?: CalendarEventKind
+  origin?: string
+  version?: number
 }
 
 export interface EventDraft {

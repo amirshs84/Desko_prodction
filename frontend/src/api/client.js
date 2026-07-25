@@ -79,12 +79,42 @@ export const dataAPI = {
 };
 
 export const calendarAPI = {
-  getEvents: () => api.get('calendar-events/'),
-  createEvents: (events) => api.post('calendar-events/', events),
-  updateEvent: (clientId, patch) => api.patch(`calendar-events/${clientId}/`, patch),
-  deleteEvent: (clientId) => api.delete(`calendar-events/${clientId}/`),
-  updateGroup: (groupId, patch) => api.patch(`calendar-events/group/${groupId}/`, patch),
-  deleteGroup: (groupId) => api.delete(`calendar-events/group/${groupId}/`),
+  getEvents: (params) => api.get('calendar-events/', { params }),
+  createEvents: (events, params) => api.post('calendar-events/', events, { params }),
+  updateEvent: (clientId, patch, params) => api.patch(`calendar-events/${clientId}/`, patch, { params }),
+  deleteEvent: (clientId, params) => api.delete(`calendar-events/${clientId}/`, { params }),
+  updateGroup: (groupId, patch, params) => api.patch(`calendar-events/group/${groupId}/`, patch, { params }),
+  deleteGroup: (groupId, params) => api.delete(`calendar-events/group/${groupId}/`, { params }),
+};
+
+/** پنل مشاور / برنامه‌ریزی — اپ Planning */
+export const planningAPI = {
+  getStudents: (params) => api.get('planning/consultant/students/', { params }),
+  getGroups: () => api.get('planning/consultant/groups/'),
+  createGroup: (data) => api.post('planning/consultant/groups/', data),
+  getGroup: (groupId) => api.get(`planning/consultant/groups/${groupId}/`),
+  updateGroup: (groupId, data) => api.patch(`planning/consultant/groups/${groupId}/`, data),
+  deleteGroup: (groupId) => api.delete(`planning/consultant/groups/${groupId}/`),
+  changeMembers: (groupId, data) => api.post(`planning/consultant/groups/${groupId}/members/`, data),
+
+  getProgress: (params) => api.get('planning/progress/', { params }),
+  getBlockTemplates: () => api.get('planning/block-templates/'),
+  getAvailability: (params) => api.get('planning/calendar/availability/', { params }),
+  placeBlock: (data, params) => api.post('planning/calendar/blocks/', data, { params }),
+  moveBlock: (clientId, data, params) =>
+    api.post(`planning/calendar/blocks/${clientId}/move/`, data, { params }),
+  getSnapshots: (params) => api.get('planning/calendar/snapshots/', { params }),
+  restoreSnapshot: (snapshotId, params) =>
+    api.post(`planning/calendar/snapshots/${snapshotId}/restore/`, {}, { params }),
+
+  previewPlan: (data) => api.post('planning/consultant/plans/preview/', data),
+  publishPlan: (data) => api.post('planning/consultant/plans/publish/', data),
+  getPlanRuns: () => api.get('planning/consultant/plans/'),
+  getPlanRun: (runId) => api.get(`planning/consultant/plans/${runId}/`),
+
+  getMyProposals: (params) => api.get('planning/me/proposals/', { params }),
+  respondProposal: (proposalId, data) =>
+    api.post(`planning/me/proposals/${proposalId}/respond/`, data),
 };
 
 // Ticket / Messaging API (student)
@@ -154,6 +184,11 @@ export const superadminAPI = {
   updateSchool: (id, data) => api.put(`superadmin/schools/${id}/`, data),
   deleteSchool: (id) => api.delete(`superadmin/schools/${id}/`),
   assignManager: (schoolId, data) => api.post(`superadmin/schools/${schoolId}/assign-manager/`, data),
+  getConsultants: (schoolId) => api.get(`superadmin/schools/${schoolId}/consultants/`),
+  assignConsultant: (schoolId, data) =>
+    api.post(`superadmin/schools/${schoolId}/consultants/`, data),
+  revokeConsultant: (schoolId, data) =>
+    api.delete(`superadmin/schools/${schoolId}/consultants/`, { data }),
   getSchoolMembers: (schoolId) => api.get(`superadmin/schools/${schoolId}/members/`),
   createStudent: (schoolId, data) => api.post(`superadmin/schools/${schoolId}/students/`, data),
   getTickets: () => api.get('superadmin/tickets/'),

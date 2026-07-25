@@ -34,6 +34,9 @@ interface ServerEvent {
   color: string
   all_day: boolean
   created_at: string
+  kind?: 'mutable' | 'immutable'
+  origin?: string
+  version?: number
 }
 
 function fromServer(e: ServerEvent): CalendarEventRecord {
@@ -50,7 +53,14 @@ function fromServer(e: ServerEvent): CalendarEventRecord {
     color: e.color,
     allDay: e.all_day,
     createdAt: e.created_at,
+    kind: e.kind,
+    origin: e.origin,
+    version: e.version,
   }
+}
+
+function isImmutable(e?: CalendarEventRecord | null): boolean {
+  return e?.kind === 'immutable'
 }
 
 function toServer(e: CalendarEventRecord): ServerEvent {
@@ -173,32 +183,46 @@ type EventsContextValue = {
 
 const EventsContext = createContext<EventsContextValue | null>(null)
 
-export function EventsProvider({ children }: { children: ReactNode }) {
+export function EventsProvider({
+  children,
+  ownerUserId,
+}: {
+  children: ReactNode
+  /** اگر ست شود، رویدادهای همان کاربر با `?user=` بارگذاری می‌شود (پنل مشاور). */
+  ownerUserId?: number | string | null
+}) {
   const queryClient = useQueryClient()
+  const ownerKey = ownerUserId != null && ownerUserId !== '' ? String(ownerUserId) : 'me'
+  const queryKey = useMemo(() => [...EVENTS_QUERY_KEY, ownerKey], [ownerKey])
+  const apiParams = useMemo(
+    () => (ownerKey === 'me' ? undefined : { user: ownerKey }),
+    [ownerKey],
+  )
+  const persistLocal = ownerKey === 'me'
 
-  const { data: events = loadInitial() } = useQuery<CalendarEventRecord[]>({
-    queryKey: EVENTS_QUERY_KEY,
+  const { data: events = persistLocal ? loadInitial() : [] } = useQuery<CalendarEventRecord[]>({
+    queryKey,
     queryFn: async () => {
-      const res = await calendarAPI.getEvents()
+      const res = await calendarAPI.getEvents(apiParams)
       const records = (res.data as ServerEvent[]).map(fromServer)
-      persist(records)
+      if (persistLocal) persist(records)
       return records
     },
     enabled: isLoggedIn(),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    placeholderData: loadInitial,
+    placeholderData: persistLocal ? loadInitial : [],
   })
 
   const mutate = useCallback(
     (updater: (prev: CalendarEventRecord[]) => CalendarEventRecord[]) => {
-      queryClient.setQueryData<CalendarEventRecord[]>(EVENTS_QUERY_KEY, (prev = []) => {
+      queryClient.setQueryData<CalendarEventRecord[]>(queryKey, (prev = []) => {
         const next = updater(prev)
-        persist(next)
+        if (persistLocal) persist(next)
         return next
       })
     },
-    [queryClient],
+    [queryClient, queryKey, persistLocal],
   )
 
   const countInGroup = useCallback(
@@ -234,13 +258,17 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       if (isLoggedIn()) {
         calendarAPI
-          .createEvents(newRecs.map(toServer))
+          .createEvents(newRecs.map(toServer), apiParams)
           .catch((err: unknown) => {
             console.error('calendar createEvents failed:', err)
             mutate((prev) => prev.filter((e) => !newRecs.some((r) => r.id === e.id)))
             const status = (err as { response?: { status?: number } })?.response?.status
+            const code = (err as { response?: { data?: { error?: { code?: string } } } })
+              ?.response?.data?.error?.code
             if (status === 404) {
               alert('API تقویم روی سرور فعال نیست. لطفاً بک‌اند را rebuild و migrate کنید.')
+            } else if (code === 'DAILY_CAPACITY_FULL') {
+              alert('ظرفیت بیداری روز پر است (۰۶ تا ۲۳).')
             } else {
               alert('خطا در ذخیره رویداد روی سرور.')
             }
@@ -249,7 +277,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       return newRecs[newRecs.length - 1]!
     },
-    [mutate],
+    [mutate, apiParams],
   )
 
   const addEventsBatch = useCallback<EventsContextValue['addEventsBatch']>(
@@ -273,20 +301,20 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      const backup = queryClient.getQueryData<CalendarEventRecord[]>(EVENTS_QUERY_KEY)
+      const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
 
       mutate((prev) => [...prev, ...newRecs])
 
       if (!isLoggedIn()) return newRecs
 
       try {
-        await calendarAPI.createEvents(newRecs.map(toServer))
+        await calendarAPI.createEvents(newRecs.map(toServer), apiParams)
         return newRecs
       } catch (err: unknown) {
         console.error('calendar createEvents batch failed:', err)
         if (backup) {
-          queryClient.setQueryData(EVENTS_QUERY_KEY, backup)
-          persist(backup)
+          queryClient.setQueryData(queryKey, backup)
+          if (persistLocal) persist(backup)
         } else {
           mutate((prev) => prev.filter((e) => !newRecs.some((r) => r.id === e.id)))
         }
@@ -297,15 +325,19 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         throw new Error('خطا در ذخیره رویدادها روی سرور.')
       }
     },
-    [mutate, queryClient],
+    [mutate, queryClient, queryKey, apiParams, persistLocal],
   )
 
   const updateEvent = useCallback<EventsContextValue['updateEvent']>(
     (id, patch, scope = 'single') => {
       const current = queryClient
-        .getQueryData<CalendarEventRecord[]>(EVENTS_QUERY_KEY)
+        .getQueryData<CalendarEventRecord[]>(queryKey)
         ?.find((e) => e.id === id)
-      const backup = queryClient.getQueryData<CalendarEventRecord[]>(EVENTS_QUERY_KEY)
+      if (isImmutable(current)) {
+        alert('این رویداد ثابت مدرسه است و قابل ویرایش نیست.')
+        return
+      }
+      const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
 
       const applyGroup =
         scope === 'group' && current?.groupId && countInGroup(current.groupId) > 1
@@ -317,10 +349,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           prev.map((e) => (e.groupId === gid ? { ...e, ...patch, jy: e.jy, jm: e.jm, jd: e.jd } : e)),
         )
         if (isLoggedIn()) {
-          calendarAPI.updateGroup(gid, shared).catch(() => {
+          calendarAPI.updateGroup(gid, shared, apiParams).catch(() => {
             if (backup) {
-              queryClient.setQueryData(EVENTS_QUERY_KEY, backup)
-              persist(backup)
+              queryClient.setQueryData(queryKey, backup)
+              if (persistLocal) persist(backup)
             }
           })
         }
@@ -329,21 +361,30 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       mutate((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
       if (isLoggedIn()) {
-        calendarAPI.updateEvent(id, patchToServer(patch)).catch(() => {
+        calendarAPI.updateEvent(id, patchToServer(patch), apiParams).catch((err: unknown) => {
           if (backup) {
-            queryClient.setQueryData(EVENTS_QUERY_KEY, backup)
-            persist(backup)
+            queryClient.setQueryData(queryKey, backup)
+            if (persistLocal) persist(backup)
+          }
+          const code = (err as { response?: { data?: { error?: { code?: string } } } })
+            ?.response?.data?.error?.code
+          if (code === 'IMMUTABLE_EVENT_VIOLATION') {
+            alert('این رویداد ثابت مدرسه است و قابل ویرایش نیست.')
           }
         })
       }
     },
-    [mutate, queryClient, countInGroup],
+    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal],
   )
 
   const removeEvent = useCallback<EventsContextValue['removeEvent']>(
     (id, scope = 'single') => {
-      const backup = queryClient.getQueryData<CalendarEventRecord[]>(EVENTS_QUERY_KEY)
+      const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
       const target = backup?.find((e) => e.id === id)
+      if (isImmutable(target)) {
+        alert('این رویداد ثابت مدرسه است و قابل حذف نیست.')
+        return
+      }
 
       const applyGroup =
         scope === 'group' && target?.groupId && countInGroup(target.groupId) > 1
@@ -352,10 +393,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         const gid = target.groupId
         mutate((prev) => prev.filter((e) => e.groupId !== gid))
         if (isLoggedIn()) {
-          calendarAPI.deleteGroup(gid).catch(() => {
+          calendarAPI.deleteGroup(gid, apiParams).catch(() => {
             if (backup) {
-              queryClient.setQueryData(EVENTS_QUERY_KEY, backup)
-              persist(backup)
+              queryClient.setQueryData(queryKey, backup)
+              if (persistLocal) persist(backup)
             }
           })
         }
@@ -364,15 +405,20 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       mutate((prev) => prev.filter((e) => e.id !== id))
       if (isLoggedIn()) {
-        calendarAPI.deleteEvent(id).catch(() => {
+        calendarAPI.deleteEvent(id, apiParams).catch((err: unknown) => {
           if (backup) {
-            queryClient.setQueryData(EVENTS_QUERY_KEY, backup)
-            persist(backup)
+            queryClient.setQueryData(queryKey, backup)
+            if (persistLocal) persist(backup)
+          }
+          const code = (err as { response?: { data?: { error?: { code?: string } } } })
+            ?.response?.data?.error?.code
+          if (code === 'IMMUTABLE_EVENT_VIOLATION') {
+            alert('این رویداد ثابت مدرسه است و قابل حذف نیست.')
           }
         })
       }
     },
-    [mutate, queryClient, countInGroup],
+    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal],
   )
 
   const eventsForDay = useCallback(

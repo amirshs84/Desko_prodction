@@ -1900,6 +1900,8 @@ class SuperAdminAssignManagerView(views.APIView):
         # Assign new manager
         profile.school = school
         profile.role = 'manager'
+        # مثل مشاور: پروفایل دانش‌آموزی لازم نیست؛ فقط باید رمز را (در صورت نبود) ست کند
+        profile.is_profile_complete = True
         profile.save()
         
         return Response({
@@ -1907,7 +1909,8 @@ class SuperAdminAssignManagerView(views.APIView):
             'manager': {
                 'phone_number': phone_number,
                 'full_name': profile.full_name or 'تعیین نشده',
-                'school': school.name
+                'school': school.name,
+                'is_password_set': profile.is_password_set,
             }
         })
 

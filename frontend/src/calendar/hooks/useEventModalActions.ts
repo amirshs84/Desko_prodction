@@ -27,6 +27,10 @@ export function useEventModalActions(
   const hasGroup = groupSize > 1
 
   const onSave = (p: EventSavePayload, scope: EventEditScope = 'single') => {
+    if (editing?.kind === 'immutable') {
+      alert('این رویداد ثابت مدرسه است و قابل ویرایش نیست.')
+      return
+    }
     if (editing) {
       const patch = {
         title: p.title,
@@ -57,6 +61,10 @@ export function useEventModalActions(
 
   const onDelete = (scope: EventEditScope = 'single') => {
     if (!editing) return
+    if (editing.kind === 'immutable') {
+      alert('این رویداد ثابت مدرسه است و قابل حذف نیست.')
+      return
+    }
     removeEvent(editing.id, scope)
     onDone()
   }

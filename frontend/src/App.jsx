@@ -6,6 +6,8 @@ import StudyTimer from './pages/StudyTimer';
 import Courses from './pages/Courses';
 import ManagerDashboardDemo from './pages/manager/ManagerDashboardDemo';
 import StudentProfile from './pages/manager/StudentProfile';
+import ConsultantDashboard from './pages/consultant/ConsultantDashboard';
+import ConsultantStudentWorkspace from './pages/consultant/ConsultantStudentWorkspace';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
 import InstallApp from './pages/InstallApp';
 import QuickNotes from './pages/QuickNotes';
@@ -62,6 +64,10 @@ function App() {
           <Route path="/manager"                      element={<ManagerDashboardDemo />} />
           <Route path="/manager-demo"                 element={<Navigate to="/manager" replace />} />
           <Route path="/manager/student/:userId"      element={<StudentProfile />} />
+
+          {/* Consultant Routes */}
+          <Route path="/consultant"                        element={<ConsultantDashboard />} />
+          <Route path="/consultant/student/:userId/*"       element={<ConsultantStudentWorkspace />} />
 
           {/* SuperAdmin Routes */}
           <Route path="/superadmin" element={<SuperAdminDashboard />} />
