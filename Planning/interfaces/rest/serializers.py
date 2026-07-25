@@ -159,13 +159,27 @@ def time_range_to_dict(slot) -> dict:
     }
 
 
-def block_template_to_dict(template) -> dict:
+def block_template_to_dict(template, *, editable: bool = False) -> dict:
     return {
         'key': template.key,
         'title': template.title,
         'duration_minutes': template.duration_minutes,
         'color': template.color,
+        'editable': editable,
+        'source': 'custom' if editable else 'system',
     }
+
+
+class BlockTemplateWriteSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=100)
+    duration_minutes = serializers.IntegerField(min_value=5, max_value=480)
+    color = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
+
+
+class BlockTemplatePatchSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=100, required=False)
+    duration_minutes = serializers.IntegerField(min_value=5, max_value=480, required=False)
+    color = serializers.CharField(max_length=20, required=False, allow_blank=True)
 
 
 def placement_to_dict(result) -> dict:

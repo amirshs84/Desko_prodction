@@ -8,7 +8,10 @@ import { todayJalali } from '../../calendar/lib/jalaliUtils';
 import { setCalendarBase, calPathWeek } from '../../calendar/lib/paths';
 import { DEMO_FONT, PAGE_BG } from './demo/constants/theme';
 import { Card, EmptyState, PrimaryButton, formatSeconds } from './demo/components/DemoUi';
+import { EVENT_COLORS } from '../../calendar/lib/eventColors';
+import { TEMPLATE_DRAG_MIME } from '../../calendar/lib/dragMime';
 import {
+  useBlockTemplateMutations,
   useBlockTemplates,
   useCalendarBlockMutations,
   useConsultantStudents,
@@ -21,10 +24,6 @@ const TABS = [
   { id: 'calendar', label: 'تقویم' },
   { id: 'snapshots', label: 'نسخه‌ها' },
 ];
-
-function pad(n) {
-  return String(n).padStart(2, '0');
-}
 
 function resolveTab(pathname, userId) {
   const base = `/consultant/student/${userId}`;
@@ -258,21 +257,21 @@ function ProgressPane({ userId }) {
 
 function CalendarPane({ userId }) {
   return (
-    <div className="px-4 md:px-6 py-4 flex flex-col lg:flex-row gap-4 h-full min-h-0">
-      <div className="overflow-y-auto shrink-0">
-        <BlockTemplatesPanel userId={userId} />
-      </div>
-      <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200">
-        <EventsProvider ownerUserId={userId}>
-          <SelectedDayProvider>
+    <EventsProvider ownerUserId={userId}>
+      <SelectedDayProvider>
+        <div className="px-4 md:px-6 py-4 flex flex-col lg:flex-row gap-4 h-full min-h-0">
+          <div className="overflow-y-auto shrink-0 max-h-full">
+            <BlockTemplatesPanel />
+          </div>
+          <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200">
             <Routes>
               <Route path="calendar/*" element={<UnifiedCalendar />} />
               <Route path="*" element={<CalendarRedirect userId={userId} />} />
             </Routes>
-          </SelectedDayProvider>
-        </EventsProvider>
-      </div>
-    </div>
+          </div>
+        </div>
+      </SelectedDayProvider>
+    </EventsProvider>
   );
 }
 
@@ -281,100 +280,169 @@ function CalendarRedirect({ userId }) {
   return <Navigate to={`/consultant/student/${userId}/calendar/week/${t.jy}/${t.jm}/${t.jd}`} replace />;
 }
 
-function BlockTemplatesPanel({ userId }) {
-  const { data: templates = [] } = useBlockTemplates();
-  const { placeBlock } = useCalendarBlockMutations(userId);
-  const t = todayJalali();
-  const [date, setDate] = useState(`${t.jy}-${pad(t.jm)}-${pad(t.jd)}`);
-  const [startHour, setStartHour] = useState(14);
-  const [templateKey, setTemplateKey] = useState('');
-  const [toast, setToast] = useState('');
+function BlockTemplatesPanel() {
+  const { data: templates = [], isLoading } = useBlockTemplates();
+  const { createTemplate, deleteTemplate } = useBlockTemplateMutations();
+  const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [title, setTitle] = useState('');
+  const [duration, setDuration] = useState(90);
+  const [color, setColor] = useState(EVENT_COLORS[0]);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return templates;
+    return templates.filter((t) =>
+      `${t.title} ${t.duration_minutes}`.toLowerCase().includes(q),
+    );
+  }, [templates, search]);
 
   const showToast = (msg) => {
     setToast(msg);
-    window.setTimeout(() => setToast(''), 3500);
+    window.setTimeout(() => setToast(''), 3000);
   };
 
-  const onPlace = async () => {
+  const onCreate = async (e) => {
+    e.preventDefault();
     setError('');
-    const key = templateKey || templates[0]?.key;
-    if (!key) {
-      setError('الگوی بلوک موجود نیست');
-      return;
-    }
     try {
-      const result = await placeBlock.mutateAsync({
-        date,
-        template: key,
-        start_minutes: startHour * 60,
-        snap: true,
+      await createTemplate.mutateAsync({
+        title: title.trim(),
+        duration_minutes: Number(duration),
+        color,
       });
-      if (result.snapped) {
-        showToast('جای هدف شلوغ بود؛ بلوک به نزدیک‌ترین اسلات آزاد منتقل شد.');
-      } else {
-        showToast('بلوک با موفقیت گذاشته شد.');
-      }
+      setTitle('');
+      setDuration(90);
+      setShowCreate(false);
+      showToast('بلوک آماده ذخیره شد.');
     } catch (err) {
-      const code = err?.response?.data?.error?.code;
-      const msg = err?.response?.data?.error?.message;
-      if (code === 'DAILY_CAPACITY_FULL') {
-        setError('ظرفیت بیداری روز (۰۶–۲۳) پر است.');
-      } else {
-        setError(msg || 'خطا در گذاشتن بلوک');
-      }
+      setError(err?.response?.data?.error?.message || 'خطا در ذخیره بلوک');
+    }
+  };
+
+  const onDelete = async (key, name) => {
+    if (!window.confirm(`بلوک «${name}» حذف شود؟`)) return;
+    try {
+      await deleteTemplate.mutateAsync(key);
+    } catch (err) {
+      setError(err?.response?.data?.error?.message || 'خطا در حذف');
     }
   };
 
   return (
-    <Card className="lg:w-72 shrink-0 flex flex-col gap-3 !p-4 h-fit">
-      <h3 className="font-bold text-sm text-gray-900">بلوک‌های آماده</h3>
-      <p className="text-[11px] text-gray-500 leading-relaxed">
-        برای جابه‌جایی: رویداد را در تقویم بکشید و رها کنید.
-        اگر جا شلوغ باشد خودکار به نزدیک‌ترین اسلات آزاد می‌رود.
-        رویدادهای 🔒 ثابت مدرسه جابه‌جا نمی‌شوند.
-      </p>
+    <Card className="lg:w-80 shrink-0 flex flex-col gap-3 !p-4">
+      <div>
+        <h3 className="font-bold text-sm text-gray-900">بلوک‌های آماده</h3>
+        <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+          بلوک را از اینجا بکشید و روی ساعت تقویم رها کنید.
+          رویدادهای روی تقویم را هم می‌توانید بکشید و جابه‌جا کنید.
+        </p>
+      </div>
 
-      <label className="text-xs text-gray-500">
-        تاریخ شمسی
-        <input
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-        />
-      </label>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="جست‌وجوی بلوک…"
+        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+      />
 
-      <label className="text-xs text-gray-500">
-        ساعت شروع
-        <select
-          value={startHour}
-          onChange={(e) => setStartHour(Number(e.target.value))}
-          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
-        >
-          {Array.from({ length: 18 }, (_, i) => i + 6).map((h) => (
-            <option key={h} value={h}>{pad(h)}:00</option>
-          ))}
-        </select>
-      </label>
-
-      <label className="text-xs text-gray-500">
-        الگو
-        <select
-          value={templateKey || templates[0]?.key || ''}
-          onChange={(e) => setTemplateKey(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
-        >
-          {templates.map((tpl) => (
-            <option key={tpl.key} value={tpl.key}>
-              {tpl.title} ({tpl.duration_minutes}د)
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <PrimaryButton onClick={onPlace} disabled={placeBlock.isPending}>
-        {placeBlock.isPending ? '…' : 'گذاشتن بلوک'}
+      <PrimaryButton
+        type="button"
+        className="!py-2"
+        onClick={() => setShowCreate((v) => !v)}
+      >
+        {showCreate ? 'بستن فرم' : '+ ساخت بلوک جدید'}
       </PrimaryButton>
+
+      {showCreate && (
+        <form onSubmit={onCreate} className="flex flex-col gap-2 border border-gray-100 rounded-xl p-3">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="عنوان (مثلاً زیست)"
+            required
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          />
+          <label className="text-xs text-gray-500">
+            مدت (دقیقه)
+            <input
+              type="number"
+              min={5}
+              max={480}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {EVENT_COLORS.slice(0, 8).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                className="w-6 h-6 rounded-full border-2"
+                style={{
+                  background: c,
+                  borderColor: color === c ? '#0284C7' : 'transparent',
+                }}
+                aria-label={`رنگ ${c}`}
+              />
+            ))}
+          </div>
+          <PrimaryButton type="submit" disabled={createTemplate.isPending || !title.trim()}>
+            {createTemplate.isPending ? '…' : 'ذخیره'}
+          </PrimaryButton>
+        </form>
+      )}
+
+      <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
+        {isLoading && <p className="text-xs text-gray-400">در حال بارگذاری…</p>}
+        {!isLoading && filtered.length === 0 && (
+          <p className="text-xs text-gray-400">بلوکی پیدا نشد</p>
+        )}
+        {filtered.map((tpl) => (
+          <div
+            key={tpl.key}
+            draggable
+            onDragStart={(e) => {
+              const payload = JSON.stringify({
+                key: tpl.key,
+                title: tpl.title,
+                duration_minutes: tpl.duration_minutes,
+                color: tpl.color,
+              });
+              e.dataTransfer.setData(TEMPLATE_DRAG_MIME, payload);
+              e.dataTransfer.setData('text/plain', tpl.title);
+              e.dataTransfer.effectAllowed = 'copy';
+            }}
+            className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-sky-300"
+            title="بکشید و روی تقویم رها کنید"
+          >
+            <span
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ background: tpl.color || '#10b981' }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900 truncate">{tpl.title}</p>
+              <p className="text-[11px] text-gray-500">
+                {tpl.duration_minutes} دقیقه
+                {tpl.editable ? ' · مال شما' : ' · پیش‌فرض'}
+              </p>
+            </div>
+            {tpl.editable && (
+              <button
+                type="button"
+                onClick={() => onDelete(tpl.key, tpl.title)}
+                className="text-[11px] text-red-500 hover:text-red-700 px-1"
+              >
+                حذف
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
       {toast && (

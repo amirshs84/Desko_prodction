@@ -6,7 +6,8 @@
 from django.urls import path
 
 from .views import (
-    BlockTemplateListView,
+    BlockTemplateDetailView,
+    BlockTemplateListCreateView,
     CalendarEventDetailView,
     CalendarEventGroupView,
     CalendarEventListCreateView,
@@ -47,8 +48,13 @@ urlpatterns = [
     # جای‌گذاری بلوک روی تقویم (پنل بلوک‌ها، فضای خالی، درگ‌ودراپ)
     path(
         'planning/block-templates/',
-        BlockTemplateListView.as_view(),
+        BlockTemplateListCreateView.as_view(),
         name='planning_block_templates',
+    ),
+    path(
+        'planning/block-templates/<str:key>/',
+        BlockTemplateDetailView.as_view(),
+        name='planning_block_template_detail',
     ),
     path(
         'planning/calendar/availability/',

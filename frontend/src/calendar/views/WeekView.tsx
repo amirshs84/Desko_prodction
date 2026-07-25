@@ -46,8 +46,9 @@ export function WeekView() {
   const [schedulerBusy, setSchedulerBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  const { events, eventsForDay, eventsForRange, addEventsBatch, updateEvent, moveEvent } =
-    useEvents()
+  const {
+    events, eventsForDay, eventsForRange, addEventsBatch, updateEvent, moveEvent, placeTimedBlock,
+  } = useEvents()
   const { data: subjectsRaw = [] } = useSubjects()
   const { data: sessionsRaw = [] } = useSessions()
   const closeModal = () => {
@@ -101,6 +102,23 @@ export function WeekView() {
     const result = await moveEvent(eventId, target)
     if (result.snapped) {
       showToast('جای هدف شلوغ بود؛ رویداد به نزدیک‌ترین اسلات آزاد منتقل شد.')
+    }
+  }
+
+  const handleDropTemplate = async (
+    template: { key: string; title: string; duration_minutes: number; color: string },
+    target: { date: JalaliDate; startMinutes: number },
+  ) => {
+    const result = await placeTimedBlock({
+      date: target.date,
+      startMinutes: target.startMinutes,
+      templateKey: template.key,
+      title: template.title,
+      durationMinutes: template.duration_minutes,
+      color: template.color,
+    })
+    if (result.snapped) {
+      showToast('جای هدف شلوغ بود؛ بلوک به نزدیک‌ترین اسلات آزاد منتقل شد.')
     }
   }
 
@@ -273,6 +291,7 @@ export function WeekView() {
                     }}
                     onEdit={(ev) => openEdit(ev)}
                     onDropEvent={handleDropEvent}
+                    onDropTemplate={handleDropTemplate}
                   />
                 ))}
               </div>

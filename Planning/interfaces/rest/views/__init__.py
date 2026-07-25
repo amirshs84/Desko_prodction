@@ -1,5 +1,6 @@
 from .block_views import (
-    BlockTemplateListView,
+    BlockTemplateDetailView,
+    BlockTemplateListCreateView,
     DayAvailabilityView,
     MoveBlockView,
     PlaceBlockView,
@@ -32,7 +33,8 @@ from .plan_views import (
 )
 
 __all__ = [
-    'BlockTemplateListView',
+    'BlockTemplateDetailView',
+    'BlockTemplateListCreateView',
     'DayAvailabilityView',
     'MoveBlockView',
     'PlaceBlockView',

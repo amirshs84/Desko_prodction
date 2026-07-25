@@ -81,10 +81,40 @@ class BlockTemplateTests(BlockPlacementTestCase):
         by_key = {item['key']: item for item in response.data}
         self.assertEqual(by_key['study_90']['duration_minutes'], 90)
         self.assertEqual(by_key['study_90']['title'], 'مطالعه')
+        self.assertFalse(by_key['study_90']['editable'])
 
     def test_requires_authentication(self):
         self.client.credentials()
         self.assertEqual(self.client.get(TEMPLATES_URL).status_code, 401)
+
+    def test_consultant_can_create_custom_template_and_place_it(self):
+        created = self.client.post(
+            TEMPLATES_URL,
+            {'title': 'زیست تستی', 'duration_minutes': 75, 'color': '#ef4444'},
+            format='json',
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertTrue(created.data['editable'])
+        self.assertTrue(created.data['key'].startswith('custom_'))
+
+        listed = self.client.get(TEMPLATES_URL)
+        keys = {item['key'] for item in listed.data}
+        self.assertIn(created.data['key'], keys)
+
+        placed = self.place(template=created.data['key'], start_minutes=minutes('14:00'))
+        self.assertEqual(placed.status_code, 201, placed.data)
+        self.assertEqual(placed.data['event']['title'], 'زیست تستی')
+        self.assertEqual(
+            placed.data['event']['end_minutes'] - placed.data['event']['start_minutes'],
+            75,
+        )
+
+        deleted = self.client.delete(f'{TEMPLATES_URL}{created.data["key"]}/')
+        self.assertEqual(deleted.status_code, 204)
+
+    def test_cannot_delete_system_template(self):
+        response = self.client.delete(f'{TEMPLATES_URL}study_90/')
+        self.assertEqual(response.status_code, 400)
 
 
 class AvailabilityTests(BlockPlacementTestCase):

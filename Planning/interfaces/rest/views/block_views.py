@@ -11,16 +11,20 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from api.permissions import IsConsultant
+
 from ....container import get_container
 from ....scheduling.application.commands.block_commands import (
     MoveBlockCommand,
     PlaceBlockCommand,
 )
-from ....scheduling.domain.value_objects.block_template import get_template
+from ....scheduling.domain.value_objects.block_template import BLOCK_TEMPLATES
 from ..context import build_context, resolve_calendar_owner
 from ..errors import BasePlanningView
 from ..params import parse_jalali_date, parse_optional_int, parse_required_date
 from ..serializers import (
+    BlockTemplatePatchSerializer,
+    BlockTemplateWriteSerializer,
     MoveBlockSerializer,
     PlaceBlockSerializer,
     availability_to_dict,
@@ -40,12 +44,59 @@ class _BlockViewBase(BasePlanningView):
         return resolve_calendar_owner(request, parse_optional_int(request, 'user'))
 
 
-class BlockTemplateListView(_BlockViewBase):
-    """پنل بلوک‌های آماده (پیش‌فرض: بلوک مطالعه‌ی ۹۰ دقیقه‌ای)."""
+class BlockTemplateListCreateView(_BlockViewBase):
+    """لیست کاتالوگ سیستم + بلوک‌های ذخیره‌شده‌ی مشاور؛ POST فقط برای مشاور."""
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated(), IsConsultant()]
+        return [IsAuthenticated()]
 
     def get(self, request):
-        templates = self.service.list_templates()
-        return Response([block_template_to_dict(template) for template in templates])
+        templates = self.service.list_templates(request.user.id)
+        system_keys = {item.key for item in BLOCK_TEMPLATES}
+        return Response([
+            block_template_to_dict(template, editable=template.key not in system_keys)
+            for template in templates
+        ])
+
+    def post(self, request):
+        serializer = BlockTemplateWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        template = self.service.create_template(
+            request.user.id,
+            title=data['title'],
+            duration_minutes=data['duration_minutes'],
+            color=data.get('color') or '',
+        )
+        return Response(
+            block_template_to_dict(template, editable=True),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class BlockTemplateDetailView(_BlockViewBase):
+    """ویرایش/حذف بلوک آماده‌ی شخصی مشاور."""
+
+    permission_classes = [IsAuthenticated, IsConsultant]
+
+    def patch(self, request, key):
+        serializer = BlockTemplatePatchSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        template = self.service.update_template(
+            request.user.id,
+            key,
+            title=data.get('title'),
+            duration_minutes=data.get('duration_minutes'),
+            color=data.get('color'),
+        )
+        return Response(block_template_to_dict(template, editable=True))
+
+    def delete(self, request, key):
+        self.service.delete_template(request.user.id, key)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DayAvailabilityView(_BlockViewBase):
@@ -67,7 +118,10 @@ class PlaceBlockView(_BlockViewBase):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        template = get_template(data['template']) if data['template'] else None
+        template = (
+            self.service.resolve_template(data['template'], owner_id=request.user.id)
+            if data['template'] else None
+        )
         result = self.service.place_block(
             PlaceBlockCommand(
                 owner_id=self.owner_id(request),

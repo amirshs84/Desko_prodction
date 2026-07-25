@@ -3,12 +3,16 @@ import { IconPlus } from './icons'
 import { GRID_PX, HOUR_PX, yToMinute, pixelsForRange } from './timeGrid'
 import { layoutTimedEvents } from '../lib/layoutEvents'
 import type { JalaliDate } from '../lib/jalaliUtils'
+import {
+  EVENT_DRAG_MIME,
+  TEMPLATE_DRAG_MIME,
+  type DragBlockTemplate,
+} from '../lib/dragMime'
 import type { CalendarEventRecord } from '../types/calendar'
 import { minutesToLabel } from '../types/calendar'
 
 /** جلوگیری از انتخاب اسلات هنگام اسکرول لمسی؛ فقط ضربه مستقیم */
 const TAP_MOVE_THRESH_SQ = 10 * 10
-const DRAG_MIME = 'application/x-desko-cal-event'
 
 type WeekSlotProps = {
   selectedHour: number | null
@@ -21,9 +25,14 @@ type Props = {
   onEdit: (e: CalendarEventRecord) => void
   /** تاریخ این ستون — برای درگ‌اند‌دراپ بین روزها */
   date?: JalaliDate
-  /** رها کردن رویداد روی این ستون */
+  /** رها کردن رویداد موجود روی این ستون */
   onDropEvent?: (
     eventId: string,
+    target: { date: JalaliDate; startMinutes: number },
+  ) => void | Promise<void>
+  /** رها کردن بلوک آماده از پنل */
+  onDropTemplate?: (
+    template: DragBlockTemplate,
     target: { date: JalaliDate; startMinutes: number },
   ) => void | Promise<void>
   /** نمای هفته: انتخاب دو مرحله‌ای روی هر ساعت */
@@ -39,6 +48,7 @@ export function DayTimedColumn({
   onEdit,
   date,
   onDropEvent,
+  onDropTemplate,
   weekSlot,
   onSimpleCreate,
   rtlLanes = false,
@@ -50,7 +60,7 @@ export function DayTimedColumn({
   const columnRef = useRef<HTMLDivElement>(null)
   const [dragOver, setDragOver] = useState(false)
 
-  const canDrop = !!(date && onDropEvent)
+  const canDrop = !!(date && (onDropEvent || onDropTemplate))
 
   const runBackgroundTap = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-cal-event="1"]')) return
@@ -122,14 +132,27 @@ export function DayTimedColumn({
           ? (e) => {
               e.preventDefault()
               setDragOver(false)
-              const eventId =
-                e.dataTransfer.getData(DRAG_MIME) ||
-                e.dataTransfer.getData('text/plain')
-              if (!eventId || !date || !onDropEvent) return
-              void onDropEvent(eventId, {
+              if (!date) return
+              const target = {
                 date,
                 startMinutes: resolveDropMinutes(e.clientY),
-              })
+              }
+              const templateRaw = e.dataTransfer.getData(TEMPLATE_DRAG_MIME)
+              if (templateRaw && onDropTemplate) {
+                try {
+                  const template = JSON.parse(templateRaw) as DragBlockTemplate
+                  void onDropTemplate(template, target)
+                } catch {
+                  /* ignore bad payload */
+                }
+                return
+              }
+              const eventId =
+                e.dataTransfer.getData(EVENT_DRAG_MIME) ||
+                e.dataTransfer.getData('text/plain')
+              if (eventId && onDropEvent) {
+                void onDropEvent(eventId, target)
+              }
             }
           : undefined
       }
@@ -170,7 +193,7 @@ export function DayTimedColumn({
         const w = 100 / ev.laneCount
         const laneOffset = (ev.lane / ev.laneCount) * 100
         const locked = ev.kind === 'immutable'
-        const draggable = !locked && canDrop
+        const draggable = !locked && !!onDropEvent
         return (
           <button
             key={ev.id}
@@ -209,7 +232,7 @@ export function DayTimedColumn({
               draggable
                 ? (e) => {
                     draggedRef.current = true
-                    e.dataTransfer.setData(DRAG_MIME, ev.id)
+                    e.dataTransfer.setData(EVENT_DRAG_MIME, ev.id)
                     e.dataTransfer.setData('text/plain', ev.id)
                     e.dataTransfer.effectAllowed = 'move'
                     if (e.currentTarget instanceof HTMLElement) {

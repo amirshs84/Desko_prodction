@@ -28,7 +28,7 @@ export function DayView() {
   const [draft, setDraft] = useState<EventModalInitial | null>(null)
   const [editing, setEditing] = useState<CalendarEventRecord | null>(null)
 
-  const { eventsForDay, moveEvent } = useEvents()
+  const { eventsForDay, moveEvent, placeTimedBlock } = useEvents()
   const [toast, setToast] = useState<string | null>(null)
   const closeModal = () => {
     setOpen(false)
@@ -56,6 +56,23 @@ export function DayView() {
     const result = await moveEvent(eventId, target)
     if (result.snapped) {
       setToast('جای هدف شلوغ بود؛ رویداد به نزدیک‌ترین اسلات آزاد منتقل شد.')
+    }
+  }
+
+  const handleDropTemplate = async (
+    template: { key: string; title: string; duration_minutes: number; color: string },
+    target: { date: JalaliDate; startMinutes: number },
+  ) => {
+    const result = await placeTimedBlock({
+      date: target.date,
+      startMinutes: target.startMinutes,
+      templateKey: template.key,
+      title: template.title,
+      durationMinutes: template.duration_minutes,
+      color: template.color,
+    })
+    if (result.snapped) {
+      setToast('جای هدف شلوغ بود؛ بلوک به نزدیک‌ترین اسلات آزاد منتقل شد.')
     }
   }
 
@@ -120,6 +137,7 @@ export function DayView() {
                   onSimpleCreate={openCreate}
                   onEdit={openEdit}
                   onDropEvent={handleDropEvent}
+                  onDropTemplate={handleDropTemplate}
                   rtlLanes
                 />
               </div>

@@ -188,6 +188,15 @@ type EventsContextValue = {
     id: string,
     target: { date: JalaliDate; startMinutes: number },
   ) => Promise<{ snapped: boolean }>
+  /** گذاشتن بلوک آماده روی تقویم (با snap) */
+  placeTimedBlock: (input: {
+    date: JalaliDate
+    startMinutes: number
+    templateKey?: string
+    title?: string
+    durationMinutes?: number
+    color?: string
+  }) => Promise<{ snapped: boolean }>
   removeEvent: (id: string, scope?: EventEditScope) => void
   countInGroup: (groupId: string) => number
   eventsForDay: (d: JalaliDate) => CalendarEventRecord[]
@@ -503,6 +512,49 @@ export function EventsProvider({
     [mutate, queryClient, queryKey, apiParams, persistLocal],
   )
 
+  const placeTimedBlock = useCallback<EventsContextValue['placeTimedBlock']>(
+    async (input) => {
+      if (!isLoggedIn()) {
+        alert('برای گذاشتن بلوک باید وارد شوید.')
+        return { snapped: false }
+      }
+      try {
+        const body: Record<string, unknown> = {
+          date: formatJalaliDate(input.date),
+          start_minutes: input.startMinutes,
+          snap: true,
+        }
+        if (input.templateKey) body.template = input.templateKey
+        if (input.title) body.title = input.title
+        if (input.durationMinutes) body.duration_minutes = input.durationMinutes
+        if (input.color) body.color = input.color
+
+        const res = await planningAPI.placeBlock(body, apiParams)
+        const payload = res.data as { event: ServerEvent; snapped?: boolean }
+        const serverEv = fromServer(payload.event)
+        mutate((prev) => {
+          if (prev.some((e) => e.id === serverEv.id)) {
+            return prev.map((e) => (e.id === serverEv.id ? serverEv : e))
+          }
+          return [...prev, serverEv]
+        })
+        return { snapped: !!payload.snapped }
+      } catch (err: unknown) {
+        const code = (err as { response?: { data?: { error?: { code?: string; message?: string } } } })
+          ?.response?.data?.error?.code
+        const message = (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message
+        if (code === 'DAILY_CAPACITY_FULL') {
+          alert('ظرفیت بیداری آن روز (۰۶–۲۳) پر است.')
+        } else {
+          alert(message || 'گذاشتن بلوک انجام نشد.')
+        }
+        return { snapped: false }
+      }
+    },
+    [apiParams, mutate],
+  )
+
   const eventsForDay = useCallback(
     (d: JalaliDate) =>
       events.filter((e) => isSameJalali({ jy: e.jy, jm: e.jm, jd: e.jd }, d)),
@@ -529,6 +581,7 @@ export function EventsProvider({
       addEventsBatch,
       updateEvent,
       moveEvent,
+      placeTimedBlock,
       removeEvent,
       countInGroup,
       eventsForDay,
@@ -540,6 +593,7 @@ export function EventsProvider({
       addEventsBatch,
       updateEvent,
       moveEvent,
+      placeTimedBlock,
       removeEvent,
       countInGroup,
       eventsForDay,

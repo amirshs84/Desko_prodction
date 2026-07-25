@@ -15,11 +15,13 @@ from .intervention.infrastructure.persistence.models import (
 from .scheduling.infrastructure.persistence.models import (
     CalendarEventModel,
     CalendarSnapshotModel,
+    SavedBlockTemplateModel,
 )
 
 __all__ = [
     'CalendarEventModel',
     'CalendarSnapshotModel',
+    'SavedBlockTemplateModel',
     'PlanProposalModel',
     'PlanRunModel',
     'StudentGroupMemberModel',

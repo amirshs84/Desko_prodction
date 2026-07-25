@@ -43,6 +43,27 @@ export function useBlockTemplates() {
   });
 }
 
+export function useBlockTemplateMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.templates() });
+
+  const createTemplate = useMutation({
+    mutationFn: (data) => planningAPI.createBlockTemplate(data).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+  const updateTemplate = useMutation({
+    mutationFn: ({ key, data }) =>
+      planningAPI.updateBlockTemplate(key, data).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+  const deleteTemplate = useMutation({
+    mutationFn: (key) => planningAPI.deleteBlockTemplate(key),
+    onSuccess: invalidate,
+  });
+
+  return { createTemplate, updateTemplate, deleteTemplate };
+}
+
 export function useStudentSnapshots(userId) {
   return useQuery({
     queryKey: CONSULTANT_KEYS.snapshots(userId),

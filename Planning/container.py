@@ -42,6 +42,9 @@ from .scheduling.application.services import (
 )
 from .scheduling.domain.services.awake_window_policy import AwakeWindowPolicy
 from .scheduling.infrastructure.id_generator import Uuid4IdGenerator
+from .scheduling.infrastructure.persistence.repositories.block_template_repository import (
+    DjangoBlockTemplateRepository,
+)
 from .scheduling.infrastructure.persistence.repositories.calendar_event_repository import (
     DjangoCalendarEventRepository,
 )
@@ -77,6 +80,10 @@ class Container:
     @cached_property
     def calendar_events(self) -> DjangoCalendarEventRepository:
         return DjangoCalendarEventRepository()
+
+    @cached_property
+    def block_templates(self) -> DjangoBlockTemplateRepository:
+        return DjangoBlockTemplateRepository()
 
     @cached_property
     def calendar_snapshots(self) -> DjangoCalendarSnapshotRepository:
@@ -131,6 +138,7 @@ class Container:
             events=self.calendar_events,
             ids=self.ids,
             uow_factory=self.unit_of_work,
+            templates=self.block_templates,
             policy=self.awake_window_policy,
         )
 

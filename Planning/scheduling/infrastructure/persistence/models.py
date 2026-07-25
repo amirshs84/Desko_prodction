@@ -16,6 +16,43 @@ from ...domain.enums import EventKind, EventOrigin
 from ...domain.value_objects.time_range import MINUTES_IN_DAY
 
 
+class SavedBlockTemplateModel(models.Model):
+    """بلوک آماده‌ی شخصی مشاور — علاوه بر کاتالوگ ثابت سیستم.
+
+    هر مشاور فقط قالب‌های خودش را می‌بیند و ویرایش می‌کند. ``key`` شناسه‌ی پایدار
+    برای درگ‌اند‌دراپ و ``POST .../blocks/`` است.
+    """
+
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='saved_block_templates',
+        verbose_name='مشاور',
+    )
+    key = models.CharField(max_length=64, verbose_name='کلید')
+    title = models.CharField(max_length=100, verbose_name='عنوان')
+    duration_minutes = models.PositiveIntegerField(verbose_name='مدت (دقیقه)')
+    color = models.CharField(max_length=20, default='#10b981', verbose_name='رنگ')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.owner_id}:{self.key} ({self.title})'
+
+    class Meta:
+        db_table = 'planning_savedblocktemplate'
+        ordering = ['title', 'id']
+        verbose_name = 'بلوک آماده مشاور'
+        verbose_name_plural = 'بلوک‌های آماده مشاور'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner', 'key'],
+                name='unique_saved_block_template_per_owner',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['owner', 'title'], name='planning_tpl_owner_title_idx'),
+        ]
+
+
 class CalendarSnapshotModel(models.Model):
     """نسخه‌ی ذخیره‌شده‌ی تقویم یک دانش‌آموز در لحظه‌ی انتشار برنامه.
 

@@ -99,6 +99,9 @@ export const planningAPI = {
 
   getProgress: (params) => api.get('planning/progress/', { params }),
   getBlockTemplates: () => api.get('planning/block-templates/'),
+  createBlockTemplate: (data) => api.post('planning/block-templates/', data),
+  updateBlockTemplate: (key, data) => api.patch(`planning/block-templates/${key}/`, data),
+  deleteBlockTemplate: (key) => api.delete(`planning/block-templates/${key}/`),
   getAvailability: (params) => api.get('planning/calendar/availability/', { params }),
   placeBlock: (data, params) => api.post('planning/calendar/blocks/', data, { params }),
   moveBlock: (clientId, data, params) =>

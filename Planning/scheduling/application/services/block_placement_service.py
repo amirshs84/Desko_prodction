@@ -15,16 +15,23 @@ from typing import Callable
 
 from ....shared.application.context import RequestContext
 from ....shared.application.ports.unit_of_work import UnitOfWork
-from ....shared.domain.errors import ConcurrencyConflictError, ConflictError, ValidationError
+from ....shared.domain.errors import (
+    ConcurrencyConflictError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 from ...domain.entities.calendar_event import DEFAULT_EVENT_COLOR, CalendarEvent
 from ...domain.entities.day_agenda import DayAgenda
 from ...domain.enums import EventKind
+from ...domain.repositories.block_template_repository import BlockTemplateRepository
 from ...domain.repositories.calendar_event_repository import CalendarEventRepository
 from ...domain.services.awake_window_policy import AwakeWindowPolicy
 from ...domain.value_objects.block_template import (
     BLOCK_TEMPLATES,
     BlockTemplate,
     ensure_valid_duration,
+    get_template,
 )
 from ...domain.value_objects.event_ref import EventRef
 from ...domain.value_objects.jalali_date import JalaliDate
@@ -41,18 +48,115 @@ class BlockPlacementService:
         events: CalendarEventRepository,
         ids: IdGenerator,
         uow_factory: Callable[[], UnitOfWork],
+        templates: BlockTemplateRepository | None = None,
         policy: AwakeWindowPolicy | None = None,
     ) -> None:
         self._events = events
         self._ids = ids
         self._uow_factory = uow_factory
+        self._templates = templates
         self._policy = policy or AwakeWindowPolicy.default()
 
     # ---------- خواندن ----------
 
-    @staticmethod
-    def list_templates() -> tuple[BlockTemplate, ...]:
-        return BLOCK_TEMPLATES
+    def list_templates(self, owner_id: int | None = None) -> tuple[BlockTemplate, ...]:
+        custom = self._templates.list_for_owner(owner_id) if (
+            self._templates is not None and owner_id is not None
+        ) else ()
+        return BLOCK_TEMPLATES + custom
+
+    def resolve_template(self, key: str, *, owner_id: int) -> BlockTemplate:
+        """کاتالوگ سیستم، وگرنه قالب ذخیره‌شده‌ی همین مشاور."""
+        try:
+            return get_template(key)
+        except NotFoundError:
+            pass
+        if self._templates is None:
+            raise NotFoundError(
+                'الگوی بلوک مورد نظر وجود ندارد.',
+                meta={'key': key},
+            )
+        custom = self._templates.get_for_owner(owner_id, key)
+        if custom is None:
+            raise NotFoundError(
+                'الگوی بلوک مورد نظر وجود ندارد.',
+                meta={'key': key},
+            )
+        return custom
+
+    def create_template(
+        self,
+        owner_id: int,
+        *,
+        title: str,
+        duration_minutes: int,
+        color: str = '',
+    ) -> BlockTemplate:
+        if self._templates is None:
+            raise ValidationError('ذخیره‌ی بلوک آماده در دسترس نیست.')
+        cleaned = (title or '').strip()
+        if not cleaned:
+            raise ValidationError('عنوان بلوک الزامی است.')
+        ensure_valid_duration(duration_minutes)
+        template = BlockTemplate(
+            key=f'custom_{self._ids.new_id()[:12]}',
+            title=cleaned[:100],
+            duration_minutes=duration_minutes,
+            color=(color or '#10b981').strip() or '#10b981',
+        )
+        with self._uow_factory():
+            return self._templates.save(owner_id, template)
+
+    def update_template(
+        self,
+        owner_id: int,
+        key: str,
+        *,
+        title: str | None = None,
+        duration_minutes: int | None = None,
+        color: str | None = None,
+    ) -> BlockTemplate:
+        if self._templates is None:
+            raise ValidationError('ذخیره‌ی بلوک آماده در دسترس نیست.')
+        existing = self._templates.get_for_owner(owner_id, key)
+        if existing is None:
+            raise NotFoundError('بلوک آماده‌ی مورد نظر یافت نشد.', meta={'key': key})
+        next_title = (title.strip() if title is not None else existing.title)
+        if not next_title:
+            raise ValidationError('عنوان بلوک الزامی است.')
+        next_duration = (
+            duration_minutes if duration_minutes is not None else existing.duration_minutes
+        )
+        ensure_valid_duration(next_duration)
+        next_color = (
+            color.strip() if color is not None and color.strip() else existing.color
+        )
+        updated = BlockTemplate(
+            key=existing.key,
+            title=next_title[:100],
+            duration_minutes=next_duration,
+            color=next_color,
+        )
+        with self._uow_factory():
+            return self._templates.save(owner_id, updated)
+
+    def delete_template(self, owner_id: int, key: str) -> None:
+        if self._templates is None:
+            raise ValidationError('ذخیره‌ی بلوک آماده در دسترس نیست.')
+        # قالب‌های سیستم قابل حذف نیستند
+        try:
+            get_template(key)
+        except NotFoundError:
+            pass
+        else:
+            raise ValidationError(
+                'بلوک‌های پیش‌فرض سیستم قابل حذف نیستند.',
+                meta={'key': key},
+            )
+        with self._uow_factory():
+            deleted = self._templates.delete_for_owner(owner_id, key)
+        if not deleted:
+            raise NotFoundError('بلوک آماده‌ی مورد نظر یافت نشد.', meta={'key': key})
 
     def day_availability(
         self, owner_id: int, date: JalaliDate, *, min_duration: int = 1,
