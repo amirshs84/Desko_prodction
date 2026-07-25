@@ -46,7 +46,8 @@ export function WeekView() {
   const [schedulerBusy, setSchedulerBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  const { events, eventsForDay, eventsForRange, addEventsBatch, updateEvent } = useEvents()
+  const { events, eventsForDay, eventsForRange, addEventsBatch, updateEvent, moveEvent } =
+    useEvents()
   const { data: subjectsRaw = [] } = useSubjects()
   const { data: sessionsRaw = [] } = useSessions()
   const closeModal = () => {
@@ -92,6 +93,16 @@ export function WeekView() {
   }, [jy, jm, jd, setSelected])
 
   const showToast = (message: string) => setToast(message)
+
+  const handleDropEvent = async (
+    eventId: string,
+    target: { date: JalaliDate; startMinutes: number },
+  ) => {
+    const result = await moveEvent(eventId, target)
+    if (result.snapped) {
+      showToast('جای هدف شلوغ بود؛ رویداد به نزدیک‌ترین اسلات آزاد منتقل شد.')
+    }
+  }
 
   const runScheduler = async (action: SchedulerAction) => {
     if (action === 'advisor') {
@@ -252,6 +263,7 @@ export function WeekView() {
                 {days.map((d) => (
                   <DayTimedColumn
                     key={`${d.jy}-${d.jm}-${d.jd}`}
+                    date={d}
                     events={eventsForDay(d)}
                     weekSlot={{
                       selectedHour:
@@ -260,6 +272,7 @@ export function WeekView() {
                       onBackgroundPointer: makePointerHandler(d),
                     }}
                     onEdit={(ev) => openEdit(ev)}
+                    onDropEvent={handleDropEvent}
                   />
                 ))}
               </div>

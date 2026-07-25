@@ -28,7 +28,8 @@ export function DayView() {
   const [draft, setDraft] = useState<EventModalInitial | null>(null)
   const [editing, setEditing] = useState<CalendarEventRecord | null>(null)
 
-  const { eventsForDay } = useEvents()
+  const { eventsForDay, moveEvent } = useEvents()
+  const [toast, setToast] = useState<string | null>(null)
   const closeModal = () => {
     setOpen(false)
     setEditing(null)
@@ -41,6 +42,22 @@ export function DayView() {
   useEffect(() => {
     setSelected({ jy, jm, jd })
   }, [jy, jm, jd, setSelected])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3200)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const handleDropEvent = async (
+    eventId: string,
+    target: { date: JalaliDate; startMinutes: number },
+  ) => {
+    const result = await moveEvent(eventId, target)
+    if (result.snapped) {
+      setToast('جای هدف شلوغ بود؛ رویداد به نزدیک‌ترین اسلات آزاد منتقل شد.')
+    }
+  }
 
   const openCreate = (minute: number) => {
     const quarter = Math.floor(minute / 15) * 15
@@ -98,9 +115,11 @@ export function DayView() {
               <HourGutter />
               <div className="min-w-0 flex-1">
                 <DayTimedColumn
+                  date={date}
                   events={evs}
                   onSimpleCreate={openCreate}
                   onEdit={openEdit}
+                  onDropEvent={handleDropEvent}
                   rtlLanes
                 />
               </div>
@@ -126,6 +145,16 @@ export function DayView() {
         onSave={onSave}
         onDelete={editing ? onDelete : undefined}
       />
+
+      {toast ? (
+        <div
+          className="pointer-events-none fixed inset-x-4 z-[100] mx-auto max-w-md rounded-2xl border border-[var(--t-edge-2)] bg-[var(--t-card)] px-4 py-3 text-center text-sm font-semibold text-[var(--t-ink)] shadow-xl"
+          style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
+          role="status"
+        >
+          {toast}
+        </div>
+      ) : null}
     </>
   )
 }

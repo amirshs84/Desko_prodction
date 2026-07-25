@@ -1,12 +1,14 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { IconPlus } from './icons'
 import { GRID_PX, HOUR_PX, yToMinute, pixelsForRange } from './timeGrid'
 import { layoutTimedEvents } from '../lib/layoutEvents'
+import type { JalaliDate } from '../lib/jalaliUtils'
 import type { CalendarEventRecord } from '../types/calendar'
 import { minutesToLabel } from '../types/calendar'
 
 /** جلوگیری از انتخاب اسلات هنگام اسکرول لمسی؛ فقط ضربه مستقیم */
 const TAP_MOVE_THRESH_SQ = 10 * 10
+const DRAG_MIME = 'application/x-desko-cal-event'
 
 type WeekSlotProps = {
   selectedHour: number | null
@@ -17,6 +19,13 @@ type WeekSlotProps = {
 type Props = {
   events: CalendarEventRecord[]
   onEdit: (e: CalendarEventRecord) => void
+  /** تاریخ این ستون — برای درگ‌اند‌دراپ بین روزها */
+  date?: JalaliDate
+  /** رها کردن رویداد روی این ستون */
+  onDropEvent?: (
+    eventId: string,
+    target: { date: JalaliDate; startMinutes: number },
+  ) => void | Promise<void>
   /** نمای هفته: انتخاب دو مرحله‌ای روی هر ساعت */
   weekSlot?: WeekSlotProps
   /** نمای روز: یک ضربه برای ساخت */
@@ -28,6 +37,8 @@ type Props = {
 export function DayTimedColumn({
   events,
   onEdit,
+  date,
+  onDropEvent,
   weekSlot,
   onSimpleCreate,
   rtlLanes = false,
@@ -35,6 +46,11 @@ export function DayTimedColumn({
   const timed = events.filter((e) => !e.allDay)
   const laid = layoutTimedEvents(timed, { rtlLanes })
   const tapRef = useRef<{ pointerId: number; x: number; y: number } | null>(null)
+  const draggedRef = useRef(false)
+  const columnRef = useRef<HTMLDivElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+
+  const canDrop = !!(date && onDropEvent)
 
   const runBackgroundTap = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-cal-event="1"]')) return
@@ -69,10 +85,54 @@ export function DayTimedColumn({
     tapRef.current = null
   }
 
+  const resolveDropMinutes = (clientY: number) => {
+    const el = columnRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    return yToMinute(clientY - rect.top, GRID_PX)
+  }
+
   return (
     <div
-      className="relative min-w-0 flex-1 overflow-hidden border-s border-[var(--t-edge)]"
+      ref={columnRef}
+      className={`relative min-w-0 flex-1 overflow-hidden border-s border-[var(--t-edge)] ${
+        dragOver ? 'bg-[rgba(14,165,233,0.12)]' : ''
+      }`}
       style={{ height: GRID_PX, touchAction: 'pan-y' }}
+      onDragOver={
+        canDrop
+          ? (e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              setDragOver(true)
+            }
+          : undefined
+      }
+      onDragLeave={
+        canDrop
+          ? (e) => {
+              if (!columnRef.current?.contains(e.relatedTarget as Node)) {
+                setDragOver(false)
+              }
+            }
+          : undefined
+      }
+      onDrop={
+        canDrop
+          ? (e) => {
+              e.preventDefault()
+              setDragOver(false)
+              const eventId =
+                e.dataTransfer.getData(DRAG_MIME) ||
+                e.dataTransfer.getData('text/plain')
+              if (!eventId || !date || !onDropEvent) return
+              void onDropEvent(eventId, {
+                date,
+                startMinutes: resolveDropMinutes(e.clientY),
+              })
+            }
+          : undefined
+      }
     >
       {Array.from({ length: 24 }, (_, h) => (
         <div
@@ -110,16 +170,25 @@ export function DayTimedColumn({
         const w = 100 / ev.laneCount
         const laneOffset = (ev.lane / ev.laneCount) * 100
         const locked = ev.kind === 'immutable'
+        const draggable = !locked && canDrop
         return (
           <button
             key={ev.id}
             type="button"
             data-cal-event="1"
             data-immutable={locked ? '1' : '0'}
+            draggable={draggable}
+            title={
+              locked
+                ? 'رویداد ثابت مدرسه — قابل جابه‌جایی نیست'
+                : 'بکشید و رها کنید تا جابه‌جا شود؛ برای ویرایش کلیک کنید'
+            }
             className={`absolute z-10 overflow-hidden rounded-md border px-1.5 py-1 text-start text-xs leading-tight shadow-md ${
               locked
                 ? 'border-amber-700/50 cursor-default'
-                : 'border-black/30 active:scale-[0.99]'
+                : draggable
+                  ? 'border-black/30 cursor-grab active:cursor-grabbing'
+                  : 'border-black/30 active:scale-[0.99]'
             }`}
             style={{
               top,
@@ -136,8 +205,28 @@ export function DayTimedColumn({
                 : undefined,
             }}
             onPointerDown={(e) => e.stopPropagation()}
+            onDragStart={
+              draggable
+                ? (e) => {
+                    draggedRef.current = true
+                    e.dataTransfer.setData(DRAG_MIME, ev.id)
+                    e.dataTransfer.setData('text/plain', ev.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    if (e.currentTarget instanceof HTMLElement) {
+                      e.dataTransfer.setDragImage(e.currentTarget, 12, 12)
+                    }
+                  }
+                : undefined
+            }
+            onDragEnd={() => {
+              window.setTimeout(() => {
+                draggedRef.current = false
+              }, 0)
+              setDragOver(false)
+            }}
             onClick={(e) => {
               e.stopPropagation()
+              if (draggedRef.current) return
               onEdit(ev)
             }}
           >

@@ -16,7 +16,12 @@ import type {
   EventRepeatScope,
 } from '../types/calendar'
 import { STORAGE_KEY } from '../types/calendar'
-import { calendarAPI } from '../../api/client'
+import { calendarAPI, planningAPI } from '../../api/client'
+
+function formatJalaliDate(d: JalaliDate): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.jy}-${pad(d.jm)}-${pad(d.jd)}`
+}
 
 const EVENTS_QUERY_KEY = ['calendar_events']
 const isLoggedIn = () => !!localStorage.getItem('isLoggedIn')
@@ -175,6 +180,14 @@ type EventsContextValue = {
     patch: Partial<CalendarEventRecord>,
     scope?: EventEditScope,
   ) => void
+  /**
+   * جابه‌جایی زمانی/روزانه با API snap.
+   * اگر جای هدف شلوغ باشد سرور نزدیک‌ترین اسلات آزاد را می‌دهد.
+   */
+  moveEvent: (
+    id: string,
+    target: { date: JalaliDate; startMinutes: number },
+  ) => Promise<{ snapped: boolean }>
   removeEvent: (id: string, scope?: EventEditScope) => void
   countInGroup: (groupId: string) => number
   eventsForDay: (d: JalaliDate) => CalendarEventRecord[]
@@ -421,6 +434,75 @@ export function EventsProvider({
     [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal],
   )
 
+  const moveEvent = useCallback<EventsContextValue['moveEvent']>(
+    async (id, target) => {
+      const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
+      const current = backup?.find((e) => e.id === id)
+      if (!current) return { snapped: false }
+      if (isImmutable(current)) {
+        alert('این رویداد ثابت مدرسه است و قابل جابه‌جایی نیست.')
+        return { snapped: false }
+      }
+
+      const duration = Math.max(15, current.endMinutes - current.startMinutes)
+      const nextStart = Math.max(0, Math.min(24 * 60 - 15, target.startMinutes))
+      const optimistic: CalendarEventRecord = {
+        ...current,
+        jy: target.date.jy,
+        jm: target.date.jm,
+        jd: target.date.jd,
+        startMinutes: nextStart,
+        endMinutes: Math.min(24 * 60, nextStart + duration),
+      }
+
+      const unchanged =
+        current.jy === optimistic.jy &&
+        current.jm === optimistic.jm &&
+        current.jd === optimistic.jd &&
+        current.startMinutes === optimistic.startMinutes
+      if (unchanged) return { snapped: false }
+
+      mutate((prev) => prev.map((e) => (e.id === id ? optimistic : e)))
+
+      if (!isLoggedIn()) return { snapped: false }
+
+      try {
+        const res = await planningAPI.moveBlock(
+          id,
+          {
+            date: formatJalaliDate(target.date),
+            start_minutes: nextStart,
+            snap: true,
+            expected_version: current.version,
+          },
+          apiParams,
+        )
+        const payload = res.data as { event: ServerEvent; snapped?: boolean }
+        const serverEv = fromServer(payload.event)
+        mutate((prev) => prev.map((e) => (e.id === id ? serverEv : e)))
+        return { snapped: !!payload.snapped }
+      } catch (err: unknown) {
+        if (backup) {
+          queryClient.setQueryData(queryKey, backup)
+          if (persistLocal) persist(backup)
+        }
+        const code = (err as { response?: { data?: { error?: { code?: string; message?: string } } } })
+          ?.response?.data?.error?.code
+        const message = (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message
+        if (code === 'IMMUTABLE_EVENT_VIOLATION') {
+          alert('این رویداد ثابت مدرسه است و قابل جابه‌جایی نیست.')
+        } else if (code === 'DAILY_CAPACITY_FULL') {
+          alert('ظرفیت بیداری آن روز (۰۶–۲۳) پر است.')
+        } else {
+          alert(message || 'جابه‌جایی انجام نشد.')
+        }
+        return { snapped: false }
+      }
+    },
+    [mutate, queryClient, queryKey, apiParams, persistLocal],
+  )
+
   const eventsForDay = useCallback(
     (d: JalaliDate) =>
       events.filter((e) => isSameJalali({ jy: e.jy, jm: e.jm, jd: e.jd }, d)),
@@ -446,12 +528,23 @@ export function EventsProvider({
       addEvent,
       addEventsBatch,
       updateEvent,
+      moveEvent,
       removeEvent,
       countInGroup,
       eventsForDay,
       eventsForRange,
     }),
-    [events, addEvent, addEventsBatch, updateEvent, removeEvent, countInGroup, eventsForDay, eventsForRange],
+    [
+      events,
+      addEvent,
+      addEventsBatch,
+      updateEvent,
+      moveEvent,
+      removeEvent,
+      countInGroup,
+      eventsForDay,
+      eventsForRange,
+    ],
   )
 
   return <EventsContext.Provider value={value}>{children}</EventsContext.Provider>
