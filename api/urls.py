@@ -14,10 +14,6 @@ from .views import (
     DashboardStatsView,
     CreateTicketView,
     StudentTicketListView,
-    # Calendar Views
-    CalendarEventListCreateView,
-    CalendarEventDetailView,
-    CalendarEventGroupView,
     # Notification Views
     NotificationListView,
     NotificationUnreadCountView,
@@ -68,11 +64,6 @@ urlpatterns = [
     path('sessions/', StudySessionListCreateView.as_view(), name='study_sessions'),
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
 
-    # Calendar Events
-    path('calendar-events/', CalendarEventListCreateView.as_view(), name='calendar_event_list'),
-    path('calendar-events/group/<str:group_id>/', CalendarEventGroupView.as_view(), name='calendar_event_group'),
-    path('calendar-events/<str:client_id>/', CalendarEventDetailView.as_view(), name='calendar_event_detail'),
-    
     # Tickets / Messaging
     path('tickets/', CreateTicketView.as_view(), name='create_ticket'),
     path('tickets/my/', StudentTicketListView.as_view(), name='my_tickets'),
