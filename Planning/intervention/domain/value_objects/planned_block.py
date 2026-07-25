@@ -12,12 +12,15 @@ from ....scheduling.domain.value_objects.jalali_date import JalaliDate
 from ....scheduling.domain.value_objects.time_range import TimeRange
 from ....shared.domain.value_object import ValueObject
 
+DEFAULT_BLOCK_COLOR = '#10b981'
+
 
 @dataclass(frozen=True)
 class PlannedBlock(ValueObject):
     date: JalaliDate
     slot: TimeRange
     subject: str
+    color: str = DEFAULT_BLOCK_COLOR
 
     @property
     def minutes(self) -> int:

@@ -324,6 +324,7 @@ def planned_block_to_dict(block) -> dict:
         'start_minutes': block.slot.start_minutes,
         'end_minutes': block.slot.end_minutes,
         'duration_minutes': block.minutes,
+        'color': block.color,
     }
 
 

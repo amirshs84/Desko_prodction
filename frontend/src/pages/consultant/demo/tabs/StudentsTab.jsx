@@ -42,8 +42,11 @@ function StudentsBody() {
             className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white"
           >
             <option value="">همه پایه‌ها</option>
-            {['10', '11', '12'].map((g) => (
-              <option key={g} value={g}>پایه {g}</option>
+            {[
+              ['7', 'هفتم'], ['8', 'هشتم'], ['9', 'نهم'],
+              ['10', 'دهم'], ['11', 'یازدهم'], ['12', 'دوازدهم'],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
             ))}
           </select>
         </div>
@@ -64,54 +67,71 @@ function StudentsBody() {
         )}
         {!isLoading && !isError && students.length > 0 && (
           <div className="divide-y divide-gray-50">
-            <div
-              className="hidden md:grid gap-2 px-5 py-3 bg-gray-50 text-xs text-gray-400 font-medium"
-              style={{ gridTemplateColumns: '1.4fr 0.7fr 1.2fr 1.4fr 100px' }}
-            >
+            <div className="hidden md:grid md:grid-cols-[minmax(0,1.6fr)_4.5rem_minmax(0,1.2fr)_minmax(0,1.4fr)_6.5rem] gap-3 px-5 py-3 bg-gray-50 text-xs text-gray-400 font-medium">
               <span>نام</span>
               <span>پایه</span>
               <span>کلاس‌ها</span>
               <span>گروه‌های من</span>
-              <span />
+              <span className="text-left">اقدام</span>
             </div>
             {students.map((s) => (
               <div
                 key={s.user_id}
-                className="grid gap-2 px-5 py-4 items-center hover:bg-sky-50/40"
-                style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}
+                className="flex flex-col gap-3 px-5 py-4 hover:bg-sky-50/40 md:grid md:grid-cols-[minmax(0,1.6fr)_4.5rem_minmax(0,1.2fr)_minmax(0,1.4fr)_6.5rem] md:gap-3 md:items-center"
               >
-                <div className="min-w-0 md:contents">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
-                      {s.full_name || 'بدون نام'}
-                    </p>
-                    <p className="text-xs text-gray-500">{s.phone_number}</p>
-                  </div>
-                  <p className="hidden md:block text-sm text-gray-700">{s.grade || '—'}</p>
-                  <p className="hidden md:block text-sm text-gray-600 truncate">
-                    {(s.class_names || []).join('، ') || '—'}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {s.full_name || 'بدون نام'}
                   </p>
-                  <div className="hidden md:flex flex-wrap gap-1">
-                    {(s.groups || []).length === 0 ? (
-                      <span className="text-xs text-gray-400">—</span>
-                    ) : (
-                      s.groups.map((g) => (
-                        <span
-                          key={g.id}
-                          className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700"
-                        >
-                          {g.name}
-                        </span>
-                      ))
-                    )}
+                  <p className="text-xs text-gray-500" dir="ltr">
+                    {s.phone_number}
+                  </p>
+                  <div className="md:hidden mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <span>پایه {s.grade || '—'}</span>
+                    <span>·</span>
+                    <span>{(s.class_names || []).join('، ') || 'بدون کلاس'}</span>
+                  </div>
+                  <div className="md:hidden mt-2 flex flex-wrap gap-1">
+                    {(s.groups || []).map((g) => (
+                      <span
+                        key={g.id}
+                        className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700"
+                      >
+                        {g.name}
+                      </span>
+                    ))}
                   </div>
                 </div>
-                <PrimaryButton
-                  className="!py-1.5 !px-3 !text-xs whitespace-nowrap"
-                  onClick={() => navigate(`/consultant/student/${s.user_id}`)}
-                >
-                  باز کردن
-                </PrimaryButton>
+
+                <p className="hidden md:block text-sm text-gray-700 tabular-nums">
+                  {s.grade || '—'}
+                </p>
+                <p className="hidden md:block text-sm text-gray-600 truncate">
+                  {(s.class_names || []).join('، ') || '—'}
+                </p>
+                <div className="hidden md:flex flex-wrap gap-1 min-w-0">
+                  {(s.groups || []).length === 0 ? (
+                    <span className="text-xs text-gray-400">—</span>
+                  ) : (
+                    s.groups.map((g) => (
+                      <span
+                        key={g.id}
+                        className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-700"
+                      >
+                        {g.name}
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="md:justify-self-end">
+                  <PrimaryButton
+                    className="!w-auto !py-1.5 !px-3 !text-xs whitespace-nowrap"
+                    onClick={() => navigate(`/consultant/student/${s.user_id}`)}
+                  >
+                    باز کردن
+                  </PrimaryButton>
+                </div>
               </div>
             ))}
           </div>

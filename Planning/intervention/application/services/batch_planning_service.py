@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Callable, Mapping, Sequence
 
 from ....scheduling.application.services.snapshot_service import SnapshotService
-from ....scheduling.domain.entities.calendar_event import DEFAULT_EVENT_COLOR, CalendarEvent
+from ....scheduling.domain.entities.calendar_event import CalendarEvent
 from ....scheduling.domain.entities.calendar_snapshot import SnapshotReason
 from ....scheduling.domain.enums import EventKind
 from ....scheduling.domain.repositories.calendar_event_repository import (
@@ -87,7 +87,8 @@ class BatchPlanningService:
         # است چند دقیقه قدیمی باشد و در این فاصله تقویم عوض شده باشد.
         preview = self._run_engine(command, students)
         group_tag = f'plan-{self._ids.new_id()}'
-        color = command.color or DEFAULT_EVENT_COLOR
+        # اگر مشاور رنگ اجباری نفرستاده، هر بلوک رنگ خودش را از موتور می‌گیرد.
+        color_override = command.color or None
 
         created_events = 0
         snapshots_taken = 0
@@ -103,7 +104,9 @@ class BatchPlanningService:
                     )
                     snapshots_taken += 1
                     created_events += self._events.add_many(
-                        self._to_events(draft.student_id, draft.blocks, group_tag, color)
+                        self._to_events(
+                            draft.student_id, draft.blocks, group_tag, color_override,
+                        )
                     )
                 proposals.append(
                     PlanProposal(
@@ -203,7 +206,7 @@ class BatchPlanningService:
         student_id: int,
         blocks: Sequence[PlannedBlock],
         group_tag: str,
-        color: str,
+        color: str | None,
     ) -> list[CalendarEvent]:
         # منشأ رویدادها «الگوریتم» است نه مشاور: در گزارش‌ها باید بتوان تفکیک کرد
         # که کدام بلوک را موتور گذاشته و کدام را انسان.
@@ -213,7 +216,7 @@ class BatchPlanningService:
                 date=block.date,
                 slot=block.slot,
                 title=block.subject,
-                color=color,
+                color=color or block.color,
                 group_id=group_tag,
                 kind=EventKind.MUTABLE,
                 authority=WriteAuthority.ALGORITHM,

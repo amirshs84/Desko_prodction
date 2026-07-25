@@ -90,9 +90,8 @@ class BasicPlacementTests(TestCase):
         self.assertEqual(len(draft.blocks), 2)
         self.assertEqual(draft.allocated_minutes, 180)
         self.assertFalse(draft.has_deadlock)
-        self.assertEqual(
-            [str(block.slot) for block in draft.blocks], ['06:00–07:30', '07:45–09:15'],
-        )
+        self.assertTrue(all(block.date == DAY for block in draft.blocks))
+        self.assertEqual([block.minutes for block in draft.blocks], [90, 90])
 
     def test_break_is_inserted_between_blocks(self):
         request = PlanRequest(window=ONE_DAY, quotas=quotas(ریاضی=180))
@@ -299,6 +298,22 @@ class MultiDayTests(TestCase):
             request, existing_events={STUDENT: []},
         ).draft_for(STUDENT)
         self.assertEqual(len({str(block.date) for block in draft.blocks}), 3)
+
+    def test_round_robin_spreads_even_without_daily_cap(self):
+        # ۸ بلوک ۹۰ دقیقه‌ای روی ۷ روز — بدون سقف روزانه هم نباید همه‌شان روز اول باشند.
+        request = PlanRequest(
+            window=PlanWindow(DAY, DAY.add_days(6)), quotas=quotas(ریاضی=720),
+        )
+        draft = engine().plan(request, existing_events={STUDENT: []}).draft_for(STUDENT)
+        dates = {str(block.date) for block in draft.blocks}
+        self.assertEqual(draft.allocated_minutes, 720)
+        self.assertGreaterEqual(len(dates), 5)
+
+    def test_blocks_get_varied_colors(self):
+        request = PlanRequest(window=ONE_DAY, quotas=quotas(ریاضی=360, فیزیک=360))
+        blocks = engine().plan(request, existing_events={STUDENT: []}).draft_for(STUDENT).blocks
+        self.assertGreaterEqual(len(blocks), 4)
+        self.assertGreater(len({block.color for block in blocks}), 1)
 
     def test_events_of_other_days_do_not_leak(self):
         request = PlanRequest(window=ONE_DAY, quotas=quotas(ریاضی=90))

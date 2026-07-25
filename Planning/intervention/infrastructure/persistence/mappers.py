@@ -7,7 +7,7 @@ from ...domain.entities.plan_run import PlanProposal, PlanRun
 from ...domain.entities.student_group import StudentGroup
 from ...domain.enums import IntensityLevel, PlanMode, ProposalStatus
 from ...domain.value_objects.plan_window import PlanWindow
-from ...domain.value_objects.planned_block import PlannedBlock
+from ...domain.value_objects.planned_block import DEFAULT_BLOCK_COLOR, PlannedBlock
 from . import models as m
 
 
@@ -47,6 +47,7 @@ class PlannedBlockMapper:
             'start_minutes': block.slot.start_minutes,
             'end_minutes': block.slot.end_minutes,
             'subject': block.subject,
+            'color': block.color,
         }
 
     @staticmethod
@@ -55,6 +56,7 @@ class PlannedBlockMapper:
             date=JalaliDate(data['jy'], data['jm'], data['jd']),
             slot=TimeRange(data['start_minutes'], data['end_minutes']),
             subject=data['subject'],
+            color=data.get('color') or DEFAULT_BLOCK_COLOR,
         )
 
 

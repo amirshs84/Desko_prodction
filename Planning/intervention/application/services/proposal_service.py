@@ -127,7 +127,7 @@ class ProposalService:
                 date=block.date,
                 slot=slot,
                 title=block.subject,
-                color=DEFAULT_EVENT_COLOR,
+                color=block.color or DEFAULT_EVENT_COLOR,
                 group_id=proposal.group_tag,
                 kind=EventKind.MUTABLE,
                 authority=WriteAuthority.ALGORITHM,
