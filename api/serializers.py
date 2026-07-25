@@ -248,6 +248,20 @@ class AssignManagerSerializer(serializers.Serializer):
         return value
 
 
+class AssignConsultantSerializer(serializers.Serializer):
+    """Serializer for assigning/revoking a consultant of a school
+
+    Unlike managers, a school may have several consultants, so assigning one
+    never demotes the others.
+    """
+    phone_number = serializers.CharField(max_length=11)
+
+    def validate_phone_number(self, value):
+        if not value.startswith('09') or len(value) != 11:
+            raise serializers.ValidationError('شماره تلفن معتبر نیست')
+        return value
+
+
 class SuperAdminManualStudentSerializer(serializers.Serializer):
     """ثبت دستی دانش‌آموز توسط سوپرادمین — بدون محدودیت پیچیدگی رمز"""
     phone_number = serializers.CharField(max_length=11)

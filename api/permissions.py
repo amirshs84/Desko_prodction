@@ -14,6 +14,19 @@ class IsManager(BasePermission):
         )
 
 
+class IsConsultant(BasePermission):
+    """
+    Permission to only allow consultants to access the view.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            hasattr(request.user, 'profile') and
+            request.user.profile.role == 'consultant'
+        )
+
+
 class IsSuperAdmin(BasePermission):
     """
     Permission to only allow superadmins to access the view.

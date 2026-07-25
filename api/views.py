@@ -24,6 +24,7 @@ from .serializers import (
     ManagerAttendanceSerializer,
     SchoolSerializer,
     AssignManagerSerializer,
+    AssignConsultantSerializer,
     SuperAdminManualStudentSerializer,
     PDFReadProgressSerializer,
     NotificationSerializer,
@@ -129,8 +130,8 @@ def register_with_password(request):
         profile = user.profile
         profile.is_password_set = True
         
-        # If manager, skip profile completion
-        if profile.role == 'manager':
+        # Staff roles (manager/consultant) have no student profile to complete
+        if profile.role in ('manager', 'consultant'):
             profile.is_profile_complete = True
             
         profile.save()
@@ -376,31 +377,26 @@ class StudySessionListCreateView(generics.ListCreateAPIView):
 
 
 class DashboardStatsView(views.APIView):
-    """Get aggregated stats for dashboard"""
+    """آمار داشبورد — از read-model مشترک Planning (مرز روز تهران)."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = now - timedelta(days=7)
-        month_start = now - timedelta(days=30)
+        from Planning.container import get_container
+        from Planning.interfaces.rest.context import build_context
+        from Planning.shared.domain.errors import DomainError
 
-        # Helper to sum duration
-        def get_duration(start_date):
-            return StudySession.objects.filter(
-                user=user,
-                start_time__gte=start_date
-            ).aggregate(total=Sum('duration_seconds'))['total'] or 0
-
-        stats = {
-            'today': get_duration(today_start),
-            'week': get_duration(week_start),
-            'month': get_duration(month_start),
-            'total_sessions': StudySession.objects.filter(user=user).count()
-        }
-        
-        return Response(stats)
+        try:
+            report = get_container().progress_service.get_progress(
+                request.user.id, context=build_context(request),
+            )
+        except DomainError as exc:
+            return Response({'error': exc.to_dict()}, status=exc.http_status)
+        return Response({
+            'today': report.today,
+            'week': report.week,
+            'month': report.month,
+            'total_sessions': report.total_sessions,
+        })
 
 
 class CreateTicketView(generics.CreateAPIView):
@@ -1273,111 +1269,22 @@ class ManagerStudentListView(views.APIView):
 
 
 class ManagerStudentProfileView(views.APIView):
-    """
-    Get detailed profile of a specific student (returns complete dashboard data)
-    """
+    """پروفایل پیشرفت دانش‌آموز — همان read-model مشترک Planning."""
     permission_classes = [IsAuthenticated, IsManager]
-    
+
     def get(self, request, user_id):
-        # Ensure manager can only see students from their school
+        from Planning.container import get_container
+        from Planning.interfaces.rest.context import build_context
+        from Planning.interfaces.rest.serializers import progress_to_dict
+        from Planning.shared.domain.errors import DomainError
+
         try:
-            manager_profile = request.user.profile
-            manager_school = manager_profile.school
-        except UserProfile.DoesNotExist:
-            return Response({'error': 'Manager profile not found'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if not manager_school:
-            return Response({'error': 'Manager has no school assigned'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            # First get the user to ensure existence
-            user = User.objects.get(id=user_id)
-            
-            # Then check if they are a student in the manager's school
-            # We use filter to avoid DoesNotExist if profile is missing (though unlikely)
-            if not hasattr(user, 'profile'):
-                 return Response({'error': 'User has no profile'}, status=status.HTTP_404_NOT_FOUND)
-                 
-            if user.profile.role != 'student':
-                 return Response({'error': 'User is not a student'}, status=status.HTTP_404_NOT_FOUND)
-            
-            if user.profile.school != manager_school:
-                 return Response({'error': 'Student not in your school'}, status=status.HTTP_403_FORBIDDEN)
-                 
-        except User.DoesNotExist:
-            return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Get time-based stats
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = now - timedelta(days=7)
-        month_start = now - timedelta(days=30)
-        
-        def get_duration(start_date):
-            return StudySession.objects.filter(
-                user=user,
-                start_time__gte=start_date
-            ).aggregate(total=Sum('duration_seconds'))['total'] or 0
-        
-        # Get recent sessions (last 10)
-        recent_sessions = StudySession.objects.filter(user=user).order_by('-start_time')[:10]
-        sessions_data = []
-        for session in recent_sessions:
-            sessions_data.append({
-                'id': session.id,
-                'subject': session.subject.name if session.subject else 'بدون موضوع',
-                'subject_color': session.subject.color_code if session.subject else '#gray',
-                'duration_seconds': session.duration_seconds,
-                'start_time': session.start_time.isoformat(),
-                'end_time': session.end_time.isoformat() if session.end_time else None,
-                'description': session.description or ''
-            })
-        
-        # Get subject breakdown (total time per subject)
-        subject_stats = StudySession.objects.filter(user=user).values(
-            'subject__name', 'subject__color_code'
-        ).annotate(
-            total_seconds=Sum('duration_seconds')
-        ).order_by('-total_seconds')
-        
-        subjects_breakdown = []
-        for stat in subject_stats:
-            if stat['subject__name']:
-                subjects_breakdown.append({
-                    'name': stat['subject__name'],
-                    'color': stat['subject__color_code'] or '#10b981',
-                    'total_seconds': stat['total_seconds']
-                })
-        
-        # Get heatmap data (last 60 days)
-        heatmap_start = now - timedelta(days=60)
-        heatmap_sessions = StudySession.objects.filter(
-            user=user,
-            start_time__gte=heatmap_start
-        ).values('start_time__date').annotate(
-            total_seconds=Sum('duration_seconds')
-        )
-        
-        heatmap_data = {}
-        for item in heatmap_sessions:
-            date_str = item['start_time__date'].isoformat()
-            heatmap_data[date_str] = item['total_seconds']
-        
-        stats = {
-            'student_name': user.profile.full_name,
-            'phone_number': user.profile.phone_number,
-            'grade': user.profile.grade,
-            'olympiad_field': user.profile.olympiad_field,
-            'today': get_duration(today_start),
-            'week': get_duration(week_start),
-            'month': get_duration(month_start),
-            'total_sessions': StudySession.objects.filter(user=user).count(),
-            'recent_sessions': sessions_data,
-            'subjects_breakdown': subjects_breakdown,
-            'heatmap_data': heatmap_data
-        }
-        
-        return Response(stats)
+            report = get_container().progress_service.get_progress(
+                user_id, context=build_context(request),
+            )
+        except DomainError as exc:
+            return Response({'error': exc.to_dict()}, status=exc.http_status)
+        return Response(progress_to_dict(report))
 
 
 class ManagerExportExcelView(views.APIView):
@@ -2003,6 +1910,93 @@ class SuperAdminAssignManagerView(views.APIView):
                 'school': school.name
             }
         })
+
+
+class SuperAdminConsultantsView(views.APIView):
+    """
+    List, assign or revoke consultants of a school (SuperAdmin only)
+
+    A school can have multiple consultants, so assigning one does not affect
+    the others — unlike the single-manager rule above.
+    """
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def _get_school(self, school_id):
+        return School.objects.filter(id=school_id).first()
+
+    def get(self, request, school_id):
+        school = self._get_school(school_id)
+        if school is None:
+            return Response({'error': 'مدرسه یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+
+        consultants = UserProfile.objects.filter(school=school, role='consultant')
+        return Response([
+            {
+                'user_id': profile.user_id,
+                'phone_number': profile.phone_number,
+                'full_name': profile.full_name or 'تعیین نشده',
+                'is_password_set': profile.is_password_set,
+            }
+            for profile in consultants
+        ])
+
+    def post(self, request, school_id):
+        school = self._get_school(school_id)
+        if school is None:
+            return Response({'error': 'مدرسه یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AssignConsultantSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        phone_number = serializer.validated_data['phone_number']
+        user, _ = User.objects.get_or_create(username=phone_number)
+        profile, _ = UserProfile.objects.get_or_create(
+            user=user,
+            defaults={'phone_number': phone_number}
+        )
+
+        if profile.role == 'manager':
+            return Response(
+                {'error': 'این کاربر مدیر مدرسه است و نمی‌تواند مشاور شود'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile.school = school
+        profile.role = 'consultant'
+        profile.is_profile_complete = True
+        profile.save()
+
+        return Response({
+            'message': f'مشاور با شماره {phone_number} به مدرسه {school.name} اختصاص یافت',
+            'consultant': {
+                'user_id': profile.user_id,
+                'phone_number': phone_number,
+                'full_name': profile.full_name or 'تعیین نشده',
+                'school': school.name,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, school_id):
+        school = self._get_school(school_id)
+        if school is None:
+            return Response({'error': 'مدرسه یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AssignConsultantSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        profile = UserProfile.objects.filter(
+            school=school,
+            role='consultant',
+            phone_number=serializer.validated_data['phone_number'],
+        ).first()
+        if profile is None:
+            return Response({'error': 'مشاور یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+
+        profile.role = 'student'
+        profile.save()
+        return Response({'message': 'دسترسی مشاور لغو شد'})
 
 
 class SuperAdminSchoolMembersView(views.APIView):
