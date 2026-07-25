@@ -68,7 +68,7 @@ export default function ConsultantStudentWorkspace() {
   return (
     <div
       dir="rtl"
-      className="h-screen w-full overflow-hidden flex flex-col"
+      className="h-dvh w-full overflow-hidden flex flex-col"
       style={{ fontFamily: DEMO_FONT, background: PAGE_BG }}
     >
       <header className="shrink-0 bg-white border-b border-gray-100 px-4 md:px-8 py-4">
@@ -83,16 +83,16 @@ export default function ConsultantStudentWorkspace() {
           {student?.full_name || `دانش‌آموز #${userId}`}
         </h1>
         <p className="text-xs text-gray-500 mt-1">
-          {student?.phone_number || ''}
+          <span dir="ltr" className="inline-block">{student?.phone_number || '—'}</span>
           {student?.grade ? ` · پایه ${student.grade}` : ''}
         </p>
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-4 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => goTab(t.id)}
-              className="px-4 py-2 rounded-xl text-sm font-semibold"
+              className="px-4 py-2 rounded-xl text-sm font-semibold shrink-0"
               style={{
                 background: tab === t.id ? '#E0F2FE' : '#F3F4F6',
                 color: tab === t.id ? '#0284C7' : '#6B7280',
@@ -106,7 +106,7 @@ export default function ConsultantStudentWorkspace() {
 
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {tab === 'progress' && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <ProgressPane userId={numericId} />
           </div>
         )}
@@ -116,7 +116,7 @@ export default function ConsultantStudentWorkspace() {
           </div>
         )}
         {tab === 'snapshots' && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <SnapshotsPane userId={numericId} />
           </div>
         )}
@@ -158,7 +158,7 @@ function ProgressPane({ userId }) {
   };
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-5xl mx-auto flex flex-col gap-5">
+    <div className="px-4 md:px-8 py-6 pb-10 max-w-5xl mx-auto flex flex-col gap-5">
       <div className="flex gap-2">
         {[
           ['daily', 'روزانه'],
@@ -259,11 +259,11 @@ function CalendarPane({ userId }) {
   return (
     <EventsProvider ownerUserId={userId}>
       <SelectedDayProvider>
-        <div className="px-4 md:px-6 py-4 flex flex-col lg:flex-row gap-4 h-full min-h-0">
-          <div className="overflow-y-auto shrink-0 max-h-full">
+        <div className="h-full min-h-0 flex flex-col lg:flex-row gap-4 px-4 md:px-6 py-4 overflow-y-auto lg:overflow-hidden overscroll-contain">
+          <div className="order-2 lg:order-1 shrink-0 lg:h-full lg:overflow-y-auto lg:max-h-full lg:w-80 pb-6 lg:pb-0">
             <BlockTemplatesPanel />
           </div>
-          <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200">
+          <div className="order-1 lg:order-2 h-[70vh] min-h-[70vh] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1 lg:shrink rounded-2xl overflow-hidden border border-gray-200">
             <Routes>
               <Route path="calendar/*" element={<UnifiedCalendar />} />
               <Route path="*" element={<CalendarRedirect userId={userId} />} />
@@ -332,7 +332,7 @@ function BlockTemplatesPanel() {
   };
 
   return (
-    <Card className="lg:w-80 shrink-0 flex flex-col gap-3 !p-4">
+    <Card className="w-full shrink-0 flex flex-col gap-3 !p-4">
       <div>
         <h3 className="font-bold text-sm text-gray-900">بلوک‌های آماده</h3>
         <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
@@ -397,7 +397,7 @@ function BlockTemplatesPanel() {
         </form>
       )}
 
-      <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
+      <div className="flex flex-col gap-2 max-h-[36vh] lg:max-h-[min(50vh,100%)] overflow-y-auto">
         {isLoading && <p className="text-xs text-gray-400">در حال بارگذاری…</p>}
         {!isLoading && filtered.length === 0 && (
           <p className="text-xs text-gray-400">بلوکی پیدا نشد</p>
@@ -492,7 +492,7 @@ function SnapshotsPane({ userId }) {
   };
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-3xl mx-auto flex flex-col gap-4">
+    <div className="px-4 md:px-8 py-6 pb-10 max-w-3xl mx-auto flex flex-col gap-4">
       <Card>
         <h3 className="font-bold text-sm text-gray-900 mb-2">نسخه‌های تقویم</h3>
         <p className="text-xs text-gray-500">

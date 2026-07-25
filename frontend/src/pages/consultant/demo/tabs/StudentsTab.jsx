@@ -83,8 +83,10 @@ function StudentsBody() {
                   <p className="text-sm font-semibold text-gray-900 truncate">
                     {s.full_name || 'بدون نام'}
                   </p>
-                  <p className="text-xs text-gray-500" dir="ltr">
-                    {s.phone_number}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    <span dir="ltr" className="inline-block">
+                      {s.phone_number || '—'}
+                    </span>
                   </p>
                   <div className="md:hidden mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                     <span>پایه {s.grade || '—'}</span>

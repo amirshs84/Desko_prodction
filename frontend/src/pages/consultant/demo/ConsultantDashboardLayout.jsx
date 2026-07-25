@@ -31,10 +31,6 @@ function LayoutBody({ activeNav, setActiveNav, DesktopView, MobileView }) {
   };
 
   const handleBottomNavChange = (id) => {
-    if (id === 'more') {
-      toggleMobileSidebar();
-      return;
-    }
     setActiveNav(id);
     closeMobileSidebar();
   };
@@ -44,7 +40,7 @@ function LayoutBody({ activeNav, setActiveNav, DesktopView, MobileView }) {
   return (
     <div
       dir="rtl"
-      className="h-screen w-full overflow-hidden flex"
+      className="h-dvh w-full overflow-hidden flex"
       style={{ fontFamily: DEMO_FONT, background: PAGE_BG }}
     >
       <DesktopSidebar activeNav={activeNav} setActiveNav={setActiveNav} />
