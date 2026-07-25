@@ -9,7 +9,7 @@ import { setCalendarBase, calPathWeek } from '../../calendar/lib/paths';
 import { DEMO_FONT, PAGE_BG } from './demo/constants/theme';
 import { Card, EmptyState, PrimaryButton, formatSeconds } from './demo/components/DemoUi';
 import { EVENT_COLORS } from '../../calendar/lib/eventColors';
-import { TEMPLATE_DRAG_MIME } from '../../calendar/lib/dragMime';
+import { encodeTemplateDrag, TEMPLATE_DRAG_MIME } from '../../calendar/lib/dragMime';
 import {
   useBlockTemplateMutations,
   useBlockTemplates,
@@ -407,15 +407,35 @@ function BlockTemplatesPanel() {
             key={tpl.key}
             draggable
             onDragStart={(e) => {
-              const payload = JSON.stringify({
+              const tplPayload = {
                 key: tpl.key,
                 title: tpl.title,
                 duration_minutes: tpl.duration_minutes,
                 color: tpl.color,
-              });
-              e.dataTransfer.setData(TEMPLATE_DRAG_MIME, payload);
-              e.dataTransfer.setData('text/plain', tpl.title);
+              };
+              e.dataTransfer.setData(TEMPLATE_DRAG_MIME, JSON.stringify(tplPayload));
+              e.dataTransfer.setData('text/plain', encodeTemplateDrag(tplPayload));
               e.dataTransfer.effectAllowed = 'copy';
+              // تصویر درگ بدون هاله سفید کارت روشن
+              const ghost = document.createElement('div');
+              ghost.textContent = `${tpl.title} · ${tpl.duration_minutes}د`;
+              ghost.style.cssText = [
+                'position:fixed',
+                'top:-200px',
+                'left:-200px',
+                'padding:8px 12px',
+                'border-radius:10px',
+                'background:#0f172a',
+                'color:#e2e8f0',
+                'font:600 13px Vazirmatn,Tahoma,sans-serif',
+                'border:1px solid #334155',
+                'box-shadow:0 8px 24px rgba(0,0,0,.45)',
+                'pointer-events:none',
+                'z-index:99999',
+              ].join(';');
+              document.body.appendChild(ghost);
+              e.dataTransfer.setDragImage(ghost, 16, 16);
+              window.setTimeout(() => ghost.remove(), 0);
             }}
             className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-sky-300"
             title="بکشید و روی تقویم رها کنید"

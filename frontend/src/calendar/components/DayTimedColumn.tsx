@@ -5,7 +5,8 @@ import { layoutTimedEvents } from '../lib/layoutEvents'
 import type { JalaliDate } from '../lib/jalaliUtils'
 import {
   EVENT_DRAG_MIME,
-  TEMPLATE_DRAG_MIME,
+  isTemplateDrag,
+  parseTemplateDrag,
   type DragBlockTemplate,
 } from '../lib/dragMime'
 import type { CalendarEventRecord } from '../types/calendar'
@@ -102,22 +103,47 @@ export function DayTimedColumn({
     return yToMinute(clientY - rect.top, GRID_PX)
   }
 
+  const allowDrop = (e: React.DragEvent) => {
+    if (!canDrop) return
+    e.preventDefault()
+    e.stopPropagation()
+    const types = Array.from(e.dataTransfer.types)
+    // باید با effectAllowed مبدأ یکی باشد؛ وگرنه علامت 🚫 می‌آید
+    e.dataTransfer.dropEffect = isTemplateDrag(types) ? 'copy' : 'move'
+    setDragOver(true)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!canDrop || !date) return
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+    const target = {
+      date,
+      startMinutes: resolveDropMinutes(e.clientY),
+    }
+    const template = parseTemplateDrag(e.dataTransfer)
+    if (template && onDropTemplate) {
+      void onDropTemplate(template, target)
+      return
+    }
+    const eventId =
+      e.dataTransfer.getData(EVENT_DRAG_MIME) ||
+      e.dataTransfer.getData('text/plain')
+    if (eventId && !eventId.startsWith('desko-tpl:') && onDropEvent) {
+      void onDropEvent(eventId, target)
+    }
+  }
+
   return (
     <div
       ref={columnRef}
       className={`relative min-w-0 flex-1 overflow-hidden border-s border-[var(--t-edge)] ${
-        dragOver ? 'bg-[rgba(14,165,233,0.12)]' : ''
+        dragOver ? 'bg-[rgba(14,165,233,0.12)] ring-2 ring-inset ring-sky-400/40' : ''
       }`}
       style={{ height: GRID_PX, touchAction: 'pan-y' }}
-      onDragOver={
-        canDrop
-          ? (e) => {
-              e.preventDefault()
-              e.dataTransfer.dropEffect = 'move'
-              setDragOver(true)
-            }
-          : undefined
-      }
+      onDragEnter={canDrop ? allowDrop : undefined}
+      onDragOver={canDrop ? allowDrop : undefined}
       onDragLeave={
         canDrop
           ? (e) => {
@@ -127,35 +153,7 @@ export function DayTimedColumn({
             }
           : undefined
       }
-      onDrop={
-        canDrop
-          ? (e) => {
-              e.preventDefault()
-              setDragOver(false)
-              if (!date) return
-              const target = {
-                date,
-                startMinutes: resolveDropMinutes(e.clientY),
-              }
-              const templateRaw = e.dataTransfer.getData(TEMPLATE_DRAG_MIME)
-              if (templateRaw && onDropTemplate) {
-                try {
-                  const template = JSON.parse(templateRaw) as DragBlockTemplate
-                  void onDropTemplate(template, target)
-                } catch {
-                  /* ignore bad payload */
-                }
-                return
-              }
-              const eventId =
-                e.dataTransfer.getData(EVENT_DRAG_MIME) ||
-                e.dataTransfer.getData('text/plain')
-              if (eventId && onDropEvent) {
-                void onDropEvent(eventId, target)
-              }
-            }
-          : undefined
-      }
+      onDrop={canDrop ? handleDrop : undefined}
     >
       {Array.from({ length: 24 }, (_, h) => (
         <div
@@ -175,6 +173,9 @@ export function DayTimedColumn({
         onPointerDown={onBgPointerDown}
         onPointerUp={onBgPointerUp}
         onPointerCancel={onBgPointerCancel}
+        onDragEnter={canDrop ? allowDrop : undefined}
+        onDragOver={canDrop ? allowDrop : undefined}
+        onDrop={canDrop ? handleDrop : undefined}
       />
 
       {weekSlot?.showHighlight && weekSlot.selectedHour != null ? (
@@ -234,13 +235,15 @@ export function DayTimedColumn({
                     draggedRef.current = true
                     e.dataTransfer.setData(EVENT_DRAG_MIME, ev.id)
                     e.dataTransfer.setData('text/plain', ev.id)
-                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.effectAllowed = 'copyMove'
                     if (e.currentTarget instanceof HTMLElement) {
                       e.dataTransfer.setDragImage(e.currentTarget, 12, 12)
                     }
                   }
                 : undefined
             }
+            onDragOver={canDrop ? allowDrop : undefined}
+            onDrop={canDrop ? handleDrop : undefined}
             onDragEnd={() => {
               window.setTimeout(() => {
                 draggedRef.current = false
