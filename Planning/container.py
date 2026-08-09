@@ -15,9 +15,11 @@ from typing import Mapping
 
 from .intervention.application.services import (
     BatchPlanningService,
+    ConsultantDashboardService,
     GroupService,
     MessageService,
     NoteService,
+    PreferencesService,
     ProposalService,
     RosterService,
 )
@@ -32,6 +34,9 @@ from .intervention.infrastructure.persistence.repositories.consultant_note_repos
 from .intervention.infrastructure.persistence.repositories.direct_message_repository import (
     DjangoDirectMessageRepository,
 )
+from .intervention.infrastructure.persistence.repositories.preferences_repository import (
+    DjangoPreferencesRepository,
+)
 from .intervention.infrastructure.persistence.repositories.student_group_repository import (
     DjangoStudentGroupRepository,
 )
@@ -40,7 +45,7 @@ from .intervention.infrastructure.weights import (
     EqualDistributionWeightCalculator,
     ManualRatioWeightCalculator,
 )
-from .reporting.application.services import ProgressService
+from .reporting.application.services import AnalyticsHubService, ProgressService
 from .reporting.infrastructure.django_study_report_reader import DjangoStudyReportReader
 from .scheduling.application.services import (
     BlockPlacementService,
@@ -108,6 +113,10 @@ class Container:
     @cached_property
     def direct_messages(self) -> DjangoDirectMessageRepository:
         return DjangoDirectMessageRepository()
+
+    @cached_property
+    def consultant_preferences(self) -> DjangoPreferencesRepository:
+        return DjangoPreferencesRepository()
 
     @cached_property
     def plan_runs(self) -> DjangoPlanRunRepository:
@@ -197,6 +206,30 @@ class Container:
             groups=self.student_groups,
             directory=self.school_directory,
             reports=self.study_report_reader,
+        )
+
+    @cached_property
+    def dashboard_service(self) -> ConsultantDashboardService:
+        return ConsultantDashboardService(
+            directory=self.school_directory,
+            reports=self.study_report_reader,
+            messages=self.direct_messages,
+            plan_runs=self.plan_runs,
+        )
+
+    @cached_property
+    def preferences_service(self) -> PreferencesService:
+        return PreferencesService(
+            preferences=self.consultant_preferences,
+            directory=self.school_directory,
+        )
+
+    @cached_property
+    def analytics_hub_service(self) -> AnalyticsHubService:
+        return AnalyticsHubService(
+            directory=self.school_directory,
+            reports=self.study_report_reader,
+            plan_runs=self.plan_runs,
         )
 
     @cached_property

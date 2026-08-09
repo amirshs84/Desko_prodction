@@ -145,6 +145,46 @@ class BatchPlanningService:
             snapshots_taken=snapshots_taken,
         )
 
+    def apply_student_blocks(
+        self,
+        *,
+        student_id: int,
+        blocks: Sequence[PlannedBlock],
+        context: RequestContext,
+        take_snapshot: bool = True,
+    ) -> dict:
+        """ثبت دستی بلوک‌های ویرایش‌شده‌ی پیش‌نمایش روی تقویم یک دانش‌آموز.
+
+        برای خروج فرد از بچ برنامه‌ریزی گروهی پس از ویرایش شخصی استفاده می‌شود.
+        """
+        school_id = _require_consultant(context)
+        found = self._directory.list_students_by_ids(school_id, [student_id])
+        if not found:
+            raise ValidationError(
+                'این کاربر دانش‌آموز فعال مدرسه‌ی شما نیست.',
+                meta={'student_id': student_id},
+            )
+        if not blocks:
+            raise ValidationError('هیچ بلوکی برای ثبت ارسال نشده است.')
+
+        group_tag = f'plan-manual-{self._ids.new_id()}'
+        created = 0
+        with self._uow_factory():
+            if take_snapshot:
+                self._snapshots.capture(
+                    student_id,
+                    reason=SnapshotReason.PLAN_PUBLISH,
+                    plan_run_id=group_tag,
+                )
+            created = self._events.add_many(
+                self._to_events(student_id, blocks, group_tag, None),
+            )
+        return {
+            'student_id': student_id,
+            'created_events': created,
+            'group_tag': group_tag,
+        }
+
     # ---------- خواندن تاریخچه ----------
 
     def list_runs(self, *, context: RequestContext, limit: int = 50) -> list[PlanRun]:

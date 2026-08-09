@@ -379,6 +379,21 @@ class ProposalRespondSerializer(serializers.Serializer):
     accept = serializers.BooleanField()
 
 
+class ApplyBlockItemSerializer(serializers.Serializer):
+    jy = serializers.IntegerField()
+    jm = serializers.IntegerField()
+    jd = serializers.IntegerField()
+    start_minutes = serializers.IntegerField(min_value=0, max_value=1439)
+    end_minutes = serializers.IntegerField(min_value=1, max_value=1440)
+    subject = serializers.CharField(max_length=100)
+    color = serializers.CharField(max_length=20, required=False, allow_blank=True, default='#10b981')
+
+
+class ApplyStudentBlocksSerializer(serializers.Serializer):
+    blocks = ApplyBlockItemSerializer(many=True, allow_empty=False)
+    take_snapshot = serializers.BooleanField(required=False, default=True)
+
+
 def planned_block_to_dict(block) -> dict:
     return {
         'jy': block.date.jy,

@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, X } from 'lucide-react';
 import { Card, EmptyState, PrimaryButton } from '../../components/DemoUi';
-import { useConsultantRoster, useGroupMutations } from '../../hooks/useConsultantQueries';
+import {
+  useConsultantPreferences,
+  useConsultantRoster,
+  useGroupMutations,
+} from '../../hooks/useConsultantQueries';
 import {
   FALLBACK_COLUMNS,
   GRADE_OPTIONS,
@@ -36,9 +40,12 @@ export function StudentsRoster() {
   }, [search, grade, period, tag, minHours]);
 
   const { data, isLoading, isError, error, refetch } = useConsultantRoster(filters);
+  const { data: prefs } = useConsultantPreferences();
   const students = data?.students || [];
+  const visibleKeys = prefs?.visible_roster_columns;
   const columns = (data?.columns?.length ? data.columns : FALLBACK_COLUMNS)
-    .filter((c) => c.key !== 'full_name'); // نام جدا رندر می‌شود
+    .filter((c) => c.key !== 'full_name')
+    .filter((c) => !visibleKeys?.length || visibleKeys.includes(c.key));
 
   useEffect(() => {
     setSelected(new Set());

@@ -89,6 +89,10 @@ export const calendarAPI = {
 
 /** پنل مشاور / برنامه‌ریزی — اپ Planning */
 export const planningAPI = {
+  getDashboard: () => api.get('planning/consultant/dashboard/'),
+  getAnalytics: (params) => api.get('planning/consultant/analytics/', { params }),
+  getPreferences: () => api.get('planning/consultant/preferences/'),
+  updatePreferences: (data) => api.patch('planning/consultant/preferences/', data),
   getStudents: (params) => api.get('planning/consultant/students/', { params }),
   getGroups: () => api.get('planning/consultant/groups/'),
   createGroup: (data) => api.post('planning/consultant/groups/', data),
@@ -112,6 +116,8 @@ export const planningAPI = {
 
   previewPlan: (data) => api.post('planning/consultant/plans/preview/', data),
   publishPlan: (data) => api.post('planning/consultant/plans/publish/', data),
+  applyStudentBlocks: (userId, data) =>
+    api.post(`planning/consultant/students/${userId}/apply-blocks/`, data),
   getPlanRuns: () => api.get('planning/consultant/plans/'),
   getPlanRun: (runId) => api.get(`planning/consultant/plans/${runId}/`),
 

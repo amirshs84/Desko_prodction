@@ -12,6 +12,7 @@ from ...domain.entities.direct_message import DirectMessage, MessageSender
 from ...domain.repositories.direct_message_repository import DirectMessageRepository
 from ..commands.message_commands import SendDirectMessageCommand
 from ..dto.message_dto import DirectMessageDTO
+from .dashboard_service import bust_dashboard_cache
 
 
 class MessageService:
@@ -50,6 +51,9 @@ class MessageService:
         )
         with self._uow_factory():
             message = self._messages.add(message)
+        bust_dashboard_cache(
+            consultant_id=context.actor_user_id, school_id=school_id,
+        )
         return DirectMessageDTO.from_entity(message)
 
     def list_school_consultants(self, *, context: RequestContext) -> list[ConsultantInfo]:
@@ -91,6 +95,9 @@ class MessageService:
         )
         with self._uow_factory():
             message = self._messages.add(message)
+        bust_dashboard_cache(
+            consultant_id=consultant_id, school_id=context.school_id,
+        )
         return DirectMessageDTO.from_entity(message)
 
     def _assert_school_student(self, school_id: int, student_id: int) -> None:

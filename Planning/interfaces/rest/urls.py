@@ -19,12 +19,16 @@ from .views import (
     ConsultantGroupListCreateView,
     ConsultantGroupMembersView,
     ConsultantNoteDetailView,
+    ConsultantAnalyticsHubView,
+    ConsultantDashboardView,
+    ConsultantPreferencesView,
     ConsultantRosterView,
     ConsultantStudentMessagesView,
     ConsultantStudentNotesView,
     DayAvailabilityView,
     MoveBlockView,
     PlaceBlockView,
+    ApplyStudentBlocksView,
     PlanPreviewView,
     PlanPublishView,
     PlanRunDetailView,
@@ -85,7 +89,22 @@ urlpatterns = [
         name='planning_calendar_snapshot_restore',
     ),
 
-    # پنل مشاور: فهرست دانش‌آموزان و گروه‌بندی
+    # پنل مشاور: پیشخوان تریاژ + فهرست دانش‌آموزان و گروه‌بندی
+    path(
+        'planning/consultant/dashboard/',
+        ConsultantDashboardView.as_view(),
+        name='planning_consultant_dashboard',
+    ),
+    path(
+        'planning/consultant/analytics/',
+        ConsultantAnalyticsHubView.as_view(),
+        name='planning_consultant_analytics',
+    ),
+    path(
+        'planning/consultant/preferences/',
+        ConsultantPreferencesView.as_view(),
+        name='planning_consultant_preferences',
+    ),
     path(
         'planning/consultant/students/',
         ConsultantRosterView.as_view(),
@@ -132,6 +151,12 @@ urlpatterns = [
         'planning/me/consultants/',
         StudentSchoolConsultantsView.as_view(),
         name='planning_my_consultants',
+    ),
+
+    path(
+        'planning/consultant/students/<int:user_id>/apply-blocks/',
+        ApplyStudentBlocksView.as_view(),
+        name='planning_apply_student_blocks',
     ),
 
     # برنامه‌ریزی گروهی مشاور

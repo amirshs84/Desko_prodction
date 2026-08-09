@@ -57,6 +57,10 @@ class SchoolDirectory(Protocol):
         """کلاس متعلق به همان مدرسه؛ در غیر این صورت ``NotFoundError``."""
         ...
 
+    def list_classes(self, school_id: int) -> list[ClassInfo]:
+        """کلاس‌های فعال یک مدرسه، مرتب بر اساس پایه و نام."""
+        ...
+
     def list_class_student_user_ids(self, class_id: int, *, school_id: int) -> list[int]:
         """شناسه‌ی کاربری دانش‌آموزان فعالِ عضو یک کلاس."""
         ...
@@ -88,4 +92,8 @@ class SchoolDirectory(Protocol):
 
     def get_consultant(self, user_id: int, *, school_id: int) -> ConsultantInfo | None:
         """مشاور فعال همین مدرسه؛ در غیر این صورت ``None``."""
+        ...
+
+    def get_school_name(self, school_id: int) -> str:
+        """نام نمایشی مدرسه؛ در صورت نبود رشته خالی."""
         ...

@@ -1,4 +1,5 @@
 import { ArrowRight, MessageCircle } from 'lucide-react';
+import { CommandPaletteTrigger } from '../../demo/components/CommandPalette';
 import { GRADE_LABELS, PROFILE } from '../profileTheme';
 
 function initials(name) {
@@ -86,17 +87,20 @@ export function ProfileHeader({ student, userId, onBack, activeTab, onTabChange,
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onMessage}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl
-                     text-sm font-bold text-white shadow-sm shrink-0
-                     hover:brightness-105 active:scale-[0.98] transition"
-          style={{ background: PROFILE.brand }}
-        >
-          <MessageCircle size={18} strokeWidth={2.4} />
-          ارسال پیام
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <CommandPaletteTrigger />
+          <button
+            type="button"
+            onClick={onMessage}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl
+                       text-sm font-bold text-white shadow-sm
+                       hover:brightness-105 active:scale-[0.98] transition"
+            style={{ background: PROFILE.brand }}
+          >
+            <MessageCircle size={18} strokeWidth={2.4} />
+            ارسال پیام
+          </button>
+        </div>
       </div>
 
       <nav className="flex gap-1 overflow-x-auto -mx-1 px-1" aria-label="تب‌های پروفایل">

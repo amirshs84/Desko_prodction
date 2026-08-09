@@ -10,7 +10,7 @@ from typing import Iterable
 
 from django.db.models import Prefetch, Q
 
-from api.models import ClassEnrollment, SchoolClass, UserProfile
+from api.models import ClassEnrollment, School, SchoolClass, UserProfile
 
 from ..application.ports.school_directory import (
     ClassInfo,
@@ -35,6 +35,21 @@ class DjangoSchoolDirectory:
             code=row.code,
             grade=row.grade,
         )
+
+    def list_classes(self, school_id: int) -> list[ClassInfo]:
+        rows = SchoolClass.objects.filter(
+            school_id=school_id, is_active=True,
+        ).order_by('grade', 'name', 'code')
+        return [
+            ClassInfo(
+                id=row.id,
+                school_id=row.school_id,
+                name=row.name,
+                code=row.code,
+                grade=row.grade,
+            )
+            for row in rows
+        ]
 
     def list_class_student_user_ids(self, class_id: int, *, school_id: int) -> list[int]:
         return list(
@@ -110,6 +125,14 @@ class DjangoSchoolDirectory:
         if profile is None:
             return None
         return self._to_consultant_info(profile)
+
+    def get_school_name(self, school_id: int) -> str:
+        name = (
+            School.objects.filter(id=school_id)
+            .values_list('name', flat=True)
+            .first()
+        )
+        return name or ''
 
     # ---------- کمکی‌ها ----------
 

@@ -1,22 +1,22 @@
 import {
-  LayoutDashboard, Users, UsersRound, CalendarRange, History,
+  LayoutDashboard, Users, UsersRound, CalendarRange, BarChart3,
   Settings, ClipboardList,
 } from 'lucide-react';
 
 export const NAV_ITEMS = [
-  { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'پیشخوان', icon: LayoutDashboard },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
   { id: 'groups', label: 'گروه‌ها', icon: UsersRound },
   { id: 'planning', label: 'برنامه‌ریزی گروهی', icon: ClipboardList },
-  { id: 'history', label: 'تاریخچه', icon: History },
-  { id: 'settings', label: 'تنظیمات', icon: Settings },
+  { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
+  { id: 'settings', label: 'حساب', icon: Settings },
 ];
 
 /** ترتیب فیزیکی از چپ به راست (dir=ltr روی نوار پایین) */
 export const BOTTOM_NAV = [
-  { id: 'settings', label: 'تنظیمات', icon: Settings },
+  { id: 'settings', label: 'حساب', icon: Settings },
   { id: 'groups', label: 'گروه‌ها', icon: UsersRound },
-  { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'پیشخوان', icon: LayoutDashboard },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
   { id: 'planning', label: 'برنامه', icon: CalendarRange },
 ];

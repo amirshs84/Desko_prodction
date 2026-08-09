@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { todayJalali } from '../../../calendar/lib/jalaliUtils';
 import { setCalendarBase, calPathWeek } from '../../../calendar/lib/paths';
+import CommandPalette from '../demo/components/CommandPalette';
 import { useConsultantStudents } from '../demo/hooks/useConsultantQueries';
 import { ProfileHeader } from './components/ProfileHeader';
 import { PROFILE } from './profileTheme';
@@ -101,6 +102,8 @@ export default function StudentProfilePage() {
           </div>
         )}
       </main>
+
+      <CommandPalette />
     </div>
   );
 }

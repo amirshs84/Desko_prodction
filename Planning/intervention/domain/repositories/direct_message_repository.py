@@ -19,3 +19,9 @@ class DirectMessageRepository(Protocol):
     def list_for_student(self, *, student_id: int) -> list[DirectMessage]:
         """همه پیام‌های یک دانش‌آموز با مشاوران مختلف (مرتب زمانی)."""
         ...
+
+    def list_recent_for_consultant(
+        self, *, consultant_id: int, limit: int = 30,
+    ) -> list[DirectMessage]:
+        """آخرین پیام‌های همه تردهای یک مشاور (جدیدترین‌ها اول)."""
+        ...

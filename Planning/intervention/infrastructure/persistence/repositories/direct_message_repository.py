@@ -26,3 +26,11 @@ class DjangoDirectMessageRepository(DirectMessageRepository):
     def list_for_student(self, *, student_id: int) -> list[DirectMessage]:
         rows = m.ConsultantDirectMessageModel.objects.filter(student_id=student_id)
         return [DirectMessageMapper.to_entity(row) for row in rows]
+
+    def list_recent_for_consultant(
+        self, *, consultant_id: int, limit: int = 30,
+    ) -> list[DirectMessage]:
+        rows = m.ConsultantDirectMessageModel.objects.filter(
+            consultant_id=consultant_id,
+        ).order_by('-created_at', '-id')[: max(1, min(limit, 100))]
+        return [DirectMessageMapper.to_entity(row) for row in rows]

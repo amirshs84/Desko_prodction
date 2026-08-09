@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import MobileBottomNav from './components/MobileBottomNav';
+import CommandPalette from './components/CommandPalette';
 import { ConsultantProvider, useConsultant } from './context/ConsultantContext';
 import { resolveTab } from './tabRegistry';
 import { DEFAULT_TAB_ID, resolveBottomNavActive } from './constants/navItems';
@@ -54,6 +55,8 @@ function LayoutBody({ activeNav, setActiveNav, DesktopView, MobileView }) {
         <MobileView onMenuClick={toggleMobileSidebar} />
         <MobileBottomNav activeTab={bottomNavActive} onTabChange={handleBottomNavChange} />
       </div>
+
+      <CommandPalette />
     </div>
   );
 }

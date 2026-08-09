@@ -14,6 +14,9 @@ from .class_fixed_event_views import (
     ClassFixedEventGroupDetailView,
     ClassFixedEventListCreateView,
 )
+from .consultant_analytics_views import ConsultantAnalyticsHubView
+from .consultant_dashboard_views import ConsultantDashboardView
+from .consultant_preferences_views import ConsultantPreferencesView
 from .consultant_group_views import (
     ConsultantGroupDetailView,
     ConsultantGroupListCreateView,
@@ -29,6 +32,7 @@ from .consultant_profile_views import (
 )
 from .progress_views import StudentProgressView
 from .plan_views import (
+    ApplyStudentBlocksView,
     CalendarSnapshotListView,
     CalendarSnapshotRestoreView,
     PlanPreviewView,
@@ -56,11 +60,15 @@ __all__ = [
     'ConsultantGroupListCreateView',
     'ConsultantGroupMembersView',
     'ConsultantRosterView',
+    'ConsultantDashboardView',
+    'ConsultantAnalyticsHubView',
+    'ConsultantPreferencesView',
     'ConsultantNoteDetailView',
     'ConsultantStudentMessagesView',
     'ConsultantStudentNotesView',
     'StudentDirectMessageListCreateView',
     'StudentSchoolConsultantsView',
+    'ApplyStudentBlocksView',
     'PlanPreviewView',
     'PlanPublishView',
     'PlanRunDetailView',

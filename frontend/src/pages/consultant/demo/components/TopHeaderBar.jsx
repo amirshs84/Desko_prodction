@@ -1,4 +1,5 @@
 import SidebarToggleIcon from './SidebarToggleIcon';
+import { CommandPaletteTrigger } from './CommandPalette';
 import { useConsultant } from '../context/ConsultantContext';
 
 export default function TopHeaderBar({ title = 'پنل مشاور' }) {
@@ -20,7 +21,8 @@ export default function TopHeaderBar({ title = 'پنل مشاور' }) {
       >
         <SidebarToggleIcon collapsed={desktopSidebarCollapsed} />
       </button>
-      <h1 className="text-lg font-bold text-gray-900">{title}</h1>
+      <h1 className="text-lg font-bold text-gray-900 flex-1">{title}</h1>
+      <CommandPaletteTrigger />
     </div>
   );
 }

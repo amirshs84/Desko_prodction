@@ -2,7 +2,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useState,
   type ReactNode,
 } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -208,10 +210,18 @@ const EventsContext = createContext<EventsContextValue | null>(null)
 export function EventsProvider({
   children,
   ownerUserId,
+  draftSeed,
+  onDraftEventsChange,
+  previewMode = false,
 }: {
   children: ReactNode
   /** اگر ست شود، رویدادهای همان کاربر با `?user=` بارگذاری می‌شود (پنل مشاور). */
   ownerUserId?: number | string | null
+  /** بلوک‌های پیشنهادی برنامه‌ریزی گروهی که فقط محلی ویرایش می‌شوند. */
+  draftSeed?: CalendarEventRecord[] | null
+  onDraftEventsChange?: (drafts: CalendarEventRecord[]) => void
+  /** در حالت پیش‌نمایش، جابه‌جایی/حذف پیش‌نویس‌ها بدون API است. */
+  previewMode?: boolean
 }) {
   const queryClient = useQueryClient()
   const ownerKey = ownerUserId != null && ownerUserId !== '' ? String(ownerUserId) : 'me'
@@ -222,7 +232,7 @@ export function EventsProvider({
   )
   const persistLocal = ownerKey === 'me'
 
-  const { data: events = persistLocal ? loadInitial() : [] } = useQuery<CalendarEventRecord[]>({
+  const { data: serverEvents = persistLocal ? loadInitial() : [] } = useQuery<CalendarEventRecord[]>({
     queryKey,
     queryFn: async () => {
       const res = await calendarAPI.getEvents(apiParams)
@@ -236,6 +246,27 @@ export function EventsProvider({
     placeholderData: persistLocal ? loadInitial : [],
   })
 
+  const [draftEvents, setDraftEvents] = useState<CalendarEventRecord[]>(draftSeed ?? [])
+  useEffect(() => {
+    setDraftEvents(draftSeed ?? [])
+  }, [draftSeed])
+
+  useEffect(() => {
+    onDraftEventsChange?.(draftEvents)
+  }, [draftEvents, onDraftEventsChange])
+
+  const events = useMemo(
+    () => (previewMode ? [...serverEvents, ...draftEvents] : serverEvents),
+    [previewMode, serverEvents, draftEvents],
+  )
+
+  const isDraftEvent = useCallback(
+    (id: string) =>
+      previewMode &&
+      (id.startsWith('draft:') || draftEvents.some((d) => d.id === id)),
+    [previewMode, draftEvents],
+  )
+
   const mutate = useCallback(
     (updater: (prev: CalendarEventRecord[]) => CalendarEventRecord[]) => {
       queryClient.setQueryData<CalendarEventRecord[]>(queryKey, (prev = []) => {
@@ -245,6 +276,13 @@ export function EventsProvider({
       })
     },
     [queryClient, queryKey, persistLocal],
+  )
+
+  const mutateDraft = useCallback(
+    (updater: (prev: CalendarEventRecord[]) => CalendarEventRecord[]) => {
+      setDraftEvents((prev) => updater(prev))
+    },
+    [],
   )
 
   const countInGroup = useCallback(
@@ -352,6 +390,10 @@ export function EventsProvider({
 
   const updateEvent = useCallback<EventsContextValue['updateEvent']>(
     (id, patch, scope = 'single') => {
+      if (isDraftEvent(id)) {
+        mutateDraft((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
+        return
+      }
       const current = queryClient
         .getQueryData<CalendarEventRecord[]>(queryKey)
         ?.find((e) => e.id === id)
@@ -396,11 +438,15 @@ export function EventsProvider({
         })
       }
     },
-    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal],
+    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal, isDraftEvent, mutateDraft],
   )
 
   const removeEvent = useCallback<EventsContextValue['removeEvent']>(
     (id, scope = 'single') => {
+      if (isDraftEvent(id)) {
+        mutateDraft((prev) => prev.filter((e) => e.id !== id))
+        return
+      }
       const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
       const target = backup?.find((e) => e.id === id)
       if (isImmutable(target)) {
@@ -440,13 +486,14 @@ export function EventsProvider({
         })
       }
     },
-    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal],
+    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal, isDraftEvent, mutateDraft],
   )
 
   const moveEvent = useCallback<EventsContextValue['moveEvent']>(
     async (id, target) => {
+      const draftCurrent = draftEvents.find((e) => e.id === id)
       const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
-      const current = backup?.find((e) => e.id === id)
+      const current = draftCurrent ?? backup?.find((e) => e.id === id)
       if (!current) return { snapped: false }
       if (isImmutable(current)) {
         alert('این رویداد ثابت مدرسه است و قابل جابه‌جایی نیست.')
@@ -470,6 +517,11 @@ export function EventsProvider({
         current.jd === optimistic.jd &&
         current.startMinutes === optimistic.startMinutes
       if (unchanged) return { snapped: false }
+
+      if (isDraftEvent(id)) {
+        mutateDraft((prev) => prev.map((e) => (e.id === id ? optimistic : e)))
+        return { snapped: false }
+      }
 
       mutate((prev) => prev.map((e) => (e.id === id ? optimistic : e)))
 
@@ -509,11 +561,32 @@ export function EventsProvider({
         return { snapped: false }
       }
     },
-    [mutate, queryClient, queryKey, apiParams, persistLocal],
+    [mutate, queryClient, queryKey, apiParams, persistLocal, draftEvents, isDraftEvent, mutateDraft],
   )
 
   const placeTimedBlock = useCallback<EventsContextValue['placeTimedBlock']>(
     async (input) => {
+      if (previewMode) {
+        const duration = Math.max(15, input.durationMinutes || 90)
+        const start = Math.max(0, input.startMinutes)
+        const draft: CalendarEventRecord = {
+          id: `draft:${generateEventId()}`,
+          jy: input.date.jy,
+          jm: input.date.jm,
+          jd: input.date.jd,
+          title: input.title?.trim() || 'بلوک پیشنهادی',
+          description: 'پیش‌نویس برنامه‌ریزی گروهی',
+          startMinutes: start,
+          endMinutes: Math.min(24 * 60, start + duration),
+          color: input.color || '#10b981',
+          allDay: false,
+          createdAt: new Date().toISOString(),
+          origin: 'plan_preview',
+          kind: 'mutable',
+        }
+        mutateDraft((prev) => [...prev, draft])
+        return { snapped: false }
+      }
       if (!isLoggedIn()) {
         alert('برای گذاشتن بلوک باید وارد شوید.')
         return { snapped: false }
@@ -552,7 +625,7 @@ export function EventsProvider({
         return { snapped: false }
       }
     },
-    [apiParams, mutate],
+    [apiParams, mutate, previewMode, mutateDraft],
   )
 
   const eventsForDay = useCallback(

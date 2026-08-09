@@ -8,6 +8,7 @@
 """
 from .intervention.infrastructure.persistence.models import (
     ConsultantDirectMessageModel,
+    ConsultantPreferencesModel,
     ConsultantStudentNoteModel,
     PlanProposalModel,
     PlanRunModel,
@@ -25,6 +26,7 @@ __all__ = [
     'CalendarSnapshotModel',
     'SavedBlockTemplateModel',
     'ConsultantDirectMessageModel',
+    'ConsultantPreferencesModel',
     'ConsultantStudentNoteModel',
     'PlanProposalModel',
     'PlanRunModel',

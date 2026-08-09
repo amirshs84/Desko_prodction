@@ -26,7 +26,11 @@ from ....shared.domain.errors import PermissionDeniedError
 from ..context import build_context, resolve_calendar_owner
 from ..errors import BasePlanningView
 from ..params import parse_jalali_date, parse_optional_int
+from ....intervention.domain.value_objects.planned_block import PlannedBlock
+from ....scheduling.domain.value_objects.jalali_date import JalaliDate
+from ....scheduling.domain.value_objects.time_range import TimeRange
 from ..serializers import (
+    ApplyStudentBlocksSerializer,
     PlanBuildSerializer,
     ProposalRespondSerializer,
     plan_preview_to_dict,
@@ -57,6 +61,31 @@ class PlanPublishView(_ConsultantPlanView):
         command = _build_plan_command(request.data)
         dto = self.planning.publish(command, context=build_context(request))
         return Response(plan_run_to_dict(dto), status=status.HTTP_201_CREATED)
+
+
+class ApplyStudentBlocksView(_ConsultantPlanView):
+    """ثبت بلوک‌های ویرایش‌شده‌ی پیش‌نمایش روی تقویم یک دانش‌آموز (خروج از بچ)."""
+
+    def post(self, request, user_id: int):
+        serializer = ApplyStudentBlocksSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        blocks = [
+            PlannedBlock(
+                date=JalaliDate(item['jy'], item['jm'], item['jd']),
+                slot=TimeRange(item['start_minutes'], item['end_minutes']),
+                subject=item['subject'],
+                color=item.get('color') or '#10b981',
+            )
+            for item in data['blocks']
+        ]
+        result = self.planning.apply_student_blocks(
+            student_id=user_id,
+            blocks=blocks,
+            context=build_context(request),
+            take_snapshot=data.get('take_snapshot', True),
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
 
 
 class PlanRunListView(_ConsultantPlanView):

@@ -206,6 +206,41 @@ class ConsultantStudentNoteModel(models.Model):
         ]
 
 
+class ConsultantPreferencesModel(models.Model):
+    """ترجیحات شخصی‌سازی مشاور (ستون‌ها، پاسخ سریع، نوتیف، ساعات کاری)."""
+
+    consultant = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='planning_preferences',
+        verbose_name='مشاور',
+    )
+    school = models.ForeignKey(
+        'api.School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='planning_consultant_preferences',
+        verbose_name='مدرسه',
+    )
+    quick_replies = models.JSONField(default=list, blank=True, verbose_name='پاسخ‌های سریع')
+    visible_roster_columns = models.JSONField(
+        default=list, blank=True, verbose_name='ستون‌های فهرست دانش‌آموزان',
+    )
+    notifications = models.JSONField(default=dict, blank=True, verbose_name='نوتیفیکیشن‌ها')
+    working_hours = models.JSONField(default=dict, blank=True, verbose_name='ساعات کاری')
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'prefs · consultant#{self.consultant_id}'
+
+    class Meta:
+        db_table = 'planning_consultantpreferences'
+        verbose_name = 'ترجیحات مشاور'
+        verbose_name_plural = 'ترجیحات مشاوران'
+
+
 class ConsultantDirectMessageModel(models.Model):
     """پیام مستقیم مشاور ↔ دانش‌آموز در یک مدرسه."""
 

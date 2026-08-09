@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningAPI } from '../../../../api/client';
 
 export const CONSULTANT_KEYS = {
+  dashboard: () => ['consultant', 'dashboard'],
+  analytics: (period = 'weekly') => ['consultant', 'analytics', period],
+  preferences: () => ['consultant', 'preferences'],
   students: (filters = {}) => ['consultant', 'students', filters],
   groups: () => ['consultant', 'groups'],
   group: (id) => ['consultant', 'groups', id],
@@ -25,6 +28,44 @@ function normalizeRosterPayload(data) {
     columns: data?.columns || [],
     students: data?.students || [],
   };
+}
+
+/** پیشخوان تریاژ — داده از سرور کش می‌شود. */
+export function useConsultantDashboard() {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.dashboard(),
+    queryFn: () => planningAPI.getDashboard().then((r) => r.data),
+    refetchInterval: 60_000,
+  });
+}
+
+/** هاب گزارش — تجمیع کلاس‌محور؛ نمودارها lazy لود می‌شوند. */
+export function useConsultantAnalytics(period = 'weekly') {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.analytics(period),
+    queryFn: () => planningAPI.getAnalytics({ period }).then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+export function useConsultantPreferences() {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.preferences(),
+    queryFn: () => planningAPI.getPreferences().then((r) => r.data),
+    staleTime: 30_000,
+  });
+}
+
+export function usePreferencesMutation() {
+  const qc = useQueryClient();
+  const updatePrefs = useMutation({
+    mutationFn: (data) => planningAPI.updatePreferences(data).then((r) => r.data),
+    onSuccess: (data) => {
+      qc.setQueryData(CONSULTANT_KEYS.preferences(), data);
+      qc.invalidateQueries({ queryKey: ['consultant', 'students'] });
+    },
+  });
+  return { updatePrefs };
 }
 
 /** فهرست دانش‌آموزان — همیشه آرایه برمی‌گرداند (سازگار با گروه‌ها/داشبورد). */
@@ -211,7 +252,10 @@ export function useStudentMessages(userId) {
 
 export function useStudentMessageMutations(userId) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.messages(userId) });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.messages(userId) });
+    qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.dashboard() });
+  };
 
   const sendMessage = useMutation({
     mutationFn: (data) => planningAPI.sendStudentMessage(userId, data).then((r) => r.data),

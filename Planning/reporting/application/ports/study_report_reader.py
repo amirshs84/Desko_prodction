@@ -31,6 +31,28 @@ class StudyAggregate:
     session_count: int
 
 
+@dataclass(frozen=True)
+class DailyStudyTotal:
+    """مجموع مطالعه همه کاربران در یک روز تقویمی تهران."""
+
+    date: str  # YYYY-MM-DD
+    total_seconds: int
+
+
+@dataclass(frozen=True)
+class RecentSessionHighlight:
+    user_id: int
+    subject_name: str
+    duration_seconds: int
+    start_time: datetime
+
+
+@dataclass(frozen=True)
+class SubjectStudyTotal:
+    subject_name: str
+    total_seconds: int
+
+
 @runtime_checkable
 class StudyReportReader(Protocol):
     def list_sessions(
@@ -43,4 +65,22 @@ class StudyReportReader(Protocol):
         self, user_ids: Iterable[int], *, since: datetime | None = None,
     ) -> dict[int, StudyAggregate]:
         """مجموع ثانیه و تعداد جلسه به‌ازای هر کاربر — یک کوئری گروهی."""
+        ...
+
+    def daily_totals_for_users(
+        self, user_ids: Iterable[int], *, since: datetime, until: datetime,
+    ) -> list[DailyStudyTotal]:
+        """Sparkline: مجموع روزانه ثانیه‌های مطالعه برای گروهی از کاربران."""
+        ...
+
+    def recent_sessions_for_users(
+        self, user_ids: Iterable[int], *, limit: int = 20,
+    ) -> list[RecentSessionHighlight]:
+        """فید زنده: آخرین جلسات مطالعه مدرسه."""
+        ...
+
+    def subject_totals_for_users(
+        self, user_ids: Iterable[int], *, since: datetime | None = None,
+    ) -> list[SubjectStudyTotal]:
+        """مجموع مطالعه به‌ازای نام درس برای گروه کاربران."""
         ...
