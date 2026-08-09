@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, X } from 'lucide-react';
 import { Card, EmptyState, PrimaryButton } from '../../components/DemoUi';
+import { useConsultant } from '../../context/ConsultantContext';
 import {
   useConsultantPreferences,
   useConsultantRoster,
   useGroupMutations,
 } from '../../hooks/useConsultantQueries';
+import { openStudentProfile } from '../../lib/navigation';
 import {
   FALLBACK_COLUMNS,
   GRADE_OPTIONS,
@@ -20,6 +22,9 @@ import {
 
 export function StudentsRoster() {
   const navigate = useNavigate();
+  const { activeNav } = useConsultant();
+  const goStudent = (userId) =>
+    openStudentProfile(navigate, userId, { fromTab: activeNav || 'students' });
   const [search, setSearch] = useState('');
   const [grade, setGrade] = useState('');
   const [period, setPeriod] = useState('weekly');
@@ -216,7 +221,7 @@ export function StudentsRoster() {
                           <div className="min-w-0">
                             <button
                               type="button"
-                              onClick={() => navigate(`/consultant/student/${s.user_id}`)}
+                              onClick={() => goStudent(s.user_id)}
                               className="font-semibold truncate max-w-[200px] block text-right hover:underline"
                               style={{ color: ROSTER.brandStrong }}
                             >
@@ -236,7 +241,7 @@ export function StudentsRoster() {
                       <td className="px-3 py-3 text-left">
                         <button
                           type="button"
-                          onClick={() => navigate(`/consultant/student/${s.user_id}`)}
+                          onClick={() => goStudent(s.user_id)}
                           className="text-xs font-bold px-3 py-1.5 rounded-lg text-white"
                           style={{ background: ROSTER.brand }}
                         >
@@ -262,7 +267,7 @@ export function StudentsRoster() {
                 student={s}
                 selected={selected.has(s.user_id)}
                 onToggle={() => toggleOne(s.user_id)}
-                onOpen={() => navigate(`/consultant/student/${s.user_id}`)}
+                onOpen={() => goStudent(s.user_id)}
                 showHeat={showHeat}
                 periodLabel={PERIODS.find((p) => p.id === period)?.label}
               />

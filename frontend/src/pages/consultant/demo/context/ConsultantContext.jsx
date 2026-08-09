@@ -1,8 +1,11 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { DEFAULT_TAB_ID } from '../constants/navItems';
+import { consumeConsultantReturnTab } from '../lib/navigation';
 
 const ConsultantContext = createContext(null);
 
-export function ConsultantProvider({ children, onNavigate }) {
+export function ConsultantProvider({ children }) {
+  const [activeNav, setActiveNav] = useState(() => consumeConsultantReturnTab(DEFAULT_TAB_ID));
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -23,14 +26,16 @@ export function ConsultantProvider({ children, onNavigate }) {
   const navigateToTab = useCallback((tabId, seed = null) => {
     if (seed?.groupId != null) setSelectedGroupId(seed.groupId);
     if (seed) setPlanningSeed(seed);
-    onNavigate?.(tabId);
+    setActiveNav(tabId);
     setMobileSidebarOpen(false);
-  }, [onNavigate]);
+  }, []);
 
   const clearPlanningSeed = useCallback(() => setPlanningSeed(null), []);
 
   const value = useMemo(
     () => ({
+      activeNav,
+      setActiveNav,
       desktopSidebarCollapsed,
       toggleDesktopSidebar,
       mobileSidebarOpen,
@@ -43,6 +48,7 @@ export function ConsultantProvider({ children, onNavigate }) {
       navigateToTab,
     }),
     [
+      activeNav,
       desktopSidebarCollapsed,
       toggleDesktopSidebar,
       mobileSidebarOpen,
@@ -66,4 +72,9 @@ export function useConsultant() {
   const ctx = useContext(ConsultantContext);
   if (!ctx) throw new Error('useConsultant must be used within ConsultantProvider');
   return ctx;
+}
+
+/** روی صفحه پروفایل دانش‌آموز Provider نیست — null برمی‌گردد. */
+export function useOptionalConsultant() {
+  return useContext(ConsultantContext);
 }

@@ -1,24 +1,26 @@
 import {
-  LayoutDashboard, Users, UsersRound, CalendarRange, BarChart3,
-  Settings, ClipboardList,
+  LayoutDashboard, Users, CalendarRange, BarChart3, Settings, ClipboardList,
 } from 'lucide-react';
 
+/** سایدبار دسکتاپ — از بالا به پایین */
 export const NAV_ITEMS = [
-  { id: 'dashboard', label: 'پیشخوان', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
-  { id: 'groups', label: 'گروه‌ها', icon: UsersRound },
-  { id: 'planning', label: 'برنامه‌ریزی گروهی', icon: ClipboardList },
+  { id: 'planning', label: 'برنامه‌ریزی', icon: ClipboardList },
   { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
-  { id: 'settings', label: 'حساب', icon: Settings },
+  { id: 'settings', label: 'پروفایل', icon: Settings },
 ];
 
-/** ترتیب فیزیکی از چپ به راست (dir=ltr روی نوار پایین) */
+/**
+ * نوار پایین موبایل — ترتیب فیزیکی چپ→راست (dir=ltr روی نوار):
+ * پروفایل | گزارش‌ها | داشبورد | دانش‌آموزان | برنامه‌ریزی
+ */
 export const BOTTOM_NAV = [
-  { id: 'settings', label: 'حساب', icon: Settings },
-  { id: 'groups', label: 'گروه‌ها', icon: UsersRound },
-  { id: 'dashboard', label: 'پیشخوان', icon: LayoutDashboard },
+  { id: 'settings', label: 'پروفایل', icon: Settings },
+  { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
+  { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
-  { id: 'planning', label: 'برنامه', icon: CalendarRange },
+  { id: 'planning', label: 'برنامه‌ریزی', icon: CalendarRange },
 ];
 
 export const BOTTOM_NAV_TAB_IDS = BOTTOM_NAV.map((t) => t.id);
@@ -28,3 +30,6 @@ export function resolveBottomNavActive(activeNav) {
 }
 
 export const DEFAULT_TAB_ID = 'dashboard';
+
+/** تب گروه‌ها از ناوبری مخفی است؛ رجیستری و کدش سر جایش مانده. */
+export const HIDDEN_NAV_TAB_IDS = ['groups', 'history'];

@@ -2,7 +2,9 @@ import { lazy, Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, History } from 'lucide-react';
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
+import { useConsultant } from '../context/ConsultantContext';
 import { useConsultantAnalytics, usePlanRun } from '../hooks/useConsultantQueries';
+import { openStudentProfile } from '../lib/navigation';
 import { STUDIO } from './planning/studioTheme';
 import { formatDuration } from './students/rosterUtils';
 
@@ -16,6 +18,7 @@ const PERIODS = [
 
 function AnalyticsBody() {
   const navigate = useNavigate();
+  const { activeNav } = useConsultant();
   const [period, setPeriod] = useState('weekly');
   const [selectedRunId, setSelectedRunId] = useState(null);
   const { data, isLoading, isError, error, refetch, isFetching } = useConsultantAnalytics(period);
@@ -73,7 +76,9 @@ function AnalyticsBody() {
             onSelect={setSelectedRunId}
             detail={detail}
             loadingDetail={loadingDetail}
-            onOpenStudent={(id) => navigate(`/consultant/student/${id}`)}
+            onOpenStudent={(id) =>
+              openStudentProfile(navigate, id, { fromTab: activeNav || 'analytics' })
+            }
             onCloseDetail={() => setSelectedRunId(null)}
           />
         </>

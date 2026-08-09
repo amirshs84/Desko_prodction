@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
-  ChevronDown,
   Clock3,
   Flame,
   Inbox,
@@ -19,6 +18,7 @@ import {
   useConsultantPreferences,
   useStudentMessageMutations,
 } from '../hooks/useConsultantQueries';
+import { openStudentProfile } from '../lib/navigation';
 import { formatDuration } from './students/rosterUtils';
 import { STUDIO } from './planning/studioTheme';
 
@@ -31,23 +31,20 @@ const CC = {
 
 function DashboardBody() {
   const navigate = useNavigate();
-  const { navigateToTab } = useConsultant();
+  const { navigateToTab, activeNav } = useConsultant();
   const { data, isLoading, isError, error, refetch } = useConsultantDashboard();
   const { data: prefs } = useConsultantPreferences();
-  const [openSection, setOpenSection] = useState('at_risk');
   const [replyFor, setReplyFor] = useState(null);
   const [replyText, setReplyText] = useState('');
   const { sendMessage } = useStudentMessageMutations(replyFor?.studentId);
   const quickReplies = (prefs?.quick_replies || []).filter((r) => r.body?.trim());
 
-  const openProfile = (userId, tab) => {
-    const path = tab
-      ? `/consultant/student/${userId}/${tab}`
-      : `/consultant/student/${userId}`;
-    navigate(path);
+  const openProfile = (userId, profileTab) => {
+    openStudentProfile(navigate, userId, {
+      profileTab,
+      fromTab: activeNav || 'dashboard',
+    });
   };
-
-  const toggle = (key) => setOpenSection((cur) => (cur === key ? null : key));
 
   const submitReply = async () => {
     if (!replyFor?.studentId || !replyText.trim()) return;
@@ -101,7 +98,7 @@ function DashboardBody() {
           right={`${item.progress_percent}%`}
           danger
           onOpen={() => openProfile(item.user_id)}
-          onMessage={() => openProfile(item.user_id, 'messages')}
+          onMessage={() => openProfile(item.user_id, 'interactions')}
         />
       ),
     },
@@ -169,7 +166,7 @@ function DashboardBody() {
       style={{ background: 'transparent' }}
     >
       <div>
-        <h2 className="text-2xl font-bold" style={{ color: CC.ink }}>پیشخوان</h2>
+        <h2 className="text-2xl font-bold" style={{ color: CC.ink }}>داشبورد</h2>
         <p className="text-sm mt-1" style={{ color: CC.muted }}>
           تریاژ روزانه، فید زنده و پاسخ سریع
         </p>
@@ -185,10 +182,8 @@ function DashboardBody() {
       <div className="grid lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 flex flex-col gap-3">
           {sections.map((sec) => (
-            <Accordion
+            <ListCard
               key={sec.key}
-              open={openSection === sec.key}
-              onToggle={() => toggle(sec.key)}
               title={sec.title}
               count={sec.items.length}
               icon={sec.icon}
@@ -202,7 +197,7 @@ function DashboardBody() {
                   {sec.items.map(sec.render)}
                 </div>
               )}
-            </Accordion>
+            </ListCard>
           ))}
         </div>
 
@@ -251,7 +246,7 @@ function DashboardBody() {
                   >
                     <button
                       type="button"
-                      onClick={() => openProfile(msg.student_id, 'messages')}
+                      onClick={() => openProfile(msg.student_id, 'interactions')}
                       className="w-full text-right flex gap-2.5 items-start"
                     >
                       <span
@@ -360,21 +355,19 @@ function Sparkline({ values }) {
   );
 }
 
-function Accordion({ open, onToggle, title, count, icon: Icon, accent, soft, children }) {
+function ListCard({ title, count, icon: Icon, accent, soft, children }) {
   return (
     <div
       className="rounded-2xl overflow-hidden"
       style={{ border: `1px solid ${CC.border}`, background: '#fff' }}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-3.5 py-3 text-right"
-        style={{ background: open ? soft : '#fff' }}
+      <div
+        className="flex items-center gap-3 px-3.5 py-3 text-right"
+        style={{ background: soft }}
       >
         <span
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: soft, color: accent }}
+          style={{ background: '#fff', color: accent }}
         >
           <Icon size={16} />
         </span>
@@ -382,13 +375,8 @@ function Accordion({ open, onToggle, title, count, icon: Icon, accent, soft, chi
           <span className="block text-sm font-bold" style={{ color: CC.ink }}>{title}</span>
           <span className="block text-xs" style={{ color: CC.muted }}>{count} مورد</span>
         </span>
-        <ChevronDown
-          size={18}
-          color={CC.muted}
-          className={`transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && <div className="px-2 pb-2 pt-1">{children}</div>}
+      </div>
+      <div className="px-2 pb-2 pt-1">{children}</div>
     </div>
   );
 }
@@ -575,7 +563,7 @@ function urgencyLabel(u) {
 
 export function DashboardDesktop() {
   return (
-    <DesktopPageShell title="پیشخوان">
+    <DesktopPageShell title="داشبورد">
       <DashboardBody />
     </DesktopPageShell>
   );

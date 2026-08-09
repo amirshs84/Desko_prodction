@@ -15,7 +15,12 @@ function resolveTab(pathname, userId) {
   const base = `/consultant/student/${userId}`;
   if (pathname.startsWith(`${base}/calendar`)) return 'calendar';
   if (pathname.startsWith(`${base}/analytics`)) return 'analytics';
-  if (pathname.startsWith(`${base}/interactions`)) return 'interactions';
+  if (
+    pathname.startsWith(`${base}/interactions`)
+    || pathname.startsWith(`${base}/messages`)
+  ) {
+    return 'interactions';
+  }
   if (pathname.startsWith(`${base}/identity`)) return 'identity';
   return 'calendar';
 }
@@ -39,9 +44,13 @@ export default function StudentProfilePage() {
     return () => setCalendarBase('/calendar');
   }, [userId]);
 
-  // ورود مستقیم به ریشه پروفایل → تب تقویم (هسته عملیاتی)
+  // ورود مستقیم به ریشه پروفایل → تب تقویم؛ /messages → پیام‌ها
   useLayoutEffect(() => {
     const base = `/consultant/student/${userId}`;
+    if (location.pathname === `${base}/messages` || location.pathname === `${base}/messages/`) {
+      navigate(`${base}/interactions`, { replace: true });
+      return;
+    }
     if (location.pathname === base || location.pathname === `${base}/`) {
       const t = todayJalali();
       setCalendarBase(`${base}/calendar`);

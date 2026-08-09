@@ -25,10 +25,10 @@ export default function MobileBottomNav({ activeTab, onTabChange }) {
             onClick={() => onTabChange(tab.id)}
             className="flex-1 flex flex-col items-center justify-center gap-1 px-1 min-w-0"
           >
-            <Icon size={22} color={isActive ? '#0EA5E9' : '#9CA3AF'} />
+            <Icon size={22} color={isActive ? '#059669' : '#9CA3AF'} />
             <span
               className="text-[10px] font-medium leading-none truncate max-w-full"
-              style={{ color: isActive ? '#0EA5E9' : '#9CA3AF' }}
+              style={{ color: isActive ? '#059669' : '#9CA3AF' }}
             >
               {tab.label}
             </span>

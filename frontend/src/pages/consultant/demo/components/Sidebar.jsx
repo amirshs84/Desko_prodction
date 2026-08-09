@@ -26,13 +26,13 @@ export default function Sidebar({ activeItem, onNavigate, onClose }) {
       <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
         <div
           className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: '#0EA5E9' }}
+          style={{ background: '#059669' }}
         >
           <GraduationCap size={22} color="#fff" />
         </div>
         <div>
           <p className="font-bold text-gray-900 text-base leading-tight">دسکو</p>
-          <p className="text-xs text-sky-600 font-medium mt-0.5">پنل مشاور</p>
+          <p className="text-xs text-emerald-700 font-medium mt-0.5">پنل مشاور</p>
         </div>
         {onClose && (
           <button
@@ -54,8 +54,8 @@ export default function Sidebar({ activeItem, onNavigate, onClose }) {
               onClick={() => onNavigate?.(item.id)}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all text-right"
               style={{
-                background: isActive ? '#E0F2FE' : 'transparent',
-                color: isActive ? '#0284C7' : '#6B7280',
+                background: isActive ? '#ECFDF5' : 'transparent',
+                color: isActive ? '#047857' : '#6B7280',
               }}
             >
               <Icon size={18} />
@@ -63,7 +63,7 @@ export default function Sidebar({ activeItem, onNavigate, onClose }) {
               {isActive && (
                 <div
                   className="mr-auto w-1.5 h-5 rounded-full"
-                  style={{ background: '#0EA5E9' }}
+                  style={{ background: '#059669' }}
                 />
               )}
             </button>

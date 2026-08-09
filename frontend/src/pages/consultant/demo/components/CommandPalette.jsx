@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CornerDownLeft, Search, UserRound } from 'lucide-react';
+import { useOptionalConsultant } from '../context/ConsultantContext';
 import { useConsultantStudents } from '../hooks/useConsultantQueries';
+import { openStudentProfile } from '../lib/navigation';
 import { STUDIO } from '../tabs/planning/studioTheme';
 
 const CC = STUDIO;
 const OPEN_EVENT = 'consultant:open-command-palette';
 
+/** Ctrl/⌘+J — Ctrl+K معمولاً توسط مرورگر برای جستجو گرفته می‌شود. */
+function isPaletteHotkey(e) {
+  return (e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J');
+}
+
 /**
- * پالت فرمان سراسری مشاور — Ctrl/⌘+K
+ * پالت فرمان سراسری مشاور — Ctrl/⌘+J
  * از همه تب‌ها و صفحه پروفایل دانش‌آموز در دسترس است.
  */
 export default function CommandPalette() {
   const navigate = useNavigate();
+  const consultant = useOptionalConsultant();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -23,9 +31,9 @@ export default function CommandPalette() {
 
   useEffect(() => {
     const onKey = (e) => {
-      const isMod = e.ctrlKey || e.metaKey;
-      if (isMod && (e.key === 'k' || e.key === 'K')) {
+      if (isPaletteHotkey(e)) {
         e.preventDefault();
+        e.stopPropagation();
         setOpen((v) => !v);
         return;
       }
@@ -35,10 +43,11 @@ export default function CommandPalette() {
       }
     };
     const onOpenEvent = () => setOpen(true);
-    window.addEventListener('keydown', onKey);
+    // capture تا قبل از هندلرهای مرورگر/صفحه گرفته شود
+    window.addEventListener('keydown', onKey, true);
     window.addEventListener(OPEN_EVENT, onOpenEvent);
     return () => {
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       window.removeEventListener(OPEN_EVENT, onOpenEvent);
     };
   }, [open]);
@@ -78,7 +87,9 @@ export default function CommandPalette() {
   const go = (student) => {
     if (!student?.user_id) return;
     setOpen(false);
-    navigate(`/consultant/student/${student.user_id}`);
+    openStudentProfile(navigate, student.user_id, {
+      fromTab: consultant?.activeNav || 'dashboard',
+    });
   };
 
   const onKeyDown = (e) => {
@@ -226,7 +237,7 @@ export function CommandPaletteTrigger({ className = '' }) {
       onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
       className={`hidden lg:inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-xl transition-colors hover:bg-emerald-50 ${className}`}
       style={{ color: CC.muted, border: `1px solid ${CC.border}`, background: '#fff' }}
-      title="جستجوی سریع دانش‌آموز (Ctrl+K)"
+      title="جستجوی سریع دانش‌آموز (Ctrl+J)"
     >
       <Search size={14} color={CC.brand} />
       <span>جستجو</span>
@@ -234,7 +245,7 @@ export function CommandPaletteTrigger({ className = '' }) {
         className="text-[10px] px-1.5 py-0.5 rounded"
         style={{ background: CC.pageBg, border: `1px solid ${CC.border}` }}
       >
-        Ctrl K
+        Ctrl J
       </kbd>
     </button>
   );
