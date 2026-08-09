@@ -133,7 +133,10 @@ export const planningAPI = {
   sendStudentMessage: (userId, data) =>
     api.post(`planning/consultant/students/${userId}/messages/`, data),
   getMyMessages: () => api.get('planning/me/messages/'),
+  sendMessageToConsultant: (data) => api.post('planning/me/messages/', data),
+  /** @deprecated از sendMessageToConsultant استفاده کنید */
   replyToConsultantMessage: (data) => api.post('planning/me/messages/', data),
+  getMyConsultants: () => api.get('planning/me/consultants/'),
 };
 
 // Ticket / Messaging API (student)

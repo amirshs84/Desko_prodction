@@ -104,3 +104,22 @@ class StudentDirectMessageListCreateView(BasePlanningView):
             context=build_context(request),
         )
         return Response(direct_message_to_dict(message), status=status.HTTP_201_CREATED)
+
+
+class StudentSchoolConsultantsView(BasePlanningView):
+    """فهرست مشاوران مدرسه‌ی دانش‌آموز برای شروع/ادامه گفت‌وگو."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        consultants = get_container().message_service.list_school_consultants(
+            context=build_context(request),
+        )
+        return Response([
+            {
+                'user_id': item.user_id,
+                'full_name': item.full_name,
+                'phone_number': item.phone_number,
+            }
+            for item in consultants
+        ])

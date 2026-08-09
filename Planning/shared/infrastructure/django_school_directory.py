@@ -14,6 +14,7 @@ from api.models import ClassEnrollment, SchoolClass, UserProfile
 
 from ..application.ports.school_directory import (
     ClassInfo,
+    ConsultantInfo,
     StudentFilter,
     StudentInfo,
 )
@@ -93,6 +94,23 @@ class DjangoSchoolDirectory:
         )
         return [self._to_student_info(profile) for profile in queryset]
 
+    def list_consultants(self, school_id: int) -> list[ConsultantInfo]:
+        queryset = UserProfile.objects.filter(
+            role='consultant', school_id=school_id, user__is_active=True,
+        ).order_by('full_name', 'phone_number')
+        return [self._to_consultant_info(profile) for profile in queryset]
+
+    def get_consultant(self, user_id: int, *, school_id: int) -> ConsultantInfo | None:
+        profile = UserProfile.objects.filter(
+            user_id=user_id,
+            role='consultant',
+            school_id=school_id,
+            user__is_active=True,
+        ).first()
+        if profile is None:
+            return None
+        return self._to_consultant_info(profile)
+
     # ---------- کمکی‌ها ----------
 
     @staticmethod
@@ -115,4 +133,13 @@ class DjangoSchoolDirectory:
                 enrollment.school_class.name
                 for enrollment in profile.class_enrollments.all()
             ),
+        )
+
+    @staticmethod
+    def _to_consultant_info(profile: UserProfile) -> ConsultantInfo:
+        return ConsultantInfo(
+            user_id=profile.user_id,
+            school_id=profile.school_id,
+            full_name=profile.full_name or profile.phone_number or f'مشاور #{profile.user_id}',
+            phone_number=profile.phone_number or '',
         )

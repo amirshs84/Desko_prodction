@@ -25,6 +25,7 @@ from .consultant_profile_views import (
     ConsultantStudentMessagesView,
     ConsultantStudentNotesView,
     StudentDirectMessageListCreateView,
+    StudentSchoolConsultantsView,
 )
 from .progress_views import StudentProgressView
 from .plan_views import (
@@ -59,6 +60,7 @@ __all__ = [
     'ConsultantStudentMessagesView',
     'ConsultantStudentNotesView',
     'StudentDirectMessageListCreateView',
+    'StudentSchoolConsultantsView',
     'PlanPreviewView',
     'PlanPublishView',
     'PlanRunDetailView',

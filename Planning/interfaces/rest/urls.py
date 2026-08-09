@@ -33,6 +33,7 @@ from .views import (
     StudentProgressView,
     StudentProposalListView,
     StudentProposalRespondView,
+    StudentSchoolConsultantsView,
 )
 
 urlpatterns = [
@@ -126,6 +127,11 @@ urlpatterns = [
         'planning/me/messages/',
         StudentDirectMessageListCreateView.as_view(),
         name='planning_my_messages',
+    ),
+    path(
+        'planning/me/consultants/',
+        StudentSchoolConsultantsView.as_view(),
+        name='planning_my_consultants',
     ),
 
     # برنامه‌ریزی گروهی مشاور

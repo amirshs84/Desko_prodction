@@ -35,6 +35,14 @@ class StudentInfo:
 
 
 @dataclass(frozen=True)
+class ConsultantInfo:
+    user_id: int
+    school_id: int | None
+    full_name: str
+    phone_number: str
+
+
+@dataclass(frozen=True)
 class StudentFilter:
     """صافی‌های فهرست دانش‌آموزان (همه اختیاری)."""
 
@@ -72,4 +80,12 @@ class SchoolDirectory(Protocol):
         هم‌زمان «اعتبارسنجی عضویت گروه» و «داده‌ی نمایشی اعضا» را با یک کوئری
         فراهم می‌کند. مشاور نباید بتواند کاربری از مدرسه‌ی دیگر را عضو گروه کند.
         """
+        ...
+
+    def list_consultants(self, school_id: int) -> list[ConsultantInfo]:
+        """مشاوران فعال یک مدرسه، مرتب بر اساس نام."""
+        ...
+
+    def get_consultant(self, user_id: int, *, school_id: int) -> ConsultantInfo | None:
+        """مشاور فعال همین مدرسه؛ در غیر این صورت ``None``."""
         ...

@@ -182,6 +182,8 @@ export function useStudentMessages(userId) {
     queryKey: CONSULTANT_KEYS.messages(userId),
     queryFn: () => planningAPI.getStudentMessages(userId).then((r) => r.data),
     enabled: !!userId,
+    refetchInterval: 8_000,
+    refetchOnWindowFocus: true,
   });
 }
 

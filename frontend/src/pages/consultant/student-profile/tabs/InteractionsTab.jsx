@@ -68,10 +68,17 @@ function MessagesPanel({ userId, composeNonce }) {
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-[#F8FBF9]">
         {isLoading && <EmptyState message="در حال بارگذاری پیام‌ها…" />}
         {isError && (
-          <div className="text-center py-8">
-            <p className="text-sm text-red-500 mb-3">
+          <div className="text-center py-8 px-4">
+            <p className="text-sm text-red-500 mb-2">
               {error?.response?.data?.error?.message || 'خطا در دریافت پیام‌ها'}
             </p>
+            {error?.response?.status === 500 && (
+              <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+                اگر تازه این قابلیت اضافه شده، مایگریشن دیتابیس را اجرا کنید:
+                {' '}
+                <span dir="ltr" className="font-mono">migrate Planning</span>
+              </p>
+            )}
             <PrimaryButton onClick={() => refetch()} style={{ background: PROFILE.brand }}>
               تلاش دوباره
             </PrimaryButton>

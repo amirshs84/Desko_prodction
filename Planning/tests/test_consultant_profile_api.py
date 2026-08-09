@@ -106,7 +106,30 @@ class ConsultantProfileApiTests(APITestCase):
         self.assertEqual(reply.status_code, 201, reply.data)
         self.assertEqual(reply.data['sender_role'], 'student')
 
+        inbox = self.client.get('/api/planning/me/messages/')
+        self.assertEqual(inbox.status_code, 200)
+        self.assertEqual(len(inbox.data), 2)
+
         self.authenticate(self.consultant)
         thread = self.client.get(self.messages_url(self.ali.id))
         self.assertEqual(len(thread.data), 2)
         self.assertEqual(thread.data[1]['body'], 'ممنون، اصلاح می‌کنم.')
+
+    def test_student_can_start_conversation(self):
+        self.authenticate(self.ali)
+        consultants = self.client.get('/api/planning/me/consultants/')
+        self.assertEqual(consultants.status_code, 200)
+        self.assertEqual(len(consultants.data), 2)  # consultant + peer
+
+        started = self.client.post(
+            '/api/planning/me/messages/',
+            {'consultant_id': self.consultant.id, 'body': 'سلام، سوال دارم.'},
+            format='json',
+        )
+        self.assertEqual(started.status_code, 201, started.data)
+
+        self.authenticate(self.consultant)
+        thread = self.client.get(self.messages_url(self.ali.id))
+        self.assertEqual(thread.status_code, 200)
+        self.assertEqual(len(thread.data), 1)
+        self.assertEqual(thread.data[0]['sender_role'], 'student')

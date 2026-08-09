@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Callable
 
 from ....shared.application.context import RequestContext
-from ....shared.application.ports.school_directory import SchoolDirectory
+from ....shared.application.ports.school_directory import ConsultantInfo, SchoolDirectory
 from ....shared.application.ports.unit_of_work import UnitOfWork
 from ....shared.domain.enums import WriteAuthority
 from ....shared.domain.errors import PermissionDeniedError, ValidationError
@@ -52,6 +52,13 @@ class MessageService:
             message = self._messages.add(message)
         return DirectMessageDTO.from_entity(message)
 
+    def list_school_consultants(self, *, context: RequestContext) -> list[ConsultantInfo]:
+        if context.authority is not WriteAuthority.STUDENT:
+            raise PermissionDeniedError('فقط دانش‌آموز می‌تواند فهرست مشاوران را ببیند.')
+        if context.school_id is None:
+            raise PermissionDeniedError('حساب شما به هیچ مدرسه‌ای متصل نیست.')
+        return self._directory.list_consultants(context.school_id)
+
     def list_for_student(self, *, context: RequestContext) -> list[DirectMessageDTO]:
         if context.authority is not WriteAuthority.STUDENT:
             raise PermissionDeniedError('فقط دانش‌آموز می‌تواند اینباکس خود را ببیند.')
@@ -62,26 +69,21 @@ class MessageService:
         self, *, consultant_id: int, body: str, context: RequestContext,
     ) -> DirectMessageDTO:
         if context.authority is not WriteAuthority.STUDENT:
-            raise PermissionDeniedError('فقط دانش‌آموز می‌تواند پاسخ بفرستد.')
+            raise PermissionDeniedError('فقط دانش‌آموز می‌تواند پیام بفرستد.')
         if context.school_id is None:
             raise PermissionDeniedError('حساب شما به هیچ مدرسه‌ای متصل نیست.')
 
-        # مشاور باید از قبل در همین مدرسه با این دانش‌آموز مکالمه داشته باشد،
-        # یا حداقل عضو همان مدرسه باشد — از روی پیام قبلی یا عضویت مدرسه.
-        prior = self._messages.list_thread(
-            consultant_id=consultant_id, student_id=context.actor_user_id,
+        consultant = self._directory.get_consultant(
+            consultant_id, school_id=context.school_id,
         )
-        if not prior:
+        if consultant is None:
             raise ValidationError(
-                'هنوز مکالمه‌ای با این مشاور شروع نشده است.',
+                'این مشاور در مدرسه‌ی شما یافت نشد.',
                 meta={'consultant_id': consultant_id},
             )
-        school_id = prior[0].school_id
-        if school_id != context.school_id:
-            raise PermissionDeniedError('دسترسی به این مکالمه مجاز نیست.')
 
         message = DirectMessage.create(
-            school_id=school_id,
+            school_id=context.school_id,
             consultant_id=consultant_id,
             student_id=context.actor_user_id,
             sender_role=MessageSender.STUDENT,
