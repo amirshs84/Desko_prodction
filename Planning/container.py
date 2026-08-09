@@ -16,6 +16,8 @@ from typing import Mapping
 from .intervention.application.services import (
     BatchPlanningService,
     GroupService,
+    MessageService,
+    NoteService,
     ProposalService,
     RosterService,
 )
@@ -23,6 +25,12 @@ from .intervention.domain.ports.subject_weight_calculator import SubjectWeightCa
 from .intervention.infrastructure.persistence.repositories.plan_run_repository import (
     DjangoPlanProposalRepository,
     DjangoPlanRunRepository,
+)
+from .intervention.infrastructure.persistence.repositories.consultant_note_repository import (
+    DjangoConsultantNoteRepository,
+)
+from .intervention.infrastructure.persistence.repositories.direct_message_repository import (
+    DjangoDirectMessageRepository,
 )
 from .intervention.infrastructure.persistence.repositories.student_group_repository import (
     DjangoStudentGroupRepository,
@@ -94,6 +102,14 @@ class Container:
         return DjangoStudentGroupRepository()
 
     @cached_property
+    def consultant_notes(self) -> DjangoConsultantNoteRepository:
+        return DjangoConsultantNoteRepository()
+
+    @cached_property
+    def direct_messages(self) -> DjangoDirectMessageRepository:
+        return DjangoDirectMessageRepository()
+
+    @cached_property
     def plan_runs(self) -> DjangoPlanRunRepository:
         return DjangoPlanRunRepository()
 
@@ -155,6 +171,22 @@ class Container:
     def group_service(self) -> GroupService:
         return GroupService(
             groups=self.student_groups,
+            directory=self.school_directory,
+            uow_factory=self.unit_of_work,
+        )
+
+    @cached_property
+    def note_service(self) -> NoteService:
+        return NoteService(
+            notes=self.consultant_notes,
+            directory=self.school_directory,
+            uow_factory=self.unit_of_work,
+        )
+
+    @cached_property
+    def message_service(self) -> MessageService:
+        return MessageService(
+            messages=self.direct_messages,
             directory=self.school_directory,
             uow_factory=self.unit_of_work,
         )

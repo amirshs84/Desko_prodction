@@ -118,6 +118,22 @@ export const planningAPI = {
   getMyProposals: (params) => api.get('planning/me/proposals/', { params }),
   respondProposal: (proposalId, data) =>
     api.post(`planning/me/proposals/${proposalId}/respond/`, data),
+
+  getStudentNotes: (userId) =>
+    api.get(`planning/consultant/students/${userId}/notes/`),
+  createStudentNote: (userId, data) =>
+    api.post(`planning/consultant/students/${userId}/notes/`, data),
+  updateStudentNote: (noteId, data) =>
+    api.patch(`planning/consultant/notes/${noteId}/`, data),
+  deleteStudentNote: (noteId) =>
+    api.delete(`planning/consultant/notes/${noteId}/`),
+
+  getStudentMessages: (userId) =>
+    api.get(`planning/consultant/students/${userId}/messages/`),
+  sendStudentMessage: (userId, data) =>
+    api.post(`planning/consultant/students/${userId}/messages/`, data),
+  getMyMessages: () => api.get('planning/me/messages/'),
+  replyToConsultantMessage: (data) => api.post('planning/me/messages/', data),
 };
 
 // Ticket / Messaging API (student)

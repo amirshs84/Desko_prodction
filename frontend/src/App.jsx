@@ -7,7 +7,7 @@ import Courses from './pages/Courses';
 import ManagerDashboardDemo from './pages/manager/ManagerDashboardDemo';
 import StudentProfile from './pages/manager/StudentProfile';
 import ConsultantDashboard from './pages/consultant/ConsultantDashboard';
-import ConsultantStudentWorkspace from './pages/consultant/ConsultantStudentWorkspace';
+import StudentProfilePage from './pages/consultant/student-profile/StudentProfilePage';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
 import InstallApp from './pages/InstallApp';
 import QuickNotes from './pages/QuickNotes';
@@ -67,7 +67,7 @@ function App() {
 
           {/* Consultant Routes */}
           <Route path="/consultant"                        element={<ConsultantDashboard />} />
-          <Route path="/consultant/student/:userId/*"       element={<ConsultantStudentWorkspace />} />
+          <Route path="/consultant/student/:userId/*"       element={<StudentProfilePage />} />
 
           {/* SuperAdmin Routes */}
           <Route path="/superadmin" element={<SuperAdminDashboard />} />

@@ -37,10 +37,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-${DB_USER:-desko}} -d ${POSTGRES_DB:-${DB_NAME:-desko}}"]
-      interval: 10s
+      # $$ → env داخل کانتینر (نه interpolate روی هاست)
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
     networks:
       - desko_network

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from ....scheduling.domain.value_objects.jalali_date import JalaliDate
 from ....scheduling.domain.value_objects.time_range import TimeRange
+from ...domain.entities.consultant_note import ConsultantNote
+from ...domain.entities.direct_message import DirectMessage, MessageSender
 from ...domain.entities.plan_run import PlanProposal, PlanRun
 from ...domain.entities.student_group import StudentGroup
 from ...domain.enums import IntensityLevel, PlanMode, ProposalStatus
@@ -32,6 +34,55 @@ class StudentGroupMapper:
             consultant_id=entity.consultant_id,
             name=entity.name,
             description=entity.description,
+        )
+
+
+class ConsultantNoteMapper:
+    @staticmethod
+    def to_entity(row: m.ConsultantStudentNoteModel) -> ConsultantNote:
+        return ConsultantNote(
+            id=row.id,
+            school_id=row.school_id,
+            consultant_id=row.consultant_id,
+            student_id=row.student_id,
+            body=row.body,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    @staticmethod
+    def to_model(entity: ConsultantNote) -> m.ConsultantStudentNoteModel:
+        return m.ConsultantStudentNoteModel(
+            id=entity.id,
+            school_id=entity.school_id,
+            consultant_id=entity.consultant_id,
+            student_id=entity.student_id,
+            body=entity.body,
+        )
+
+
+class DirectMessageMapper:
+    @staticmethod
+    def to_entity(row: m.ConsultantDirectMessageModel) -> DirectMessage:
+        return DirectMessage(
+            id=row.id,
+            school_id=row.school_id,
+            consultant_id=row.consultant_id,
+            student_id=row.student_id,
+            sender_role=MessageSender(row.sender_role),
+            body=row.body,
+            created_at=row.created_at,
+        )
+
+    @staticmethod
+    def to_model(entity: DirectMessage) -> m.ConsultantDirectMessageModel:
+        return m.ConsultantDirectMessageModel(
+            id=entity.id,
+            school_id=entity.school_id,
+            consultant_id=entity.consultant_id,
+            student_id=entity.student_id,
+            sender_role=entity.sender_role.value,
+            body=entity.body,
         )
 
 

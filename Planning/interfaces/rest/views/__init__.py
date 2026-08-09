@@ -20,6 +20,12 @@ from .consultant_group_views import (
     ConsultantGroupMembersView,
     ConsultantRosterView,
 )
+from .consultant_profile_views import (
+    ConsultantNoteDetailView,
+    ConsultantStudentMessagesView,
+    ConsultantStudentNotesView,
+    StudentDirectMessageListCreateView,
+)
 from .progress_views import StudentProgressView
 from .plan_views import (
     CalendarSnapshotListView,
@@ -49,6 +55,10 @@ __all__ = [
     'ConsultantGroupListCreateView',
     'ConsultantGroupMembersView',
     'ConsultantRosterView',
+    'ConsultantNoteDetailView',
+    'ConsultantStudentMessagesView',
+    'ConsultantStudentNotesView',
+    'StudentDirectMessageListCreateView',
     'PlanPreviewView',
     'PlanPublishView',
     'PlanRunDetailView',

@@ -18,7 +18,10 @@ from .views import (
     ConsultantGroupDetailView,
     ConsultantGroupListCreateView,
     ConsultantGroupMembersView,
+    ConsultantNoteDetailView,
     ConsultantRosterView,
+    ConsultantStudentMessagesView,
+    ConsultantStudentNotesView,
     DayAvailabilityView,
     MoveBlockView,
     PlaceBlockView,
@@ -26,6 +29,7 @@ from .views import (
     PlanPublishView,
     PlanRunDetailView,
     PlanRunListView,
+    StudentDirectMessageListCreateView,
     StudentProgressView,
     StudentProposalListView,
     StudentProposalRespondView,
@@ -100,6 +104,28 @@ urlpatterns = [
         'planning/consultant/groups/<int:group_id>/members/',
         ConsultantGroupMembersView.as_view(),
         name='planning_consultant_group_members',
+    ),
+
+    # پروفایل دانش‌آموز: پیام مستقیم و یادداشت خصوصی مشاور
+    path(
+        'planning/consultant/students/<int:user_id>/notes/',
+        ConsultantStudentNotesView.as_view(),
+        name='planning_consultant_student_notes',
+    ),
+    path(
+        'planning/consultant/notes/<int:note_id>/',
+        ConsultantNoteDetailView.as_view(),
+        name='planning_consultant_note_detail',
+    ),
+    path(
+        'planning/consultant/students/<int:user_id>/messages/',
+        ConsultantStudentMessagesView.as_view(),
+        name='planning_consultant_student_messages',
+    ),
+    path(
+        'planning/me/messages/',
+        StudentDirectMessageListCreateView.as_view(),
+        name='planning_my_messages',
     ),
 
     # برنامه‌ریزی گروهی مشاور

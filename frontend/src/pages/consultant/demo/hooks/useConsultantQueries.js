@@ -12,6 +12,8 @@ export const CONSULTANT_KEYS = {
   snapshots: (userId) => ['consultant', 'snapshots', userId],
   plans: () => ['consultant', 'plans'],
   plan: (id) => ['consultant', 'plans', id],
+  notes: (userId) => ['consultant', 'notes', userId],
+  messages: (userId) => ['consultant', 'messages', userId],
 };
 
 export function useConsultantStudents(filters = {}) {
@@ -144,4 +146,53 @@ export function useCalendarBlockMutations(userId) {
   });
 
   return { placeBlock, moveBlock, restoreSnapshot };
+}
+
+export function useStudentNotes(userId) {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.notes(userId),
+    queryFn: () => planningAPI.getStudentNotes(userId).then((r) => r.data),
+    enabled: !!userId,
+  });
+}
+
+export function useStudentNoteMutations(userId) {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.notes(userId) });
+
+  const createNote = useMutation({
+    mutationFn: (data) => planningAPI.createStudentNote(userId, data).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+  const updateNote = useMutation({
+    mutationFn: ({ noteId, body }) =>
+      planningAPI.updateStudentNote(noteId, { body }).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+  const deleteNote = useMutation({
+    mutationFn: (noteId) => planningAPI.deleteStudentNote(noteId),
+    onSuccess: invalidate,
+  });
+
+  return { createNote, updateNote, deleteNote };
+}
+
+export function useStudentMessages(userId) {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.messages(userId),
+    queryFn: () => planningAPI.getStudentMessages(userId).then((r) => r.data),
+    enabled: !!userId,
+  });
+}
+
+export function useStudentMessageMutations(userId) {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.messages(userId) });
+
+  const sendMessage = useMutation({
+    mutationFn: (data) => planningAPI.sendStudentMessage(userId, data).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+
+  return { sendMessage };
 }

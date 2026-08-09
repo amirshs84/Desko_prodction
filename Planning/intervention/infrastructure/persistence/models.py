@@ -169,3 +169,86 @@ class StudentGroupMemberModel(models.Model):
         indexes = [
             models.Index(fields=['student'], name='planning_grpmem_student_idx'),
         ]
+
+
+class ConsultantStudentNoteModel(models.Model):
+    """یادداشت خصوصی مشاور درباره یک دانش‌آموز — برای دانش‌آموز قابل‌مشاهده نیست."""
+
+    school = models.ForeignKey(
+        'api.School', on_delete=models.CASCADE, related_name='planning_student_notes',
+        verbose_name='مدرسه',
+    )
+    consultant = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_student_notes',
+        verbose_name='مشاور',
+    )
+    student = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_notes_about',
+        verbose_name='دانش‌آموز',
+    )
+    body = models.TextField(verbose_name='متن یادداشت')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'note#{self.id} · {self.consultant_id} → {self.student_id}'
+
+    class Meta:
+        db_table = 'planning_consultantstudentnote'
+        ordering = ['-updated_at', '-id']
+        verbose_name = 'یادداشت خصوصی مشاور'
+        verbose_name_plural = 'یادداشت‌های خصوصی مشاور'
+        indexes = [
+            models.Index(
+                fields=['consultant', 'student', '-updated_at'],
+                name='planning_note_cons_stu_idx',
+            ),
+        ]
+
+
+class ConsultantDirectMessageModel(models.Model):
+    """پیام مستقیم مشاور ↔ دانش‌آموز در یک مدرسه."""
+
+    SENDER_CONSULTANT = 'consultant'
+    SENDER_STUDENT = 'student'
+    SENDER_CHOICES = [
+        (SENDER_CONSULTANT, 'مشاور'),
+        (SENDER_STUDENT, 'دانش‌آموز'),
+    ]
+
+    school = models.ForeignKey(
+        'api.School', on_delete=models.CASCADE, related_name='planning_direct_messages',
+        verbose_name='مدرسه',
+    )
+    consultant = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_direct_messages',
+        verbose_name='مشاور',
+    )
+    student = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_student_messages',
+        verbose_name='دانش‌آموز',
+    )
+    sender_role = models.CharField(
+        max_length=16, choices=SENDER_CHOICES, verbose_name='فرستنده',
+    )
+    body = models.TextField(verbose_name='متن پیام')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'msg#{self.id} · {self.sender_role}'
+
+    class Meta:
+        db_table = 'planning_consultantdirectmessage'
+        ordering = ['created_at', 'id']
+        verbose_name = 'پیام مستقیم مشاور'
+        verbose_name_plural = 'پیام‌های مستقیم مشاور'
+        indexes = [
+            models.Index(
+                fields=['consultant', 'student', 'created_at'],
+                name='planning_dm_thread_idx',
+            ),
+            models.Index(
+                fields=['student', '-created_at'],
+                name='planning_dm_student_idx',
+            ),
+        ]

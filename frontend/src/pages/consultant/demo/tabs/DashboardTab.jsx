@@ -98,14 +98,14 @@ function DashboardBody() {
       <Card>
         <h3 className="font-bold text-gray-900 text-sm mb-3">میانبر ورک‌اسپیس</h3>
         <p className="text-sm text-gray-500 mb-4">
-          برای دیدن پیشرفت، تقویم و نسخه‌ها، یک دانش‌آموز را از فهرست باز کنید.
+          با کلیک روی نام، پروفایل اختصاصی دانش‌آموز (تقویم، گزارش، پیام‌ها) باز می‌شود.
         </p>
         <div className="flex flex-wrap gap-2">
           {students.slice(0, 6).map((s) => (
             <button
               key={s.user_id}
               onClick={() => navigate(`/consultant/student/${s.user_id}`)}
-              className="px-3 py-2 rounded-xl text-sm bg-sky-50 text-sky-700 hover:bg-sky-100"
+              className="px-3 py-2 rounded-xl text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             >
               {s.full_name || s.phone_number}
             </button>

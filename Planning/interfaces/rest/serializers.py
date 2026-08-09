@@ -239,7 +239,46 @@ def student_to_dict(student) -> dict:
         'full_name': student.full_name,
         'phone_number': student.phone_number,
         'grade': student.grade,
+        'olympiad_field': getattr(student, 'olympiad_field', '') or '',
         'class_names': list(student.class_names),
+    }
+
+
+class NoteCreateSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=5000)
+
+
+class NoteUpdateSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=5000)
+
+
+class DirectMessageCreateSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=4000)
+
+
+class StudentReplyMessageSerializer(serializers.Serializer):
+    consultant_id = serializers.IntegerField(min_value=1)
+    body = serializers.CharField(max_length=4000)
+
+
+def note_to_dict(note) -> dict:
+    return {
+        'id': note.id,
+        'student_id': note.student_id,
+        'body': note.body,
+        'created_at': _datetime_field.to_representation(note.created_at) if note.created_at else None,
+        'updated_at': _datetime_field.to_representation(note.updated_at) if note.updated_at else None,
+    }
+
+
+def direct_message_to_dict(message) -> dict:
+    return {
+        'id': message.id,
+        'consultant_id': message.consultant_id,
+        'student_id': message.student_id,
+        'sender_role': message.sender_role,
+        'body': message.body,
+        'created_at': _datetime_field.to_representation(message.created_at) if message.created_at else None,
     }
 
 

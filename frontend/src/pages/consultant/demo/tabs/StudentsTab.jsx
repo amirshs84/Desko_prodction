@@ -22,7 +22,9 @@ function StudentsBody() {
     <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto flex flex-col gap-5">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">دانش‌آموزان</h2>
-        <p className="text-sm text-gray-500 mt-1">فهرست مدرسه با گروه‌های شما؛ برای کار روی تقویم و پیشرفت باز کنید.</p>
+        <p className="text-sm text-gray-500 mt-1">
+          فهرست مدرسه با گروه‌های شما؛ روی نام دانش‌آموز بزنید تا پروفایل اختصاصی‌اش باز شود.
+        </p>
       </div>
 
       <Card className="!p-4">
@@ -80,9 +82,13 @@ function StudentsBody() {
                 className="flex flex-col gap-3 px-5 py-4 hover:bg-sky-50/40 md:grid md:grid-cols-[minmax(0,1.6fr)_4.5rem_minmax(0,1.2fr)_minmax(0,1.4fr)_6.5rem] md:gap-3 md:items-center"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/consultant/student/${s.user_id}`)}
+                    className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline truncate text-right max-w-full"
+                  >
                     {s.full_name || 'بدون نام'}
-                  </p>
+                  </button>
                   <p className="text-xs text-gray-500 mt-0.5">
                     <span dir="ltr" className="inline-block">
                       {s.phone_number || '—'}
@@ -128,10 +134,11 @@ function StudentsBody() {
 
                 <div className="md:justify-self-end">
                   <PrimaryButton
-                    className="!w-auto !py-1.5 !px-3 !text-xs whitespace-nowrap"
+                    className="!w-auto !py-1.5 !px-3 !text-xs whitespace-nowrap !bg-emerald-600"
+                    style={{ background: '#059669' }}
                     onClick={() => navigate(`/consultant/student/${s.user_id}`)}
                   >
-                    باز کردن
+                    پروفایل
                   </PrimaryButton>
                 </div>
               </div>

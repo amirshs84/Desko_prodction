@@ -7,6 +7,8 @@
 نشت کند.
 """
 from .intervention.infrastructure.persistence.models import (
+    ConsultantDirectMessageModel,
+    ConsultantStudentNoteModel,
     PlanProposalModel,
     PlanRunModel,
     StudentGroupMemberModel,
@@ -22,6 +24,8 @@ __all__ = [
     'CalendarEventModel',
     'CalendarSnapshotModel',
     'SavedBlockTemplateModel',
+    'ConsultantDirectMessageModel',
+    'ConsultantStudentNoteModel',
     'PlanProposalModel',
     'PlanRunModel',
     'StudentGroupMemberModel',
