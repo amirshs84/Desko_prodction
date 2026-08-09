@@ -1,5 +1,14 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { createRoot } from 'react-dom/client';
+import { useQueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createMemoryRouter, Navigate, RouterProvider } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { EventsProvider } from '../../../../../calendar/context/EventsContext';
 import { SelectedDayProvider } from '../../../../../calendar/context/SelectedDayContext';
@@ -9,6 +18,7 @@ import { setCalendarBase } from '../../../../../calendar/lib/paths';
 import { planningAPI } from '../../../../../api/client';
 import { STUDIO } from './studioTheme';
 
+/** پایهٔ ایزوله داخل MemoryRouter — به BrowserRouter اپ نشت نمی‌کند. */
 const PREVIEW_BASE = '/__plan_preview__';
 
 function blocksToDraftEvents(blocks = []) {
@@ -43,11 +53,53 @@ function draftEventsToBlocks(events = []) {
     }));
 }
 
+function PreviewCalendarTree({
+  student,
+  draftSeed,
+  onDraftEventsChange,
+  startPath,
+}) {
+  const router = useMemo(
+    () =>
+      createMemoryRouter(
+        [
+          {
+            path: `${PREVIEW_BASE}/*`,
+            element: <UnifiedCalendar />,
+          },
+          {
+            path: '*',
+            element: <Navigate to={startPath} replace />,
+          },
+        ],
+        { initialEntries: [startPath] },
+      ),
+    [startPath],
+  );
+
+  return (
+    <EventsProvider
+      ownerUserId={student.student_id}
+      previewMode
+      draftSeed={draftSeed}
+      onDraftEventsChange={onDraftEventsChange}
+    >
+      <SelectedDayProvider>
+        <RouterProvider router={router} />
+      </SelectedDayProvider>
+    </EventsProvider>
+  );
+}
+
 /**
- * مودال تقویم پیش‌نمایش: رویدادهای فعلی + بلوک‌های پیشنهادی با درگ‌اند‌دراپ.
- * ثبت تغییرات → روی تقویم دانش‌آموز می‌نشیند و از بچ گروهی خارج می‌شود.
+ * مودال تقویم پیش‌نمایش.
+ * تقویم در یک React root جدا سوار می‌شود تا Router حافظه‌ای با
+ * BrowserRouter صفحهٔ مشاور تداخل نداشته باشد (علت صفحهٔ سیاه قبلی).
  */
 export function PreviewCalendarModal({ student, windowStart, onClose, onCommitted }) {
+  const queryClient = useQueryClient();
+  const hostRef = useRef(null);
+  const rootRef = useRef(null);
   const draftSeed = useMemo(
     () => blocksToDraftEvents(student?.blocks || []),
     [student],
@@ -60,14 +112,52 @@ export function PreviewCalendarModal({ student, windowStart, onClose, onCommitte
     draftsRef.current = drafts;
   }, []);
 
+  const t = windowStart
+    ? { jy: windowStart.jy, jm: windowStart.jm, jd: windowStart.jd }
+    : todayJalali();
+  const startPath = `${PREVIEW_BASE}/week/${t.jy}/${t.jm}/${t.jd}`;
+
   useLayoutEffect(() => {
     setCalendarBase(PREVIEW_BASE);
     return () => setCalendarBase('/calendar');
   }, []);
 
-  const t = windowStart
-    ? { jy: windowStart.jy, jm: windowStart.jm, jd: windowStart.jd }
-    : todayJalali();
+  useEffect(() => {
+    draftsRef.current = draftSeed;
+  }, [draftSeed]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return undefined;
+
+    if (!rootRef.current) {
+      rootRef.current = createRoot(host);
+    }
+
+    rootRef.current.render(
+      <QueryClientProvider client={queryClient}>
+        <PreviewCalendarTree
+          student={student}
+          draftSeed={draftSeed}
+          onDraftEventsChange={onDraftEventsChange}
+          startPath={startPath}
+        />
+      </QueryClientProvider>,
+    );
+
+    return () => {
+      // unmount در effect جدا تا StrictMode دوبار mount را تحمل کند
+    };
+  }, [queryClient, student, draftSeed, onDraftEventsChange, startPath]);
+
+  useEffect(() => {
+    return () => {
+      if (rootRef.current) {
+        rootRef.current.unmount();
+        rootRef.current = null;
+      }
+    };
+  }, []);
 
   const commit = async () => {
     setSaving(true);
@@ -138,31 +228,7 @@ export function PreviewCalendarModal({ student, windowStart, onClose, onCommitte
           <div className="px-4 py-2 text-sm text-red-600 bg-red-50 shrink-0">{error}</div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <MemoryRouter initialEntries={[`${PREVIEW_BASE}/week/${t.jy}/${t.jm}/${t.jd}`]}>
-            <EventsProvider
-              ownerUserId={student.student_id}
-              previewMode
-              draftSeed={draftSeed}
-              onDraftEventsChange={onDraftEventsChange}
-            >
-              <SelectedDayProvider>
-                <Routes>
-                  <Route path={`${PREVIEW_BASE}/*`} element={<UnifiedCalendar />} />
-                  <Route
-                    path="*"
-                    element={
-                      <Navigate
-                        to={`${PREVIEW_BASE}/week/${t.jy}/${t.jm}/${t.jd}`}
-                        replace
-                      />
-                    }
-                  />
-                </Routes>
-              </SelectedDayProvider>
-            </EventsProvider>
-          </MemoryRouter>
-        </div>
+        <div ref={hostRef} className="flex-1 min-h-0 overflow-hidden" />
       </div>
     </div>
   );
