@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Iterable, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -22,10 +22,25 @@ class SessionRecord:
     duration_seconds: int
 
 
+@dataclass(frozen=True)
+class StudyAggregate:
+    """خلاصه مطالعه یک دانش‌آموز در یک بازه — برای فهرست مشاور."""
+
+    user_id: int
+    total_seconds: int
+    session_count: int
+
+
 @runtime_checkable
 class StudyReportReader(Protocol):
     def list_sessions(
         self, user_id: int, *, since: datetime | None = None,
     ) -> list[SessionRecord]:
         """جلسات یک دانش‌آموز، جدیدترین‌ها اول؛ ``since`` اختیاری است."""
+        ...
+
+    def aggregate_for_users(
+        self, user_ids: Iterable[int], *, since: datetime | None = None,
+    ) -> dict[int, StudyAggregate]:
+        """مجموع ثانیه و تعداد جلسه به‌ازای هر کاربر — یک کوئری گروهی."""
         ...

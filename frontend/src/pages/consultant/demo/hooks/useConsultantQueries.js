@@ -16,10 +16,32 @@ export const CONSULTANT_KEYS = {
   messages: (userId) => ['consultant', 'messages', userId],
 };
 
+function normalizeRosterPayload(data) {
+  if (Array.isArray(data)) {
+    return { period: 'weekly', columns: [], students: data };
+  }
+  return {
+    period: data?.period || 'weekly',
+    columns: data?.columns || [],
+    students: data?.students || [],
+  };
+}
+
+/** فهرست دانش‌آموزان — همیشه آرایه برمی‌گرداند (سازگار با گروه‌ها/داشبورد). */
 export function useConsultantStudents(filters = {}) {
   return useQuery({
     queryKey: CONSULTANT_KEYS.students(filters),
-    queryFn: () => planningAPI.getStudents(filters).then((r) => r.data),
+    queryFn: () =>
+      planningAPI.getStudents(filters).then((r) => normalizeRosterPayload(r.data).students),
+  });
+}
+
+/** Roster غنی با ستون‌های پویا و متریک بازه زمانی. */
+export function useConsultantRoster(filters = {}) {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.students({ ...filters, _roster: true }),
+    queryFn: () =>
+      planningAPI.getStudents(filters).then((r) => normalizeRosterPayload(r.data)),
   });
 }
 

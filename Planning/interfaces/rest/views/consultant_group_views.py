@@ -25,7 +25,7 @@ from ..serializers import (
     GroupMembersSerializer,
     GroupUpdateSerializer,
     group_to_dict,
-    roster_entry_to_dict,
+    roster_page_to_dict,
 )
 
 
@@ -38,19 +38,33 @@ class _ConsultantViewBase(BasePlanningView):
 
 
 class ConsultantRosterView(_ConsultantViewBase):
-    """فهرست دانش‌آموزان مدرسه با صافی جست‌وجو/پایه/کلاس + گروه‌های همین مشاور."""
+    """فهرست دانش‌آموزان مدرسه با متریک مطالعه، ستون‌های پویا و فیلتر ترکیبی."""
 
     def get(self, request):
         query = request.query_params
-        entries = get_container().roster_service.list_students(
+        min_hours_raw = (query.get('min_study_hours') or '').strip()
+        min_study_hours = None
+        if min_hours_raw:
+            try:
+                min_study_hours = float(min_hours_raw)
+            except ValueError:
+                min_study_hours = None
+
+        page = get_container().roster_service.list_students(
             context=build_context(request),
             filters=StudentFilter(
                 search=query.get('search') or None,
                 grade=query.get('grade') or None,
                 class_id=int(query['class_id']) if (query.get('class_id') or '').isdigit() else None,
             ),
+            period=query.get('period') or 'weekly',
+            min_study_hours=min_study_hours,
+            tag=query.get('tag') or None,
         )
-        return Response([roster_entry_to_dict(entry) for entry in entries])
+        payload = roster_page_to_dict(page)
+        if (query.get('flat') or '').strip() in ('1', 'true', 'yes'):
+            return Response(payload['students'])
+        return Response(payload)
 
 
 class ConsultantGroupListCreateView(_ConsultantViewBase):

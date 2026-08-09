@@ -212,40 +212,75 @@ class GroupMembershipTests(ConsultantGroupApiTests):
         self.assertNotEqual(first['id'], second['id'])
 
 
+def _roster_students(response_data):
+    """پاسخ غنی Roster یا آرایه‌ی تخت (flat)."""
+    if isinstance(response_data, list):
+        return response_data
+    return response_data['students']
+
+
 class RosterTests(ConsultantGroupApiTests):
     def test_lists_school_students_with_group_annotation(self):
         group = self.create_group(name='گروه یک', member_ids=[self.ali.id])
         response = self.client.get(ROSTER_URL)
         self.assertEqual(response.status_code, 200)
+        self.assertIn('columns', response.data)
+        self.assertEqual(response.data['period'], 'weekly')
 
-        by_id = {entry['user_id']: entry for entry in response.data}
+        by_id = {entry['user_id']: entry for entry in _roster_students(response.data)}
         self.assertEqual(set(by_id), {self.ali.id, self.sara.id})
         self.assertEqual(by_id[self.ali.id]['groups'], [{'id': group['id'], 'name': 'گروه یک'}])
         self.assertEqual(by_id[self.sara.id]['groups'], [])
         self.assertEqual(by_id[self.ali.id]['class_names'], ['یازدهم ریاضی'])
+        self.assertIn('study_seconds', by_id[self.ali.id])
+        self.assertIn('performance', by_id[self.ali.id])
+        self.assertIn('#کنکوری', by_id[self.ali.id]['tags'])
 
     def test_other_consultant_groups_are_not_annotated(self):
         self.create_group(name='گروه من', member_ids=[self.ali.id])
         self.authenticate(self.peer)
         response = self.client.get(ROSTER_URL)
-        self.assertTrue(all(entry['groups'] == [] for entry in response.data))
+        self.assertTrue(
+            all(entry['groups'] == [] for entry in _roster_students(response.data)),
+        )
 
     def test_filters(self):
         by_grade = self.client.get(f'{ROSTER_URL}?grade=12')
-        self.assertEqual([e['user_id'] for e in by_grade.data], [self.sara.id])
+        self.assertEqual(
+            [e['user_id'] for e in _roster_students(by_grade.data)], [self.sara.id],
+        )
 
         by_search = self.client.get(f'{ROSTER_URL}?search=علی')
-        self.assertEqual([e['user_id'] for e in by_search.data], [self.ali.id])
+        self.assertEqual(
+            [e['user_id'] for e in _roster_students(by_search.data)], [self.ali.id],
+        )
 
         by_phone = self.client.get(f'{ROSTER_URL}?search=09120000202')
-        self.assertEqual([e['user_id'] for e in by_phone.data], [self.sara.id])
+        self.assertEqual(
+            [e['user_id'] for e in _roster_students(by_phone.data)], [self.sara.id],
+        )
 
         by_class = self.client.get(f'{ROSTER_URL}?class_id={self.school_class.id}')
-        self.assertEqual([e['user_id'] for e in by_class.data], [self.ali.id])
+        self.assertEqual(
+            [e['user_id'] for e in _roster_students(by_class.data)], [self.ali.id],
+        )
+
+        by_tag = self.client.get(f'{ROSTER_URL}?tag=کنکوری')
+        self.assertEqual(by_tag.status_code, 200)
+        tagged_ids = {e['user_id'] for e in _roster_students(by_tag.data)}
+        self.assertEqual(tagged_ids, {self.ali.id, self.sara.id})
 
     def test_students_of_other_schools_are_never_listed(self):
         response = self.client.get(ROSTER_URL)
-        self.assertNotIn(self.outsider.id, [entry['user_id'] for entry in response.data])
+        self.assertNotIn(
+            self.outsider.id,
+            [entry['user_id'] for entry in _roster_students(response.data)],
+        )
+
+    def test_flat_flag_returns_array(self):
+        response = self.client.get(f'{ROSTER_URL}?flat=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
 
 
 class ConsultantOnlyAccessTests(ConsultantGroupApiTests):

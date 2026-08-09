@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Iterable
 
+from django.db.models import Count, Sum
 from django.utils import timezone
 
 from api.models import StudySession
 
-from ..application.ports.study_report_reader import SessionRecord
+from ..application.ports.study_report_reader import SessionRecord, StudyAggregate
 
 
 class DjangoStudyReportReader:
@@ -25,6 +27,31 @@ class DjangoStudyReportReader:
         if since is not None:
             queryset = queryset.filter(start_time__gte=since)
         return [self._to_record(row) for row in queryset]
+
+    def aggregate_for_users(
+        self, user_ids: Iterable[int], *, since: datetime | None = None,
+    ) -> dict[int, StudyAggregate]:
+        ids = list({int(user_id) for user_id in user_ids})
+        if not ids:
+            return {}
+        queryset = StudySession.objects.filter(user_id__in=ids)
+        if since is not None:
+            queryset = queryset.filter(start_time__gte=since)
+        rows = (
+            queryset.values('user_id')
+            .annotate(
+                total_seconds=Sum('duration_seconds'),
+                session_count=Count('id'),
+            )
+        )
+        return {
+            int(row['user_id']): StudyAggregate(
+                user_id=int(row['user_id']),
+                total_seconds=int(row['total_seconds'] or 0),
+                session_count=int(row['session_count'] or 0),
+            )
+            for row in rows
+        }
 
     @staticmethod
     def _to_record(row: StudySession) -> SessionRecord:

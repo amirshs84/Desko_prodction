@@ -294,9 +294,34 @@ def group_to_dict(group) -> dict:
 
 
 def roster_entry_to_dict(entry) -> dict:
-    return {
+    """سازگاری عقب‌رو با کلاینت‌های قدیمی (آرایه‌ی تخت دانش‌آموزان)."""
+    metrics = getattr(entry, 'metrics', None)
+    base = {
         **student_to_dict(entry.student),
         'groups': [{'id': group_id, 'name': name} for group_id, name in entry.groups],
+        'tags': list(getattr(entry, 'tags', ()) or ()),
+    }
+    if metrics is not None:
+        from ...intervention.application.dto.roster_dto import metrics_values
+        base.update(metrics_values(metrics))
+    return base
+
+
+def roster_page_to_dict(page) -> dict:
+    """پاسخ غنی Roster با ستون‌های پویا برای جدول مشاور."""
+    return {
+        'period': page.period,
+        'columns': [
+            {
+                'key': column.key,
+                'label': column.label,
+                'type': column.type,
+                'metric': column.metric,
+                'placeholder': column.placeholder,
+            }
+            for column in page.columns
+        ],
+        'students': [roster_entry_to_dict(row) for row in page.rows],
     }
 
 

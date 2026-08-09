@@ -196,6 +196,7 @@ class Container:
         return RosterService(
             groups=self.student_groups,
             directory=self.school_directory,
+            reports=self.study_report_reader,
         )
 
     @cached_property
