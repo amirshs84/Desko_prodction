@@ -20,6 +20,7 @@ export function ProfileHeader({ student, userId, onBack, activeTab, onTabChange,
 
   const tabs = [
     { id: 'calendar', label: 'تقویم و برنامه‌ریزی' },
+    { id: 'actual-calendar', label: 'تقویم عملی' },
     { id: 'analytics', label: 'گزارش‌های عملکرد' },
     { id: 'interactions', label: 'پیام‌ها و یادداشت‌ها' },
     { id: 'identity', label: 'اطلاعات هویتی' },

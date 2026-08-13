@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -15,6 +16,7 @@ import {
 } from 'recharts';
 import { Card, EmptyState, PrimaryButton, formatSeconds } from '../../demo/components/DemoUi';
 import { useStudentProgress } from '../../demo/hooks/useConsultantQueries';
+import { DailyReportView } from '../components/DailyReportView';
 import { StudyHeatmap } from '../components/StudyHeatmap';
 import { PROFILE } from '../profileTheme';
 
@@ -29,6 +31,8 @@ const CHART_COLORS = ['#059669', '#34D399', '#6EE7B7', '#A7F3D0', '#10B981', '#0
 export function AnalyticsTab({ userId }) {
   const { data: profile, isLoading, isError, error, refetch } = useStudentProgress(userId);
   const [period, setPeriod] = useState('daily');
+  const [params, setParams] = useSearchParams();
+  const selectedDate = params.get('date') || '';
 
   const breakdownKey = period === 'daily' ? 'today' : period === 'weekly' ? 'week' : 'month';
   const breakdown = profile?.subjects_by_period?.[breakdownKey] || profile?.subjects_breakdown || [];
@@ -36,6 +40,12 @@ export function AnalyticsTab({ userId }) {
     period === 'daily' ? profile?.today : period === 'weekly' ? profile?.week : profile?.month;
 
   const trendData = useMemo(() => buildTrend(profile?.heatmap || [], period), [profile, period]);
+
+  const openDay = (date) => {
+    if (!date) return;
+    setParams({ date });
+  };
+  const closeDay = () => setParams({});
 
   if (isLoading) return <EmptyState message="در حال بارگذاری گزارش‌ها…" />;
   if (isError) {
@@ -51,6 +61,21 @@ export function AnalyticsTab({ userId }) {
     );
   }
   if (!profile) return <EmptyState message="داده‌ای نیست" />;
+
+  if (selectedDate) {
+    return (
+      <div className="px-4 md:px-8 py-6 pb-10 max-w-5xl mx-auto">
+        {period === 'daily' && trendData.length > 0 && (
+          <Card className="mb-5">
+            <h3 className="font-bold text-sm mb-1">روند ۱۴ روز اخیر</h3>
+            <p className="text-[11px] text-gray-400 mb-3">روی نقطه دیگری کلیک کنید تا روز عوض شود</p>
+            <TrendChart data={trendData} selectedDate={selectedDate} onSelectDate={openDay} />
+          </Card>
+        )}
+        <DailyReportView userId={userId} date={selectedDate} onBack={closeDay} backLabel="بازگشت به نمودار" />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 md:px-8 py-6 pb-10 max-w-5xl mx-auto flex flex-col gap-5">
@@ -86,9 +111,16 @@ export function AnalyticsTab({ userId }) {
       </Card>
 
       <Card>
-        <h3 className="font-bold text-sm mb-3">روند مطالعه</h3>
+        <h3 className="font-bold text-sm mb-1">روند مطالعه</h3>
+        {period === 'daily' && (
+          <p className="text-[11px] text-gray-400 mb-3">
+            روی هر نقطه کلیک کنید تا ریزفعالیت همان روز را ببینید
+          </p>
+        )}
         {trendData.length === 0 ? (
           <p className="text-sm text-gray-400">داده‌ای برای نمودار نیست</p>
+        ) : period === 'daily' ? (
+          <TrendChart data={trendData} onSelectDate={openDay} />
         ) : (
           <div className="h-56 w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
@@ -191,7 +223,7 @@ export function AnalyticsTab({ userId }) {
 
       <Card>
         <h3 className="font-bold text-sm mb-3">نقشه حرارتی مطالعه</h3>
-        <StudyHeatmap days={profile.heatmap || []} />
+        <StudyHeatmap days={profile.heatmap || []} onSelectDate={openDay} />
       </Card>
 
       <Card>
@@ -228,6 +260,70 @@ export function AnalyticsTab({ userId }) {
   );
 }
 
+function TrendChart({ data, selectedDate, onSelectDate }) {
+  return (
+    <div className="h-56 w-full cursor-pointer" dir="ltr">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart
+          data={data}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+          onClick={(state) => {
+            const date = state?.activePayload?.[0]?.payload?.date;
+            if (date) onSelectDate(date);
+          }}
+          style={{ cursor: 'pointer' }}
+        >
+          <defs>
+            <linearGradient id="studyFillClickable" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#059669" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="#059669" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94A3B8' }} />
+          <YAxis
+            tick={{ fontSize: 10, fill: '#94A3B8' }}
+            tickFormatter={(v) => `${v}د`}
+            width={36}
+          />
+          <Tooltip
+            formatter={(v) => [`${v} دقیقه`, 'مطالعه']}
+            labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel || ''}
+            labelStyle={{ direction: 'rtl' }}
+            contentStyle={{ cursor: 'pointer' }}
+          />
+          <Area
+            type="monotone"
+            dataKey="minutes"
+            stroke="#059669"
+            strokeWidth={2}
+            fill="url(#studyFillClickable)"
+            dot={(dotProps) => {
+              const { cx, cy, payload, index } = dotProps;
+              if (cx == null || cy == null) return null;
+              const active = payload?.date && payload.date === selectedDate;
+              return (
+                <circle
+                  key={`dot-${index}`}
+                  cx={cx}
+                  cy={cy}
+                  r={active ? 6 : 3.5}
+                  fill={active ? '#047857' : '#059669'}
+                  stroke="#fff"
+                  strokeWidth={2}
+                  style={{ cursor: 'pointer' }}
+                />
+              );
+            }}
+            activeDot={{ r: 7, cursor: 'pointer', stroke: '#fff', strokeWidth: 2 }}
+            style={{ cursor: 'pointer' }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function StatCard({ title, value }) {
   return (
     <Card className="!p-4">
@@ -245,7 +341,13 @@ function buildTrend(heatmap, period) {
         month: 'numeric',
         day: 'numeric',
       }),
+      fullLabel: new Date(`${d.date}T12:00:00`).toLocaleDateString('fa-IR', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }),
       minutes: Math.floor((d.total_seconds || 0) / 60),
+      date: d.date,
     }));
   }
   if (period === 'weekly') {
@@ -260,7 +362,6 @@ function buildTrend(heatmap, period) {
     }
     return weeks;
   }
-  // monthly: گروه‌بندی تقریبی ۳۰ روزه از ۹۰ روز
   const months = [];
   const slice = heatmap.slice(-90);
   for (let i = 0; i < slice.length; i += 30) {

@@ -9,6 +9,8 @@ export const CONSULTANT_KEYS = {
   groups: () => ['consultant', 'groups'],
   group: (id) => ['consultant', 'groups', id],
   progress: (userId) => ['consultant', 'progress', userId],
+  dailyReport: (userId, date) => ['consultant', 'daily-report', userId, date],
+  actualCalendar: (userId, range = {}) => ['consultant', 'actual-calendar', userId, range],
   templates: () => ['consultant', 'block-templates'],
   events: (userId, range = {}) => ['consultant', 'events', userId, range],
   availability: (userId, date) => ['consultant', 'availability', userId, date],
@@ -97,6 +99,26 @@ export function useStudentProgress(userId) {
   return useQuery({
     queryKey: CONSULTANT_KEYS.progress(userId),
     queryFn: () => planningAPI.getProgress({ user: userId }).then((r) => r.data),
+    enabled: !!userId,
+  });
+}
+
+export function useStudentDailyReport(userId, date) {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.dailyReport(userId, date),
+    queryFn: () =>
+      planningAPI.getDailyReport({ user: userId, date }).then((r) => r.data),
+    enabled: !!userId && !!date,
+  });
+}
+
+export function useStudentActualCalendar(userId, range = {}) {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.actualCalendar(userId, range),
+    queryFn: () =>
+      planningAPI
+        .getActualCalendar({ user: userId, ...range })
+        .then((r) => r.data),
     enabled: !!userId,
   });
 }

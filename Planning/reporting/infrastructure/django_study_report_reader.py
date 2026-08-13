@@ -27,7 +27,9 @@ IRAN_TZ = ZoneInfo('Asia/Tehran')
 
 class DjangoStudyReportReader:
     def list_sessions(
-        self, user_id: int, *, since: datetime | None = None,
+        self, user_id: int, *,
+        since: datetime | None = None,
+        until: datetime | None = None,
     ) -> list[SessionRecord]:
         queryset = (
             StudySession.objects.filter(user_id=user_id)
@@ -36,6 +38,8 @@ class DjangoStudyReportReader:
         )
         if since is not None:
             queryset = queryset.filter(start_time__gte=since)
+        if until is not None:
+            queryset = queryset.filter(start_time__lt=until)
         return [self._to_record(row) for row in queryset]
 
     def aggregate_for_users(

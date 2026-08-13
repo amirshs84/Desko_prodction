@@ -13,6 +13,8 @@ from api.models import School, Subject, StudySession, UserProfile
 from Planning.reporting.application.iran_clock import IRAN_TZ
 
 PROGRESS_URL = '/api/planning/progress/'
+DAILY_URL = '/api/planning/progress/daily/'
+ACTUAL_CALENDAR_URL = '/api/planning/progress/actual-calendar/'
 DASHBOARD_STATS_URL = '/api/dashboard/stats/'
 MANAGER_PROFILE_URL = '/api/manager/students/{}/profile/'
 
@@ -119,3 +121,58 @@ class ProgressAccessTests(ProgressApiTests):
     def test_requires_authentication(self):
         self.client.credentials()
         self.assertEqual(self.client.get(PROGRESS_URL).status_code, 401)
+
+
+class DailyReportApiTests(ProgressApiTests):
+    def test_consultant_gets_only_selected_day(self):
+        today = timezone.now().astimezone(IRAN_TZ).date().isoformat()
+        self.authenticate(self.consultant)
+        response = self.client.get(f'{DAILY_URL}?user={self.student.id}&date={today}')
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertEqual(data['date'], today)
+        self.assertEqual(data['total_seconds'], 5400)
+        self.assertEqual(data['session_count'], 2)
+        self.assertEqual(len(data['items']), 2)
+        self.assertEqual(data['items'][0]['kind'], 'study')
+        self.assertIn('start_minutes', data['items'][0])
+        self.assertIn('end_minutes', data['items'][0])
+
+    def test_missing_date_is_400(self):
+        self.authenticate(self.consultant)
+        response = self.client.get(f'{DAILY_URL}?user={self.student.id}')
+        self.assertEqual(response.status_code, 400)
+
+    def test_foreign_consultant_blocked(self):
+        today = timezone.now().astimezone(IRAN_TZ).date().isoformat()
+        self.authenticate(self.foreign)
+        response = self.client.get(f'{DAILY_URL}?user={self.student.id}&date={today}')
+        self.assertEqual(response.status_code, 403)
+
+
+class ActualCalendarApiTests(ProgressApiTests):
+    def test_consultant_sees_study_logs_as_actual_events(self):
+        today = timezone.now().astimezone(IRAN_TZ).date()
+        date_from = (today - timedelta(days=7)).isoformat()
+        date_to = today.isoformat()
+        self.authenticate(self.consultant)
+        response = self.client.get(
+            f'{ACTUAL_CALENDAR_URL}?user={self.student.id}&from={date_from}&to={date_to}',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertEqual(data['kind'], 'actual')
+        self.assertEqual(data['source'], 'study_log')
+        self.assertEqual(data['session_count'], 3)
+        self.assertEqual(data['total_seconds'], 7800)
+        self.assertEqual(len(data['events']), 3)
+        first = data['events'][0]
+        self.assertEqual(first['kind'], 'study')
+        self.assertTrue(first['end_minutes'] > first['start_minutes'])
+
+    def test_invalid_range_is_400(self):
+        self.authenticate(self.consultant)
+        response = self.client.get(
+            f'{ACTUAL_CALENDAR_URL}?user={self.student.id}&from=2025-08-10&to=2025-08-01',
+        )
+        self.assertEqual(response.status_code, 400)

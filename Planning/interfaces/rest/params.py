@@ -38,3 +38,31 @@ def parse_jalali_date(raw: str, key: str = 'date') -> JalaliDate:
     if len(parts) != 3 or not all(part.isdigit() for part in parts):
         raise ValidationError(f'پارامتر {key} باید به شکل 1404-05-03 باشد.')
     return JalaliDate(*(int(part) for part in parts))
+
+
+def parse_optional_gregorian_date(request, key: str):
+    """تاریخ میلادی به شکل ``YYYY-MM-DD`` (مرز روز تهران در سرویس اعمال می‌شود)."""
+    raw = request.query_params.get(key)
+    if not raw:
+        return None
+    return parse_gregorian_date(raw, key)
+
+
+def parse_required_gregorian_date(request, key: str):
+    day = parse_optional_gregorian_date(request, key)
+    if day is None:
+        raise ValidationError(f'پارامتر {key} الزامی است.')
+    return day
+
+
+def parse_gregorian_date(raw: str, key: str = 'date'):
+    from datetime import date as date_cls
+
+    parts = raw.split('-')
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        raise ValidationError(f'پارامتر {key} باید به شکل YYYY-MM-DD باشد.')
+    try:
+        year, month, day = (int(part) for part in parts)
+        return date_cls(year, month, day)
+    except ValueError as exc:
+        raise ValidationError(f'پارامتر {key} نامعتبر است.') from exc

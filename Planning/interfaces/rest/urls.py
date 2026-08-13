@@ -33,6 +33,8 @@ from .views import (
     PlanPublishView,
     PlanRunDetailView,
     PlanRunListView,
+    StudentActualCalendarView,
+    StudentDailyReportView,
     StudentDirectMessageListCreateView,
     StudentProgressView,
     StudentProposalListView,
@@ -186,6 +188,16 @@ urlpatterns = [
         'planning/progress/',
         StudentProgressView.as_view(),
         name='planning_student_progress',
+    ),
+    path(
+        'planning/progress/daily/',
+        StudentDailyReportView.as_view(),
+        name='planning_student_daily_report',
+    ),
+    path(
+        'planning/progress/actual-calendar/',
+        StudentActualCalendarView.as_view(),
+        name='planning_student_actual_calendar',
     ),
 
     # اینباکس پیشنهاد برنامه برای دانش‌آموز

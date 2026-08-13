@@ -102,6 +102,8 @@ export const planningAPI = {
   changeMembers: (groupId, data) => api.post(`planning/consultant/groups/${groupId}/members/`, data),
 
   getProgress: (params) => api.get('planning/progress/', { params }),
+  getDailyReport: (params) => api.get('planning/progress/daily/', { params }),
+  getActualCalendar: (params) => api.get('planning/progress/actual-calendar/', { params }),
   getBlockTemplates: () => api.get('planning/block-templates/'),
   createBlockTemplate: (data) => api.post('planning/block-templates/', data),
   updateBlockTemplate: (key, data) => api.patch(`planning/block-templates/${key}/`, data),

@@ -56,9 +56,14 @@ class SubjectStudyTotal:
 @runtime_checkable
 class StudyReportReader(Protocol):
     def list_sessions(
-        self, user_id: int, *, since: datetime | None = None,
+        self, user_id: int, *,
+        since: datetime | None = None,
+        until: datetime | None = None,
     ) -> list[SessionRecord]:
-        """جلسات یک دانش‌آموز، جدیدترین‌ها اول؛ ``since`` اختیاری است."""
+        """جلسات یک دانش‌آموز، جدیدترین‌ها اول.
+
+        ``since`` شامل و ``until`` غیرشامل است (بازه نیم‌باز).
+        """
         ...
 
     def aggregate_for_users(

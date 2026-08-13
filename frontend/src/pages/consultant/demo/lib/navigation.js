@@ -26,7 +26,7 @@ export function consumeConsultantReturnTab(fallback = 'dashboard') {
 
 /**
  * پرش به پروفایل دانش‌آموز.
- * @param {string} [opts.profileTab] — calendar | interactions | analytics | identity
+ * @param {string} [opts.profileTab] — calendar | actual-calendar | interactions | analytics | identity
  * @param {string} [opts.fromTab] — تب مبدأ برای دکمه بازگشت
  */
 export function openStudentProfile(navigate, userId, { profileTab, fromTab } = {}) {

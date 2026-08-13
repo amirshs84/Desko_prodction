@@ -575,6 +575,57 @@ def _subject_row(item) -> dict:
     }
 
 
+def timeline_item_to_dict(item) -> dict:
+    return {
+        'id': item.id,
+        'kind': item.kind,
+        'source': item.source,
+        'title': item.title,
+        'color': item.color,
+        'date': item.date,
+        'jy': item.jy,
+        'jm': item.jm,
+        'jd': item.jd,
+        'start_time': _datetime_field.to_representation(item.start_time),
+        'end_time': (
+            _datetime_field.to_representation(item.end_time) if item.end_time else None
+        ),
+        'start_minutes': item.start_minutes,
+        'end_minutes': item.end_minutes,
+        'duration_seconds': item.duration_seconds,
+        'description': item.description,
+    }
+
+
+def daily_report_to_dict(report) -> dict:
+    return {
+        'user_id': report.user_id,
+        'student_name': report.student_name,
+        'date': report.date,
+        'jy': report.jy,
+        'jm': report.jm,
+        'jd': report.jd,
+        'total_seconds': report.total_seconds,
+        'session_count': report.session_count,
+        'subjects': [_subject_row(item) for item in report.subjects],
+        'items': [timeline_item_to_dict(item) for item in report.items],
+    }
+
+
+def actual_calendar_to_dict(report) -> dict:
+    return {
+        'kind': report.kind,
+        'source': report.source,
+        'user_id': report.user_id,
+        'student_name': report.student_name,
+        'from': report.date_from,
+        'to': report.date_to,
+        'total_seconds': report.total_seconds,
+        'session_count': report.session_count,
+        'events': [timeline_item_to_dict(item) for item in report.events],
+    }
+
+
 def snapshot_to_dict(snapshot) -> dict:
     return {
         'id': snapshot.id,

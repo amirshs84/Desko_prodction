@@ -12,6 +12,10 @@ from zoneinfo import ZoneInfo
 from Planning.reporting.application.iran_clock import IRAN_TZ, ReportWindows, iran_date_key
 from Planning.reporting.application.ports.study_report_reader import SessionRecord
 from Planning.reporting.application.progress_builder import build_progress_report
+from Planning.reporting.application.activity_builders import (
+    build_actual_calendar,
+    build_daily_report,
+)
 from Planning.shared.application.ports.school_directory import StudentInfo
 
 STUDENT = StudentInfo(
@@ -112,3 +116,82 @@ class ProgressBuilderTests(TestCase):
         )
         self.assertEqual(report.week, 100)
         self.assertEqual(report.month, 300)
+
+
+class DailyReportBuilderTests(TestCase):
+    def test_keeps_only_sessions_of_that_tehran_day(self):
+        day = datetime(2025, 7, 25, 0, 0, tzinfo=IRAN_TZ).date()
+        before = datetime(2025, 7, 24, 23, 30, tzinfo=IRAN_TZ)
+        morning = datetime(2025, 7, 25, 8, 0, tzinfo=IRAN_TZ)
+        afternoon = datetime(2025, 7, 25, 16, 30, tzinfo=IRAN_TZ)
+        after = datetime(2025, 7, 26, 0, 10, tzinfo=IRAN_TZ)
+        report = build_daily_report(
+            STUDENT,
+            [
+                session(1, before, 1800),
+                session(2, morning, 3600, subject='ریاضی'),
+                session(3, afternoon, 1800, subject='فیزیک', color='#f00'),
+                session(4, after, 900),
+            ],
+            day=day,
+        )
+        self.assertEqual(report.date, '2025-07-25')
+        self.assertEqual(report.jy, 1404)
+        self.assertEqual(report.jm, 5)
+        self.assertEqual(report.jd, 3)
+        self.assertEqual(report.total_seconds, 5400)
+        self.assertEqual(report.session_count, 2)
+        self.assertEqual([item.title for item in report.items], ['ریاضی', 'فیزیک'])
+        self.assertEqual(report.items[0].start_minutes, 8 * 60)
+        self.assertEqual(report.items[0].end_minutes, 9 * 60)
+        self.assertEqual(report.items[0].kind, 'study')
+        self.assertEqual(report.items[0].source, 'study_log')
+
+    def test_empty_day_returns_zero_totals(self):
+        report = build_daily_report(
+            STUDENT, [session(1, datetime(2025, 7, 24, 10, 0, tzinfo=IRAN_TZ), 600)],
+            day=datetime(2025, 7, 25, 0, 0, tzinfo=IRAN_TZ).date(),
+        )
+        self.assertEqual(report.total_seconds, 0)
+        self.assertEqual(report.session_count, 0)
+        self.assertEqual(report.items, ())
+
+
+class ActualCalendarBuilderTests(TestCase):
+    def test_events_use_study_log_start_and_end(self):
+        start = datetime(2025, 7, 25, 10, 15, tzinfo=IRAN_TZ)
+        row = SessionRecord(
+            id=9,
+            subject_name='شیمی',
+            subject_color='#e11',
+            description='تست',
+            start_time=start,
+            end_time=datetime(2025, 7, 25, 11, 0, tzinfo=IRAN_TZ),
+            duration_seconds=2700,
+        )
+        report = build_actual_calendar(
+            STUDENT, [row],
+            date_from=datetime(2025, 7, 1, tzinfo=IRAN_TZ).date(),
+            date_to=datetime(2025, 7, 31, tzinfo=IRAN_TZ).date(),
+        )
+        self.assertEqual(report.kind, 'actual')
+        self.assertEqual(report.source, 'study_log')
+        self.assertEqual(report.session_count, 1)
+        event = report.events[0]
+        self.assertEqual(event.start_minutes, 10 * 60 + 15)
+        self.assertEqual(event.end_minutes, 11 * 60)
+        self.assertEqual((event.jy, event.jm, event.jd), (1404, 5, 3))
+
+    def test_overnight_session_clips_to_end_of_start_day(self):
+        start = datetime(2025, 7, 25, 23, 30, tzinfo=IRAN_TZ)
+        end = datetime(2025, 7, 26, 0, 30, tzinfo=IRAN_TZ)
+        row = SessionRecord(
+            id=1, subject_name='ریاضی', subject_color='#10b981', description='',
+            start_time=start, end_time=end, duration_seconds=3600,
+        )
+        report = build_actual_calendar(
+            STUDENT, [row],
+            date_from=datetime(2025, 7, 25, tzinfo=IRAN_TZ).date(),
+            date_to=datetime(2025, 7, 25, tzinfo=IRAN_TZ).date(),
+        )
+        self.assertEqual(report.events[0].end_minutes, 1440)

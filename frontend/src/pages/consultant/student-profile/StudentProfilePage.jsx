@@ -7,6 +7,7 @@ import { useConsultantStudents } from '../demo/hooks/useConsultantQueries';
 import { ProfileHeader } from './components/ProfileHeader';
 import { PROFILE } from './profileTheme';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
+import { ActualCalendarTab } from './tabs/ActualCalendarTab';
 import { CalendarTab } from './tabs/CalendarTab';
 import { IdentityTab } from './tabs/IdentityTab';
 import { InteractionsTab } from './tabs/InteractionsTab';
@@ -14,6 +15,7 @@ import { InteractionsTab } from './tabs/InteractionsTab';
 function resolveTab(pathname, userId) {
   const base = `/consultant/student/${userId}`;
   if (pathname.startsWith(`${base}/calendar`)) return 'calendar';
+  if (pathname.startsWith(`${base}/actual-calendar`)) return 'actual-calendar';
   if (pathname.startsWith(`${base}/analytics`)) return 'analytics';
   if (
     pathname.startsWith(`${base}/interactions`)
@@ -93,6 +95,11 @@ export default function StudentProfilePage() {
         {tab === 'calendar' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             <CalendarTab userId={numericId} />
+          </div>
+        )}
+        {tab === 'actual-calendar' && (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <ActualCalendarTab userId={numericId} />
           </div>
         )}
         {tab === 'analytics' && (

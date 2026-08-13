@@ -15,7 +15,7 @@ function heatClass(seconds) {
  * هیت‌مپ ۹۰ روزه به سبک GitHub: ستون = هفته، ردیف = روز هفته (شنبه→جمعه).
  * ورودی API: [{ date: 'YYYY-MM-DD', total_seconds, sessions }]
  */
-export function StudyHeatmap({ days = [] }) {
+export function StudyHeatmap({ days = [], onSelectDate }) {
   const byDate = new Map(days.map((d) => [d.date, d]));
 
   // آخرین روز موجود یا امروز را لنگر می‌گیریم و ۹۰ روز عقب می‌رویم.
@@ -104,11 +104,15 @@ export function StudyHeatmap({ days = [] }) {
             }}
           >
             {cells.map((day) => (
-              <div
+              <button
                 key={day.key}
-                className={`w-3.5 h-3.5 rounded-sm relative group ${
+                type="button"
+                disabled={!day.inRange || !onSelectDate}
+                onClick={() => day.inRange && onSelectDate?.(day.date)}
+                title={day.inRange && onSelectDate ? 'مشاهده جزئیات این روز' : undefined}
+                className={`w-3.5 h-3.5 rounded-sm relative group border-0 p-0 appearance-none disabled:opacity-100 ${
                   day.inRange ? heatClass(day.total_seconds) : 'bg-transparent'
-                }`}
+                } ${day.inRange && onSelectDate ? 'cursor-pointer hover:ring-2 hover:ring-emerald-400' : ''}`}
               >
                 {day.inRange && (
                   <div
@@ -126,9 +130,12 @@ export function StudyHeatmap({ days = [] }) {
                       {formatSeconds(day.total_seconds)}
                     </div>
                     <div style={{ color: '#94A3B8' }}>{day.sessions} جلسه</div>
+                    {onSelectDate && (
+                      <div style={{ color: '#CBD5E1' }}>کلیک برای جزئیات روز</div>
+                    )}
                   </div>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         </div>

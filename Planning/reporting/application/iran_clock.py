@@ -49,6 +49,17 @@ class ReportWindows:
 
 def iran_date_key(moment: datetime) -> str:
     """کلید روز برای heatmap: ``YYYY-MM-DD`` بر اساس تقویم تهران."""
+    return to_iran(moment).date().isoformat()
+
+
+def to_iran(moment: datetime) -> datetime:
+    """``datetime`` را timezone-aware در تهران می‌کند."""
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=IRAN_TZ)
-    return moment.astimezone(IRAN_TZ).date().isoformat()
+        return moment.replace(tzinfo=IRAN_TZ)
+    return moment.astimezone(IRAN_TZ)
+
+
+def iran_day_bounds(day: date) -> tuple[datetime, datetime]:
+    """بازه نیم‌باز ``[00:00, فردا 00:00)`` همان روز تقویم تهران."""
+    start = datetime(day.year, day.month, day.day, tzinfo=IRAN_TZ)
+    return start, start + timedelta(days=1)
