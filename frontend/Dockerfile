@@ -5,10 +5,17 @@ FROM node:22-alpine AS build-stage
 
 WORKDIR /app
 
-ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+# آینه داخلی رانفلر (مثل PyPI بک‌اند). npmmirror چین از خیلی VPSهای ایران timeout می‌شود.
+ENV NPM_CONFIG_REGISTRY=https://mirror-npm.runflare.com \
+    NPM_CONFIG_FETCH_RETRIES=8 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
+    NPM_CONFIG_FETCH_TIMEOUT=300000 \
+    NPM_CONFIG_STRICT_SSL=false
 
 COPY package*.json ./
-RUN npm ci --registry=https://registry.npmmirror.com
+RUN npm ci --registry=https://mirror-npm.runflare.com \
+    || npm ci --registry=https://registry.npmjs.org
 
 COPY . .
 
