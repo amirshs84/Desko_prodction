@@ -38,6 +38,27 @@ export function addDays(jy: number, jm: number, jd: number, delta: number): Jala
   return { jy: y, jm: m, jd: d }
 }
 
+export function addMonths(jy: number, jm: number, jd: number, delta: number): JalaliDate {
+  let y = jy
+  let m = jm + delta
+  while (m > 12) {
+    m -= 12
+    y += 1
+  }
+  while (m < 1) {
+    m += 12
+    y -= 1
+  }
+  const len = jalaaliMonthLength(y, m)
+  return { jy: y, jm: m, jd: Math.min(jd, len) }
+}
+
+export function addYears(jy: number, jm: number, jd: number, delta: number): JalaliDate {
+  const y = jy + delta
+  const len = jalaaliMonthLength(y, jm)
+  return { jy: y, jm, jd: Math.min(jd, len) }
+}
+
 export function startOfPersianWeek(jy: number, jm: number, jd: number): JalaliDate {
   const w = jalaliWeekDay(jy, jm, jd)
   return addDays(jy, jm, jd, -w)

@@ -32,9 +32,26 @@ class StudySessionSerializer(serializers.ModelSerializer):
             'start_time',
             'end_time',
             'duration_seconds',
-            'is_valid'
+            'is_valid',
+            'mode',
+            'count_test',
         ]
         read_only_fields = ['id', 'duration_seconds']
+        extra_kwargs = {
+            'mode': {'required': False},
+            'count_test': {'required': False, 'allow_null': True},
+        }
+
+    def validate(self, attrs):
+        mode = attrs.get('mode', StudySession.MODE_STUDY)
+        count = attrs.get('count_test', None)
+        if mode != StudySession.MODE_TEST:
+            attrs['count_test'] = None
+        elif count is not None and count < 1:
+            raise serializers.ValidationError({
+                'count_test': 'تعداد تست باید حداقل ۱ باشد.',
+            })
+        return attrs
 
     def create(self, validated_data):
         # Calculate duration automatically

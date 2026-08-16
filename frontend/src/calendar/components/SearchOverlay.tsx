@@ -81,7 +81,7 @@ export function SearchOverlay({ open, onClose }: Props) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black" dir="rtl">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-black" dir="rtl" data-cal-modal="1">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--t-edge)] bg-black px-2 py-2" style={{ paddingTop: 'max(8px, env(safe-area-inset-top, 0px))' }}>
         <button
           type="button"

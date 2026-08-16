@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useCalendarSwipe } from '../hooks/useCalendarSwipe'
+import { usePeriodNavigation } from '../hooks/usePeriodNavigation'
 import { useSelectedDay } from '../context/SelectedDayContext'
 import { jalaliWeekDay } from '../lib/jalaliUtils'
 import { JALALI_MONTHS, WEEKDAY_FULL } from '../lib/labels'
 import { toFaDigits } from '../lib/persianDigits'
-import { IconMenu, IconPlus, IconSearch } from './icons'
-import { SearchOverlay } from './SearchOverlay'
 import { calPathDay, calPathMonth, calPathWeek, calPathYear } from '../lib/paths'
+import { IconArrowLeft, IconArrowRight, IconMenu, IconPlus, IconSearch } from './icons'
+import { SearchOverlay } from './SearchOverlay'
 
 type Tab = 'year' | 'month' | 'week' | 'day'
 
@@ -25,6 +27,14 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { goPrev, goNext, goToday, labels, viewingToday } = usePeriodNavigation(active)
+  const swipeEnabled = !menuOpen && !searchOpen
+  const { surfaceRef, style: swipeStyle } = useCalendarSwipe({
+    enabled: swipeEnabled,
+    resetKey: loc.pathname,
+    onPrev: goPrev,
+    onNext: goNext,
+  })
 
   useEffect(() => {
     setMenuOpen(false)
@@ -60,6 +70,9 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
     { key: 'day', label: 'روز', path: calPathDay(jy, jm, jd) },
   ]
 
+  const navBtnClass =
+    'grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--t-edge-2)] text-[var(--t-ink)] transition active:scale-95 hover:bg-white/5'
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-black text-[var(--t-ink)]">
       <header
@@ -67,7 +80,7 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' }}
       >
         <div
-          className="flex items-center gap-2 py-2"
+          className="flex items-center gap-1.5 py-2"
           style={{
             paddingInlineStart: '12px',
             paddingInlineEnd: '12px',
@@ -106,11 +119,31 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
             ) : null}
           </div>
 
-          <div className="min-w-0 flex-1 text-center">
-            <div className="truncate text-base font-bold tracking-tight sm:text-lg">{title}</div>
-            {subtitle ? (
-              <div className="truncate text-xs text-[var(--t-ink-3)]">{subtitle}</div>
-            ) : null}
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
+            <button
+              type="button"
+              aria-label={labels.prev}
+              title={labels.prev}
+              className={navBtnClass}
+              onClick={goPrev}
+            >
+              <IconArrowRight className="size-5" />
+            </button>
+            <div className="min-w-0 flex-1 px-0.5 text-center">
+              <div className="truncate text-base font-bold tracking-tight sm:text-lg">{title}</div>
+              {subtitle ? (
+                <div className="truncate text-xs text-[var(--t-ink-3)]">{subtitle}</div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              aria-label={labels.next}
+              title={labels.next}
+              className={navBtnClass}
+              onClick={goNext}
+            >
+              <IconArrowLeft className="size-5" />
+            </button>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
@@ -122,9 +155,19 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
             >
               <IconSearch className="size-5" />
             </button>
-            <div className="grid h-11 min-w-11 place-items-center rounded-xl border border-[var(--t-edge-2)] px-2 text-sm font-bold text-[var(--t-brand)]">
+            <button
+              type="button"
+              aria-label="رفتن به امروز"
+              title="امروز"
+              onClick={goToday}
+              className={`grid h-11 min-w-11 place-items-center rounded-xl border px-2 text-sm font-bold transition ${
+                viewingToday
+                  ? 'border-[var(--t-brand-2)] bg-[var(--t-brand-2)]/15 text-[var(--t-brand)]'
+                  : 'border-[var(--t-edge-2)] text-[var(--t-brand)] hover:bg-white/5'
+              }`}
+            >
               {toFaDigits(jd)}
-            </div>
+            </button>
           </div>
         </div>
       </header>
@@ -136,7 +179,13 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
           paddingInlineEnd: '12px',
         }}
       >
-        {children}
+        <div
+          ref={surfaceRef}
+          className="cal-swipe h-full min-h-0 overflow-x-hidden"
+          style={swipeStyle}
+        >
+          {children}
+        </div>
       </main>
 
       <div

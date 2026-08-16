@@ -20,6 +20,7 @@ const TOP_BTN_CLASS =
 
 const ACTIVITY_OPTIONS = [
   { id: 'study', label: 'مطالعه', color: '#10b981' },
+  { id: 'test', label: 'تست‌زنی', color: '#f43f5e' },
   { id: 'solve', label: 'حل سوال', color: '#3b82f6' },
   { id: 'review', label: 'مرور', color: '#8b5cf6' },
   { id: 'homework', label: 'تکلیف', color: '#f59e0b' },
@@ -484,7 +485,7 @@ function SelectionAccordion({
         <div
           className="absolute top-full left-0 right-0 mt-1 rounded-2xl border border-edge/80
                      bg-card/95 backdrop-blur-md shadow-2xl shadow-black/30 z-50
-                     max-h-40 overflow-y-auto scroll-touch animate-fadeIn"
+                     max-h-52 overflow-y-auto scroll-touch animate-fadeIn"
         >
           {items.length === 0 ? (
             <p className="px-3 py-2.5 text-xs text-ink-4 text-center">گزینه‌ای وجود ندارد.</p>
@@ -533,6 +534,7 @@ const StudyTimer = () => {
   const [courseAccordionOpen, setCourseAccordionOpen] = useState(false);
   const [preferredActivity, setPreferredActivity] = useState('study');
   const [activityAccordionOpen, setActivityAccordionOpen] = useState(false);
+  const [testCount, setTestCount] = useState('');
   const [description, setDescription] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingSlide, setOnboardingSlide] = useState(0);
@@ -661,6 +663,7 @@ const StudyTimer = () => {
   const handleSelectActivity = (id) => {
     setPreferredActivity(id);
     setActivityAccordionOpen(false);
+    if (id !== 'test') setTestCount('');
   };
 
   /* ── محاسبه آمار امروز از داده‌های Query ── */
@@ -717,6 +720,7 @@ const StudyTimer = () => {
       setAdjustedTime(studyTime);
       setNewCourseName(preferredCourse || '');
       setSelectedSubject(preferredCourse || '');
+      setTestCount('');
       setShowSaveModal(true);
     } else {
       stop();
@@ -724,7 +728,8 @@ const StudyTimer = () => {
   };
 
   const handleSaveSession = async (
-    finalTime, editedStartTime, editedEndTime, courseName, courseDescription
+    finalTime, editedStartTime, editedEndTime, courseName, courseDescription,
+    activityMode, rawTestCount,
   ) => {
     if (isSaving) return;
     setIsSaving(true);
@@ -733,15 +738,23 @@ const StudyTimer = () => {
       setNewCourseName('');
       setDescription('');
       setSelectedSubject('');
+      setTestCount('');
       localStorage.removeItem('timerState');
       stop();
 
-      await dataAPI.createSession({
+      const payload = {
         subject_name: courseName,
         description: courseDescription,
         start_time: editedStartTime.toISOString(),
         end_time: editedEndTime.toISOString(),
-      });
+        mode: activityMode || 'study',
+      };
+      if (activityMode === 'test') {
+        const n = parseInt(String(rawTestCount), 10);
+        if (Number.isFinite(n) && n >= 1) payload.count_test = n;
+      }
+
+      await dataAPI.createSession(payload);
 
       const sessionDate = getStartOfDayIran(editedStartTime);
       if (sessionDate.getTime() === getStartOfDayIran().getTime()) {
@@ -1031,6 +1044,96 @@ const StudyTimer = () => {
               />
             </div>
 
+            {/* نوع فعالیت */}
+            <div className="mb-3">
+              <label className="block text-ink-3 mb-2 text-sm font-medium">نوع فعالیت</label>
+              <div className="flex flex-wrap gap-1.5">
+                {ACTIVITY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelectActivity(opt.id)}
+                    disabled={isSaving}
+                    className={`px-2.5 py-1.5 rounded-lg transition-all duration-200 text-xs font-medium ${
+                      preferredActivity === opt.id
+                        ? 'text-white shadow-md'
+                        : 'bg-panel text-ink-2 hover:bg-panel-hover'
+                    }`}
+                    style={preferredActivity === opt.id ? { backgroundColor: opt.color } : undefined}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {preferredActivity === 'test' && (
+              <div className="mb-3 animate-fadeIn">
+                <label className="block text-ink-3 mb-2 text-sm font-medium">
+                  تعداد تست
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label="کم کردن تعداد تست"
+                    disabled={isSaving}
+                    onClick={() => {
+                      const n = parseInt(testCount, 10);
+                      const next = Number.isFinite(n) ? Math.max(1, n - 1) : 1;
+                      setTestCount(String(next));
+                    }}
+                    className="h-11 w-11 shrink-0 rounded-xl border border-edge bg-panel
+                               text-ink text-lg font-bold hover:bg-panel-hover
+                               transition active:scale-95 disabled:opacity-50"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
+                    value={testCount}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '') {
+                        setTestCount('');
+                        return;
+                      }
+                      if (!/^\d+$/.test(v)) return;
+                      setTestCount(v);
+                    }}
+                    placeholder="مثلاً ۴۰"
+                    className="w-full h-11 px-3 bg-card-deep text-ink rounded-xl border border-edge
+                               text-center text-base font-semibold tabular-nums
+                               [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                               [&::-webkit-inner-spin-button]:appearance-none
+                               focus:outline-none focus:border-rose-400 focus:ring-2
+                               focus:ring-rose-400/20 transition-all"
+                    disabled={isSaving}
+                  />
+                  <button
+                    type="button"
+                    aria-label="زیاد کردن تعداد تست"
+                    disabled={isSaving}
+                    onClick={() => {
+                      const n = parseInt(testCount, 10);
+                      const next = Number.isFinite(n) ? n + 1 : 1;
+                      setTestCount(String(next));
+                    }}
+                    className="h-11 w-11 shrink-0 rounded-xl border border-edge bg-panel
+                               text-ink text-lg font-bold hover:bg-panel-hover
+                               transition active:scale-95 disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-ink-4">
+                  اختیاری — برای محاسبهٔ سرعت تست‌زنی در داشبورد مشاور
+                </p>
+              </div>
+            )}
+
             {/* توضیحات — قابل باز/بسته شدن */}
             <div className="mb-3">
               <button
@@ -1130,7 +1233,12 @@ const StudyTimer = () => {
             {/* دکمه‌های عمل */}
             <div className="flex gap-2">
               <button
-                onClick={() => { setShowSaveModal(false); setNewCourseName(''); setShowDescription(false); }}
+                onClick={() => {
+                  setShowSaveModal(false);
+                  setNewCourseName('');
+                  setShowDescription(false);
+                  setTestCount('');
+                }}
                 disabled={isSaving}
                 className="flex-1 px-4 py-2.5 bg-panel rounded-xl hover:bg-panel-hover
                            transition font-semibold disabled:opacity-50 text-ink text-sm"
@@ -1145,7 +1253,8 @@ const StudyTimer = () => {
                   }
                   handleSaveSession(
                     adjustedTime, startTime, endTime,
-                    newCourseName.trim(), description
+                    newCourseName.trim(), description,
+                    preferredActivity, testCount,
                   );
                 }}
                 disabled={isSaving}

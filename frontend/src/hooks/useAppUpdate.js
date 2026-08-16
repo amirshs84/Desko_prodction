@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorHttp } from '@capacitor/core';
+import { SERVER_ORIGIN } from '../api/config';
 
-const SERVER_VERSION_URL = 'https://mindtempo.ir/version.json';
+const SERVER_VERSION_URL = `${SERVER_ORIGIN}/version.json`;
 const STORAGE_KEY = 'desko_pending_update_version';
 
 /** مقایسه ساده semver — مثبت یعنی v2 جدیدتر از v1 است */

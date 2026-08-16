@@ -123,6 +123,19 @@ class Subject(models.Model):
 
 
 class StudySession(models.Model):
+    MODE_STUDY = 'study'
+    MODE_TEST = 'test'
+    MODE_SOLVE = 'solve'
+    MODE_REVIEW = 'review'
+    MODE_HOMEWORK = 'homework'
+    MODE_CHOICES = [
+        (MODE_STUDY, 'مطالعه'),
+        (MODE_TEST, 'تست‌زنی'),
+        (MODE_SOLVE, 'حل سوال'),
+        (MODE_REVIEW, 'مرور'),
+        (MODE_HOMEWORK, 'تکلیف'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_sessions')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='sessions')
     description = models.TextField(blank=True)
@@ -130,6 +143,17 @@ class StudySession(models.Model):
     end_time = models.DateTimeField(null=True, blank=True)
     duration_seconds = models.IntegerField(default=0)
     is_valid = models.BooleanField(default=True)
+    mode = models.CharField(
+        max_length=16,
+        choices=MODE_CHOICES,
+        default=MODE_STUDY,
+        verbose_name='نوع فعالیت',
+    )
+    count_test = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='تعداد تست',
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.subject.name} - {self.start_time}"

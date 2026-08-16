@@ -173,6 +173,7 @@ export function EventModal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 sm:items-center sm:p-4"
       role="presentation"
+      data-cal-modal="1"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
