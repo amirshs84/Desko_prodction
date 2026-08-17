@@ -283,15 +283,25 @@ const Login = () => {
 
   /* ─────────────────────────── JSX ─────────────────────────── */
   return (
-    <div className="h-full bg-page text-ink flex items-center justify-center
-                    p-4 relative overflow-hidden z-0">
+    <div className="h-full bg-page text-ink flex items-start sm:items-center justify-center
+                    p-4 pt-16 sm:pt-4 relative overflow-y-auto z-0">
       {/* پترن نقطه‌ای */}
       <div className="absolute inset-0 opacity-10 -z-10 pointer-events-none" style={{
         backgroundImage: `radial-gradient(circle at 2px 2px, var(--t-grid-dot) 1px, transparent 0)`,
         backgroundSize: '40px 40px',
       }} />
 
-      <div className="w-full max-w-md relative z-10">
+      <div
+        className="fixed z-50"
+        style={{
+          top: 'max(0.75rem, env(safe-area-inset-top))',
+          insetInlineStart: 'max(0.75rem, env(safe-area-inset-left))',
+        }}
+      >
+        <WebInstallButton hideWhenStandalone={false} />
+      </div>
+
+      <div className="w-full max-w-md relative z-10 my-auto">
         <div className="bg-card/60 backdrop-blur-xl rounded-3xl shadow-2xl p-8
                         border border-brand-2/30">
           {/* هدر */}
@@ -300,10 +310,7 @@ const Login = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-ink mb-2 leading-snug px-1">
               دسکو، سکوی پرتاب تو
             </h1>
-            <p className="text-brand/80 mb-4">ورود و ثبت‌نام</p>
-            <div className="flex justify-center">
-              <WebInstallButton />
-            </div>
+            <p className="text-brand/80">ورود و ثبت‌نام</p>
           </div>
 
           {/* پیام خطا */}
@@ -317,6 +324,7 @@ const Login = () => {
           {/* مرحله ۱: شماره تلفن */}
           {step === 1 && (
             <form onSubmit={handlePhoneSubmit} className="space-y-6">
+              <WebInstallButton variant="cta" hideWhenStandalone={false} />
               <div>
                 <label className="block text-ink-2 mb-2 text-sm font-medium">شماره تلفن</label>
                 <input
@@ -343,6 +351,7 @@ const Login = () => {
           {/* مرحله ۲: رمز عبور */}
           {step === 2 && (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
+              <WebInstallButton variant="cta" hideWhenStandalone={false} />
               <button type="button"
                 onClick={() => {
                   setStep(1);
