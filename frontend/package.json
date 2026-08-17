@@ -9,7 +9,7 @@
     "build": "npm run copy:pdfassets && vite build",
     "build:mobile": "npm run copy:pdfassets && vite build --mode mobile",
     "cap:sync": "npx cap sync android",
-    "android:bundle": "npm run build:mobile && npx cap sync android",
+    "android:bundle": "npm run build:mobile && node scripts/strip-apk-from-dist.mjs && npx cap sync android",
     "assets:android": "npx --yes @capacitor/assets@3 generate --android --androidProject android",
     "preview": "vite preview"
   },

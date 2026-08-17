@@ -25,3 +25,7 @@ dist-ssr
 
 # تولیدشده با npm run copy:pdfassets
 public/pdfjs
+
+# APK دانلود وب — نباید داخل بیلد اندروید برود
+public/*.apk
+dist/*.apk

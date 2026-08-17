@@ -1,5 +1,5 @@
-/** آدرس عمومی سرور فعلی */
-export const SERVER_ORIGIN = 'https://space.mydesko.ir';
+/** آدرس عمومی سرور فعلی — تا وقتی SSL فعال نشده HTTP است */
+export const SERVER_ORIGIN = 'http://space.mydesko.ir';
 
 const getBaseURL = () => {
   const envUrl = import.meta.env.VITE_API_URL?.trim();

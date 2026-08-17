@@ -4,6 +4,7 @@ import { authAPI } from '../api/client';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { queryClient } from '../lib/queryClient';
 import { toEnDigits } from '../lib/persianDigits';
+import WebInstallButton from '../components/WebInstallButton';
 
 const inputClass =
   'w-full px-4 py-3 bg-card/50 text-ink rounded-xl border border-edge-2 ' +
@@ -294,12 +295,15 @@ const Login = () => {
         <div className="bg-card/60 backdrop-blur-xl rounded-3xl shadow-2xl p-8
                         border border-brand-2/30">
           {/* هدر */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="text-6xl mb-4 drop-shadow-lg">📚</div>
             <h1 className="text-2xl sm:text-3xl font-bold text-ink mb-2 leading-snug px-1">
               دسکو، سکوی پرتاب تو
             </h1>
-            <p className="text-brand/80">ورود و ثبت‌نام</p>
+            <p className="text-brand/80 mb-4">ورود و ثبت‌نام</p>
+            <div className="flex justify-center">
+              <WebInstallButton />
+            </div>
           </div>
 
           {/* پیام خطا */}

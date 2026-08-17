@@ -7,9 +7,8 @@ import { formatRelativeDateIran, getStartOfDayIran } from '../utils/dateUtils';
 import { useSubjects, useSessions, useInvalidateSessions, useInvalidateSubjects } from '../hooks/useDataQueries';
 import LaunchButton from '../components/LaunchButton';
 import TimerCircle from '../components/TimerCircle';
+import WebInstallButton from '../components/WebInstallButton';
 import { useTheme } from '../contexts/ThemeContext';
-import { Capacitor } from '@capacitor/core';
-import { usePWA } from '../hooks/PWAContext';
 
 const PREFERRED_SUBJECT_KEY = 'desko_preferred_subject';
 
@@ -357,37 +356,6 @@ function ThemeToggleButton() {
                M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
         </svg>
       )}
-    </button>
-  );
-}
-
-/* ── دکمه نصب PWA — فقط در مرورگر وب نمایش داده می‌شود ─── */
-function WebInstallButton() {
-  const navigate = useNavigate();
-  const { deferredPrompt, isStandalone } = usePWA();
-  const isNative = Capacitor.isNativePlatform();
-
-  // در اپ اندروید native یا پس از نصب PWA، spacer نامرئی برمی‌گردانیم
-  if (isNative || isStandalone) return <div className="h-9" />;
-
-  return (
-    <button
-      onClick={() => navigate('/install-app')}
-      className="rounded-xl px-3 py-2 flex items-center gap-1.5 transition-all active:scale-95
-                 bg-white/12 backdrop-blur-md border border-white/25 text-white/95
-                 hover:bg-white/18 hover:border-white/35
-                 shadow-[0_2px_14px_rgba(255,255,255,0.12),0_4px_16px_rgba(0,0,0,0.25)]"
-      aria-label="نصب اپلیکیشن"
-      title="نصب اپلیکیشن"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0 text-white" fill="none"
-        viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2
-             M7 10l5 5 5-5
-             M12 15V3" />
-      </svg>
-      <span className="text-xs font-semibold whitespace-nowrap text-white/90">نصب اپلیکیشن</span>
     </button>
   );
 }
@@ -835,7 +803,7 @@ const StudyTimer = () => {
 
           {/* نوار بالا */}
           <div className="relative z-40 flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
-            <WebInstallButton />
+            <WebInstallButton placeholder />
             <PageGuideButton />
           </div>
 
