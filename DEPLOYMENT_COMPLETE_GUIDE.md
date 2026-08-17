@@ -34,9 +34,9 @@
 ```env
 SECRET_KEY=django-insecure-auto-gen-super-secret-key-x8!2@9#1env
 DEBUG=False
-ALLOWED_HOSTS=185.252.86.221,localhost,127.0.0.1
-CORS_ALLOWED_ORIGINS=http://185.252.86.221
-CSRF_TRUSTED_ORIGINS=http://185.252.86.221
+ALLOWED_HOSTS=space.mydesko.ir,www.space.mydesko.ir,185.252.86.221,localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=https://space.mydesko.ir,http://space.mydesko.ir
+CSRF_TRUSTED_ORIGINS=https://space.mydesko.ir,http://space.mydesko.ir
 
 # Database Settings
 DB_NAME=timer_db
@@ -49,7 +49,7 @@ DB_PORT=5432
 DATABASE_URL=postgres://timer_user:Strong_DB_Pass_2024_Ex@db:5432/timer_db
 
 # Frontend Settings
-VITE_API_URL=http://185.252.86.221/api/
+VITE_API_URL=/api/
 ```
 
 #### ب) Push کدها به GitHub:

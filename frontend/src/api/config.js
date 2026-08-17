@@ -1,5 +1,5 @@
 /** آدرس عمومی سرور فعلی */
-export const SERVER_ORIGIN = 'http://185.252.86.221';
+export const SERVER_ORIGIN = 'https://space.mydesko.ir';
 
 const getBaseURL = () => {
   const envUrl = import.meta.env.VITE_API_URL?.trim();
