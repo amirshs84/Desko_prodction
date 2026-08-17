@@ -3,9 +3,13 @@
 buildscript {
 
     repositories {
+        maven { url = uri("${rootDir}/local-maven") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://repo.huaweicloud.com/repository/maven") }
         google()
         mavenCentral()
-        maven { url = uri("${rootDir}/local-maven") }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
@@ -22,8 +26,11 @@ apply from: "offline-annotations.gradle"
 
 allprojects {
     repositories {
-        // اول local-maven تا وابستگی‌های دستی قبل از اینترنت خوانده شوند
         maven { url = uri("${rootDir}/local-maven") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://repo.huaweicloud.com/repository/maven") }
         google()
         mavenCentral()
     }

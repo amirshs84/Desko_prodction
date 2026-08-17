@@ -1,3 +1,16 @@
+pluginManagement {
+    repositories {
+        maven { url = uri("${rootDir}/local-maven") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        maven { url = uri("https://repo.huaweicloud.com/repository/maven") }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
 include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')

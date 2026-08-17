@@ -3,7 +3,8 @@
   "appName": "Desko",
   "webDir": "dist",
   "server": {
-    "cleartext": true
+    "cleartext": true,
+    "androidScheme": "https"
   },
   "android": {
     "allowMixedContent": true,
