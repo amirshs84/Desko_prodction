@@ -324,7 +324,6 @@ const Login = () => {
           {/* مرحله ۱: شماره تلفن */}
           {step === 1 && (
             <form onSubmit={handlePhoneSubmit} className="space-y-6">
-              <WebInstallButton variant="cta" hideWhenStandalone={false} />
               <div>
                 <label className="block text-ink-2 mb-2 text-sm font-medium">شماره تلفن</label>
                 <input
@@ -351,7 +350,6 @@ const Login = () => {
           {/* مرحله ۲: رمز عبور */}
           {step === 2 && (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
-              <WebInstallButton variant="cta" hideWhenStandalone={false} />
               <button type="button"
                 onClick={() => {
                   setStep(1);
