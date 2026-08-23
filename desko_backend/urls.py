@@ -9,6 +9,7 @@ urlpatterns = [
     path('api/', include('Planning.urls')),
     path('api/online-classes/', include('OnlineClass.urls')),
     path('api/ai/', include('Ai.interfaces.rest.urls')),
+    path('api/', include('Exam.urls')),
     # صفحه‌ی چت ساده (dev) برای تست دستی مسیر انتها-به-انتها.
     path('', chat_page, name='ai-chat'),
 ]

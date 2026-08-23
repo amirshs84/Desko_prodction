@@ -26,6 +26,11 @@ x-app-env: &app-env
   AI_DEFAULT_MODEL_KEY: ${AI_DEFAULT_MODEL_KEY:-gpt-4o-mini}
   SKYROOM_API_KEY: ${SKYROOM_API_KEY:-}
   SKYROOM_LOGIN_URL_TTL: ${SKYROOM_LOGIN_URL_TTL:-3600}
+  ATHENA_BASE_URL: ${ATHENA_BASE_URL:-http://athena:8001}
+  ATHENA_JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
+  ATHENA_JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
+  ATHENA_JWT_PRIVATE_KEY_FILE: /keys/athena-private.pem
+  MEDIA_ROOT: /app/media
 
 services:
   db:
@@ -36,6 +41,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-athena.sh:/docker-entrypoint-initdb.d/init-athena.sh:ro
     healthcheck:
       # $$ → env داخل کانتینر (نه interpolate روی هاست)
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
@@ -68,11 +74,15 @@ services:
       <<: *app-env
     volumes:
       - static_volume:/app/staticfiles
+      - ./docker/jwt:/keys:ro
+      - exam_media:/app/media
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      athena:
+        condition: service_started
     restart: unless-stopped
     networks:
       - desko_network
@@ -105,6 +115,104 @@ services:
     networks:
       - desko_network
 
+  athena:
+    build:
+      context: ./athena-engine-main
+    entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
+    command: ["uv", "run", "--no-dev", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
+      POSTGRES_DB: athena
+      JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
+      JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
+      JWT_ALGORITHM: RS256
+      JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
+      CORS_ALLOW_ORIGINS: '["*"]'
+    volumes:
+      - ./docker/jwt:/keys:ro
+      - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - desko_network
+
+  athena-session-status:
+    build:
+      context: ./athena-engine-main
+    entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
+    command: ["uv", "run", "--no-dev", "python", "-m", "src.worker", "exam_session_status"]
+    environment:
+      ATHENA_MIGRATE: "0"
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
+      POSTGRES_DB: athena
+      JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
+      JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
+      JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
+    volumes:
+      - ./docker/jwt:/keys:ro
+      - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+    depends_on:
+      - athena
+    restart: unless-stopped
+    networks:
+      - desko_network
+
+  athena-attempt-status:
+    build:
+      context: ./athena-engine-main
+    entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
+    command: ["uv", "run", "--no-dev", "python", "-m", "src.worker", "session_attempt_status"]
+    environment:
+      ATHENA_MIGRATE: "0"
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
+      POSTGRES_DB: athena
+      JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
+      JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
+      JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
+    volumes:
+      - ./docker/jwt:/keys:ro
+      - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+    depends_on:
+      - athena
+    restart: unless-stopped
+    networks:
+      - desko_network
+
+  athena-grading:
+    build:
+      context: ./athena-engine-main
+    entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
+    command: ["uv", "run", "--no-dev", "python", "-m", "src.worker", "session_attempt_grading"]
+    environment:
+      ATHENA_MIGRATE: "0"
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
+      POSTGRES_DB: athena
+      JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
+      JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
+      JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
+    volumes:
+      - ./docker/jwt:/keys:ro
+      - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+    depends_on:
+      - athena
+    restart: unless-stopped
+    networks:
+      - desko_network
+
   frontend:
     build:
       context: ./frontend
@@ -128,3 +236,4 @@ volumes:
   pgdata:
   redisdata:
   static_volume:
+  exam_media:

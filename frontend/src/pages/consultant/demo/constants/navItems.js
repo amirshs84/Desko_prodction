@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, CalendarRange, BarChart3, Settings, ClipboardList,
+  LayoutDashboard, Users, CalendarRange, BarChart3, Settings, ClipboardList, FileText,
 } from 'lucide-react';
 
 /** سایدبار دسکتاپ — از بالا به پایین */
@@ -7,6 +7,7 @@ export const NAV_ITEMS = [
   { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
   { id: 'planning', label: 'برنامه‌ریزی', icon: ClipboardList },
+  { id: 'exams', label: 'آزمون‌ها', icon: FileText },
   { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
   { id: 'settings', label: 'پروفایل', icon: Settings },
 ];

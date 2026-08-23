@@ -3,6 +3,7 @@ import { DashboardDesktop, DashboardMobile } from './tabs/DashboardTab';
 import { StudentsDesktop, StudentsMobile } from './tabs/StudentsTab';
 import { GroupsDesktop, GroupsMobile } from './tabs/GroupsTab';
 import { PlanningDesktop, PlanningMobile } from './tabs/PlanningTab';
+import { ExamsDesktop, ExamsMobile } from './tabs/ExamsTab';
 import { SettingsDesktop, SettingsMobile } from './tabs/SettingsTab';
 import { DEFAULT_TAB_ID } from './constants/navItems';
 
@@ -37,6 +38,7 @@ export const TAB_REGISTRY = {
   students: { Desktop: StudentsDesktop, Mobile: StudentsMobile },
   groups: { Desktop: GroupsDesktop, Mobile: GroupsMobile },
   planning: { Desktop: PlanningDesktop, Mobile: PlanningMobile },
+  exams: { Desktop: ExamsDesktop, Mobile: ExamsMobile },
   analytics: { Desktop: AnalyticsDesktop, Mobile: AnalyticsMobile },
   /** سازگاری با لینک‌های قدیمی تاریخچه */
   history: { Desktop: AnalyticsDesktop, Mobile: AnalyticsMobile },

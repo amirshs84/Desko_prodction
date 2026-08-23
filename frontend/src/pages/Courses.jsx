@@ -227,7 +227,7 @@ const Courses = () => {
 
             <button
               type="button"
-              onClick={() => navigate('/exam-results')}
+              onClick={() => navigate('/exams')}
               className="w-full flex items-center justify-between p-4 bg-panel
                          hover:bg-panel-hover rounded-lg transition">
               <div className="flex items-center gap-3">

@@ -15,6 +15,9 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (error) => {
@@ -145,6 +148,36 @@ export const planningAPI = {
   /** @deprecated از sendMessageToConsultant استفاده کنید */
   replyToConsultantMessage: (data) => api.post('planning/me/messages/', data),
   getMyConsultants: () => api.get('planning/me/consultants/'),
+};
+
+export const examAPI = {
+  listExams: () => api.get('exams/'),
+  createExam: (formData) => api.post('exams/', formData),
+  getExam: (examId) => api.get(`exams/${examId}/`),
+  createSession: (examId, data) => api.post(`exams/${examId}/sessions/`, data),
+  getSession: (sessionId) => api.get(`exam-sessions/${sessionId}/`),
+  updateSession: (sessionId, data) => api.patch(`exam-sessions/${sessionId}/`, data),
+  getParticipants: (sessionId) => api.get(`exam-sessions/${sessionId}/participants/`),
+  addParticipants: (sessionId, userIds) =>
+    api.post(`exam-sessions/${sessionId}/participants/`, { user_ids: userIds }),
+  removeParticipant: (sessionId, userId) =>
+    api.delete(`exam-sessions/${sessionId}/participants/${userId}/`),
+  getSessionResults: (sessionId) => api.get(`exam-sessions/${sessionId}/results/`),
+  getStudentResult: (sessionId, userId) =>
+    api.get(`exam-sessions/${sessionId}/results/${userId}/`),
+
+  getMySessions: () => api.get('me/exam-sessions/'),
+  getBookletBlob: (sessionId) =>
+    api.get(`exam-sessions/${sessionId}/booklet/`, { responseType: 'blob' }),
+  startAttempt: (sessionId) => api.post(`exam-sessions/${sessionId}/attempts/`),
+  getAttempt: (attemptId) => api.get(`attempts/${attemptId}/`),
+  getAttemptProblems: (attemptId) => api.get(`attempts/${attemptId}/problems/`),
+  sendAnswer: (attemptId, data) => api.put(`attempts/${attemptId}/answers/`, data),
+  submitAttempt: (attemptId) => api.post(`attempts/${attemptId}/submit/`),
+  getAttemptResult: (attemptId) => api.get(`attempts/${attemptId}/result/`),
+
+  managerListSessions: () => api.get('manager/exam-sessions/'),
+  managerSessionResults: (sessionId) => api.get(`manager/exam-sessions/${sessionId}/results/`),
 };
 
 // Ticket / Messaging API (student)

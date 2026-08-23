@@ -15,6 +15,8 @@ import PDFReader from './pages/PDFReader';
 import Settings from './pages/Settings';
 import AiAssistant from './pages/AiAssistant';
 import ExamResults from './pages/ExamResults';
+import Exams from './pages/Exams';
+import ExamTake from './pages/ExamTake';
 import Achievements from './pages/Achievements';
 import OnlineClass from './pages/OnlineClass';
 import TodoList from './pages/TodoList';
@@ -52,7 +54,10 @@ function App() {
           <Route path="/courses"   element={<Courses />} />
           <Route path="/notes"         element={<QuickNotes />} />
           <Route path="/ai-assistant"  element={<AiAssistant />} />
+          <Route path="/exams"         element={<Exams />} />
+          <Route path="/exams/:sessionId/take" element={<ExamTake />} />
           <Route path="/exam-results"  element={<ExamResults />} />
+          <Route path="/exam-results/:attemptId" element={<ExamResults />} />
           <Route path="/achievements"  element={<Achievements />} />
           <Route path="/online-class"  element={<OnlineClass />} />
           <Route path="/todos"         element={<TodoList />} />

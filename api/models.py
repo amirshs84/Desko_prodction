@@ -93,6 +93,12 @@ class UserProfile(models.Model):
     is_profile_complete = models.BooleanField(default=False)
     is_password_set = models.BooleanField(default=False, verbose_name='رمز عبور تنظیم شده')
     is_studying = models.BooleanField(default=False, verbose_name='در حال مطالعه')
+    athena_id = models.UUIDField(
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='شناسه موتور آزمون',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

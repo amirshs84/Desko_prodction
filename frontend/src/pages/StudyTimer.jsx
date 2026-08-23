@@ -97,7 +97,7 @@ const QUICK_LINKS_SECONDARY = [
     ),
   },
   {
-    to: '/exam-results',
+    to: '/exams',
     label: 'آزمون‌ها',
     gradient: 'from-amber-500/15 to-orange-600/15',
     border: 'border-amber-500/25 hover:border-amber-400/50',

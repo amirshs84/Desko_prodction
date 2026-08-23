@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'Ai',
     'OnlineClass',
     'Planning',
+    'Exam',
 ]
 
 _HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
@@ -262,3 +263,21 @@ SKYROOM_LOGIN_URL_TTL = int(os.environ.get('SKYROOM_LOGIN_URL_TTL', '3600'))
 SKYROOM_LOGIN_CACHE_BUFFER = int(os.environ.get('SKYROOM_LOGIN_CACHE_BUFFER', '120'))
 SKYROOM_TIMEOUT = float(os.environ.get('SKYROOM_TIMEOUT', '30'))
 SKYROOM_CONNECT_TIMEOUT = float(os.environ.get('SKYROOM_CONNECT_TIMEOUT', '10'))
+
+# ---------------------------------------------------------------------------
+# Exam engine (Athena)
+# ---------------------------------------------------------------------------
+ATHENA_BASE_URL = os.environ.get('ATHENA_BASE_URL', 'http://localhost:8001').rstrip('/')
+ATHENA_JWT_ISSUER = os.environ.get('ATHENA_JWT_ISSUER', 'desko')
+ATHENA_JWT_AUDIENCE = os.environ.get('ATHENA_JWT_AUDIENCE', 'athena')
+ATHENA_JWT_ALGORITHM = os.environ.get('ATHENA_JWT_ALGORITHM', 'RS256')
+ATHENA_JWT_PRIVATE_KEY = os.environ.get('ATHENA_JWT_PRIVATE_KEY', '')
+ATHENA_JWT_PRIVATE_KEY_FILE = os.environ.get(
+    'ATHENA_JWT_PRIVATE_KEY_FILE',
+    str(BASE_DIR / 'docker' / 'jwt' / 'athena-private.pem'),
+)
+ATHENA_JWT_TTL_SECONDS = int(os.environ.get('ATHENA_JWT_TTL_SECONDS', '300'))
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
+
