@@ -1,7 +1,9 @@
 from logging.config import fileConfig
+import asyncio
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.core.config import settings
 from src.core.database import Base
@@ -22,12 +24,9 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-sync_url = settings.POSTGRES_URL_OBJECT.set(drivername="postgresql+psycopg2")
-config.set_main_option("sqlalchemy.url", sync_url.render_as_string(hide_password=False))
-
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.POSTGRES_URL_OBJECT.render_as_string(hide_password=False)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -40,22 +39,28 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+def do_run_migrations(connection) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -> None:
+    connectable = create_async_engine(
+        settings.POSTGRES_URL_OBJECT,
         poolclass=pool.NullPool,
     )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-        )
 
-        with context.begin_transaction():
-            context.run_migrations()
+def run_migrations_online() -> None:
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

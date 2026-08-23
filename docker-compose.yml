@@ -167,7 +167,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
-      start_period: 25s
+      start_period: 45s
     restart: unless-stopped
     networks:
       - desko_network
