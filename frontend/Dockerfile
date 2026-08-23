@@ -1,7 +1,10 @@
+# ARGs used in FROM must be declared before the first FROM (Docker BuildKit scope).
+ARG NODE_IMAGE=docker.arvancloud.ir/node:22-alpine
+ARG NGINX_IMAGE=docker.arvancloud.ir/nginx:stable-alpine
+
 # Stage 1: Build
 # Node 22: @capacitor/cli 8.x and vite-plugin-static-copy 4.x expect it.
 # @capacitor/assets (sharp/GitHub) is not a lockfile dependency — use npm run assets:android locally with network.
-ARG NODE_IMAGE=docker.arvancloud.ir/node:22-alpine
 FROM ${NODE_IMAGE} AS build-stage
 
 WORKDIR /app
@@ -27,7 +30,6 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Stage 2: Serve with Nginx
-ARG NGINX_IMAGE=docker.arvancloud.ir/nginx:stable-alpine
 FROM ${NGINX_IMAGE}
 
 COPY --from=build-stage /app/dist /usr/share/nginx/html
