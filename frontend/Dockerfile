@@ -1,15 +1,12 @@
-# ARGs used in FROM must be declared before the first FROM (Docker BuildKit scope).
-ARG NODE_IMAGE=docker.arvancloud.ir/node:22-alpine
-ARG NGINX_IMAGE=docker.arvancloud.ir/nginx:stable-alpine
-
 # Stage 1: Build
 # Node 22: @capacitor/cli 8.x and vite-plugin-static-copy 4.x expect it.
 # @capacitor/assets (sharp/GitHub) is not a lockfile dependency — use npm run assets:android locally with network.
-FROM ${NODE_IMAGE} AS build-stage
+# Official Hub names so a previously pulled image on the VPS can be reused (Iranian
+# registry mirrors often TLS-timeout; do not prefix docker.arvancloud.ir/ here).
+FROM node:22-alpine AS build-stage
 
 WORKDIR /app
 
-# Prefer a reachable registry from Iranian hosts; npmjs.org is last fallback.
 ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
     NPM_CONFIG_FETCH_RETRIES=8 \
     NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
@@ -30,7 +27,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # Stage 2: Serve with Nginx
-FROM ${NGINX_IMAGE}
+FROM nginx:stable-alpine
 
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

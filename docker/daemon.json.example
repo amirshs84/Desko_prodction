@@ -1,0 +1,9 @@
+{
+  "registry-mirrors": [
+    "https://mirror-docker.runflare.com",
+    "https://docker.iranserver.com",
+    "https://focker.ir",
+    "https://docker.haiocloud.com",
+    "https://hub.hamdocker.ir"
+  ]
+}
