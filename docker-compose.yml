@@ -136,7 +136,7 @@ services:
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
-    command: ["uv", "run", "--no-dev", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001"]
     environment:
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
@@ -160,7 +160,7 @@ services:
       test:
         [
           "CMD",
-          "/app/.venv/bin/python",
+          "python",
           "-c",
           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')",
         ]
@@ -176,7 +176,7 @@ services:
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
-    command: ["uv", "run", "--no-dev", "python", "-m", "src.worker", "exam_session_status"]
+    command: ["python", "-m", "src.worker", "exam_session_status"]
     environment:
       ATHENA_MIGRATE: "0"
       POSTGRES_SERVER: db
@@ -203,7 +203,7 @@ services:
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
-    command: ["uv", "run", "--no-dev", "python", "-m", "src.worker", "session_attempt_status"]
+    command: ["python", "-m", "src.worker", "session_attempt_status"]
     environment:
       ATHENA_MIGRATE: "0"
       POSTGRES_SERVER: db
@@ -230,7 +230,7 @@ services:
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
-    command: ["uv", "run", "--no-dev", "python", "-m", "src.worker", "session_attempt_grading"]
+    command: ["python", "-m", "src.worker", "session_attempt_grading"]
     environment:
       ATHENA_MIGRATE: "0"
       POSTGRES_SERVER: db

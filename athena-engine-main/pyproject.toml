@@ -8,7 +8,6 @@ dependencies = [
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "fastapi>=0.139.2",
-    "psycopg2-binary>=2.9.12",
     "pydantic-settings>=2.14.2",
     "python-jose[cryptography]>=3.5.0",
     "redis>=8.0.1",
