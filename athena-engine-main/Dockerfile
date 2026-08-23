@@ -14,6 +14,7 @@ COPY src ./src
 COPY alembic ./alembic
 COPY alembic.ini ./
 COPY docker/entrypoint.sh /app/docker/entrypoint.sh
+COPY docker/ensure_db.py /app/docker/ensure_db.py
 RUN chmod +x /app/docker/entrypoint.sh
 
 ENV PYTHONPATH=/app

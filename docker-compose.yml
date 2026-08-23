@@ -82,7 +82,7 @@ services:
       redis:
         condition: service_healthy
       athena:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - desko_network
@@ -126,6 +126,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
       POSTGRES_DB: athena
+      POSTGRES_ADMIN_DB: postgres
       JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
       JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
       JWT_ALGORITHM: RS256
@@ -134,9 +135,22 @@ services:
     volumes:
       - ./docker/jwt:/keys:ro
       - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+      - ./athena-engine-main/docker/ensure_db.py:/app/docker/ensure_db.py:ro
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/app/.venv/bin/python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
     restart: unless-stopped
     networks:
       - desko_network
@@ -153,14 +167,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
       POSTGRES_DB: athena
+      POSTGRES_ADMIN_DB: postgres
       JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
       JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
       JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
     volumes:
       - ./docker/jwt:/keys:ro
       - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+      - ./athena-engine-main/docker/ensure_db.py:/app/docker/ensure_db.py:ro
     depends_on:
-      - athena
+      athena:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - desko_network
@@ -177,14 +194,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
       POSTGRES_DB: athena
+      POSTGRES_ADMIN_DB: postgres
       JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
       JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
       JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
     volumes:
       - ./docker/jwt:/keys:ro
       - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+      - ./athena-engine-main/docker/ensure_db.py:/app/docker/ensure_db.py:ro
     depends_on:
-      - athena
+      athena:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - desko_network
@@ -201,14 +221,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-${DB_USER:-desko}}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_PASSWORD:-desko}}
       POSTGRES_DB: athena
+      POSTGRES_ADMIN_DB: postgres
       JWT_ISSUER: ${ATHENA_JWT_ISSUER:-desko}
       JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
       JWT_PUBLIC_KEY_FILE: /keys/athena-public.pem
     volumes:
       - ./docker/jwt:/keys:ro
       - ./athena-engine-main/docker/entrypoint.sh:/app/docker/entrypoint.sh:ro
+      - ./athena-engine-main/docker/ensure_db.py:/app/docker/ensure_db.py:ro
     depends_on:
-      - athena
+      athena:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - desko_network
