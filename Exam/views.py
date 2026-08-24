@@ -724,10 +724,20 @@ class StudentSendAnswerView(APIView):
     def put(self, request, attempt_id: UUID):
         payload = {
             'exam_session_problem_id': request.data.get('exam_session_problem_id'),
-            'response_data': request.data.get('response_data') or {
-                'selected_option_id': request.data.get('selected_option_id'),
-            },
+            'response_data': request.data.get('response_data') or {},
         }
+        response_data = payload['response_data'] if isinstance(payload['response_data'], dict) else {}
+        if 'selected_option_id' not in response_data:
+            response_data['selected_option_id'] = request.data.get('selected_option_id')
+        raw_option = response_data.get('selected_option_id')
+        if raw_option in ('', None):
+            response_data['selected_option_id'] = None
+        else:
+            try:
+                response_data['selected_option_id'] = int(raw_option)
+            except (TypeError, ValueError):
+                return Response({'error': 'گزینه نامعتبر است'}, status=400)
+        payload['response_data'] = response_data
         try:
             result = _client_for(request.user).send_answer(attempt_id, payload)
         except AthenaError as exc:
