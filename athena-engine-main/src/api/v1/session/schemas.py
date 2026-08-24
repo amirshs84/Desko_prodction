@@ -100,7 +100,7 @@ class ProblemPreviewContent(BaseModel):
     id: UUID
     type: Literal["MCQ"]
     public_payload: MCQPublicPayloadSchema
-    meta_data: MCQMetaDataSchema
+    meta_data: MCQMetaDataSchema | None = None
     config: dict[str, Any]
     score: Decimal
     negative_score: Decimal

@@ -6,6 +6,7 @@ case "$1" in
     python manage.py migrate --noinput
     python manage.py seed_ai_model
     python manage.py collectstatic --noinput
+    mkdir -p "${MEDIA_ROOT:-/app/media}/exam_booklets"
     exec gunicorn desko_backend.wsgi:application \
       --bind 0.0.0.0:8000 \
       --keep-alive 75 \

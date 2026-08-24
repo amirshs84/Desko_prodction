@@ -151,7 +151,7 @@ class GetAttemptProblemsQuery:
             attempt = await uow.attempt.get_summary(attempt_id=params.attempt_id)
             if attempt.user_id != params.user_id:
                 raise SessionAttemptNotFound()
-            page = await uow.exam_session.list_problem_details(
+            page = await uow.exam_session.list_problem_take_views(
                 session_id=attempt.session_id,
                 limit=params.limit,
                 offset=params.offset,
@@ -161,9 +161,9 @@ class GetAttemptProblemsQuery:
             items=tuple(
                 AttemptProblemContent(
                     id=problem.id,
-                    type=problem.public_payload.type,
+                    type="MCQ",
                     public_payload=problem.public_payload,
-                    config=problem.config,
+                    config=problem.config or {},
                     score=problem.score,
                     negative_score=problem.negative_score,
                     order_index=problem.order_index,

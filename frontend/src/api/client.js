@@ -16,7 +16,13 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
+      const headers = config.headers;
+      if (headers && typeof headers.set === 'function') {
+        headers.set('Content-Type', false);
+      } else if (headers) {
+        delete headers['Content-Type'];
+        delete headers['content-type'];
+      }
     }
     return config;
   },
@@ -150,10 +156,35 @@ export const planningAPI = {
   getMyConsultants: () => api.get('planning/me/consultants/'),
 };
 
+async function asPdfBlob(response) {
+  const blob = response.data;
+  const type = String(response.headers['content-type'] || blob?.type || '').toLowerCase();
+  if (!(blob instanceof Blob) || type.includes('json')) {
+    let message = 'دانلود دفترچه ناموفق بود';
+    if (blob instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await blob.text());
+        message = parsed.error || parsed.code || message;
+      } catch {
+        /* ignore */
+      }
+    }
+    throw Object.assign(new Error(message), { response: { data: { error: message } } });
+  }
+  const header = await blob.slice(0, 5).text();
+  if (!header.startsWith('%PDF')) {
+    const message = 'فایل دفترچه روی سرور PDF معتبر نیست';
+    throw Object.assign(new Error(message), { response: { data: { error: message } } });
+  }
+  return new Blob([blob], { type: 'application/pdf' });
+}
+
 export const examAPI = {
   listExams: () => api.get('exams/'),
-  createExam: (formData) => api.post('exams/', formData),
+  createExam: (formData) => api.post('exams/', formData, { timeout: 180000 }),
   getExam: (examId) => api.get(`exams/${examId}/`),
+  getExamBookletBlob: (examId) =>
+    api.get(`exams/${examId}/booklet/`, { responseType: 'blob', timeout: 120000 }).then(asPdfBlob),
   createSession: (examId, data) => api.post(`exams/${examId}/sessions/`, data),
   getSession: (sessionId) => api.get(`exam-sessions/${sessionId}/`),
   updateSession: (sessionId, data) => api.patch(`exam-sessions/${sessionId}/`, data),
@@ -168,7 +199,7 @@ export const examAPI = {
 
   getMySessions: () => api.get('me/exam-sessions/'),
   getBookletBlob: (sessionId) =>
-    api.get(`exam-sessions/${sessionId}/booklet/`, { responseType: 'blob' }),
+    api.get(`exam-sessions/${sessionId}/booklet/`, { responseType: 'blob', timeout: 120000 }).then(asPdfBlob),
   startAttempt: (sessionId) => api.post(`exam-sessions/${sessionId}/attempts/`),
   getAttempt: (attemptId) => api.get(`attempts/${attemptId}/`),
   getAttemptProblems: (attemptId) => api.get(`attempts/${attemptId}/problems/`),

@@ -246,11 +246,14 @@ function CreateWizard({ step, draft, onChange, onCancel, onCreated }) {
           <label className="block text-sm font-medium text-gray-700">دفترچه PDF
             <input
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,.pdf"
               className="mt-1 block w-full text-sm"
               onChange={(e) => onChange({ draft: { ...draft, file: e.target.files?.[0] } })}
             />
           </label>
+          {draft.file && (
+            <p className="text-xs text-emerald-700">فایل انتخاب‌شده: {draft.file.name} ({Math.max(1, Math.round(draft.file.size / 1024))} کیلوبایت)</p>
+          )}
         </div>
       )}
 
@@ -446,8 +449,30 @@ function ExamDetail({ examId, onBack, onOpenSession }) {
           <div>
             <h2 className="font-bold text-xl text-gray-900">{exam.title}</h2>
             <p className="text-sm text-gray-500 mt-1">{fa(exam.problems_count)} سوال تستی</p>
+            {exam.booklet_name && (
+              <p className="text-xs text-gray-400 mt-1">دفترچه: {exam.booklet_name}</p>
+            )}
           </div>
-          <PrimaryButton onClick={() => setShowSchedule(true)}>جلسه جدید</PrimaryButton>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <SecondaryButton
+              onClick={async () => {
+                try {
+                  const blob = await examAPI.getExamBookletBlob(examId);
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = exam.booklet_name || `${exam.title}.pdf`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  window.alert(err?.response?.data?.error || err.message || 'دانلود دفترچه ناموفق بود');
+                }
+              }}
+            >
+              دانلود دفترچه
+            </SecondaryButton>
+            <PrimaryButton onClick={() => setShowSchedule(true)}>جلسه جدید</PrimaryButton>
+          </div>
         </div>
       </Card>
       {showSchedule && (

@@ -32,6 +32,7 @@ from src.modules.exam.schemas import (
     ExamSessionProblemMetaDataView,
     ExamSessionProblemPrivateView,
     ExamSessionProblemPublicView,
+    ExamSessionProblemTakeView,
     ExamSessionResultContext,
     ExamSessionSummary,
     ExamSummary,
@@ -505,6 +506,33 @@ class ExamSessionRepository:
         )
         return Page(
             items=tuple(ExamSessionProblemDetail.model_validate(r) for r in rows),
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def list_problem_take_views(
+        self,
+        session_id: UUID,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Page[ExamSessionProblemTakeView]:
+        rows, total = await self._fetch_problem_rows(
+            session_id=session_id,
+            columns=(
+                *self._IDENTITY_COLUMNS,
+                ExamSessionProblem.public_payload_snapshot.label("public_payload"),
+                ExamSessionProblem.config_snapshot.label("config"),
+                ExamSessionProblem.score_snapshot.label("score"),
+                ExamSessionProblem.negative_score_snapshot.label("negative_score"),
+                ExamSessionProblem.order_index_snapshot.label("order_index"),
+            ),
+            limit=limit,
+            offset=offset,
+        )
+        return Page(
+            items=tuple(ExamSessionProblemTakeView.model_validate(r) for r in rows),
             total=total,
             limit=limit,
             offset=offset,

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.database import AsyncSqlAlchemyUoW
 from src.core.schemas import Page
-from src.core.exceptions import ExamSessionNotFound
+from src.core.exceptions import ExamSessionNotFound, ParticipantNotFound
 from src.modules.exam.database_schemas import ExamConfigSchema
 from src.modules.exam.models import ExamSessionStatus, SessionParticipantStatus
 from src.modules.exam.schemas import ExamDetail, ExamSummary
@@ -283,7 +283,7 @@ class ProblemPreviewContent(BaseModel):
     id: UUID
     type: str
     public_payload: MCQPublicPayloadSchema
-    meta_data: MCQMetaDataSchema
+    meta_data: MCQMetaDataSchema | None = None
     config: dict[str, Any]
     score: Decimal
     negative_score: Decimal
@@ -308,13 +308,22 @@ class GetSessionProblemsQuery:
         params: GetSessionProblemsQueryParams,
     ) -> Page[ProblemPreviewContent]:
         async with self._uow as uow:
-            if not await uow.exam_session.is_created_by(
+            is_creator = await uow.exam_session.is_created_by(
                 session_id=params.session_id,
                 user_id=params.requested_by,
-            ):
-                raise ExamSessionNotFound()
+            )
+            if not is_creator:
+                try:
+                    participant = await uow.exam_session.get_participant(
+                        session_id=params.session_id,
+                        user_id=params.requested_by,
+                    )
+                except ParticipantNotFound as exc:
+                    raise ExamSessionNotFound() from exc
+                if participant.status is not SessionParticipantStatus.ASSIGNED:
+                    raise ExamSessionNotFound()
 
-            page = await uow.exam_session.list_problem_details(
+            page = await uow.exam_session.list_problem_take_views(
                 session_id=params.session_id,
                 limit=params.limit,
                 offset=params.offset,
@@ -324,10 +333,10 @@ class GetSessionProblemsQuery:
             items=tuple(
                 ProblemPreviewContent(
                     id=problem.id,
-                    type=problem.public_payload.type,
+                    type="MCQ",
                     public_payload=problem.public_payload,
-                    meta_data=problem.meta_data,
-                    config=problem.config,
+                    meta_data=None,
+                    config=problem.config or {},
                     score=problem.score,
                     negative_score=problem.negative_score,
                     order_index=problem.order_index,

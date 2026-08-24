@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.modules.exam.database_schemas import ExamConfigSchema
 from src.modules.exam.models import ExamSessionStatus, ExamStatus, SessionParticipantStatus
@@ -95,6 +95,24 @@ class ExamSessionProblemDetail(BaseModel):
     negative_score: Decimal
     order_index: int
     created_at: datetime
+
+
+class ExamSessionProblemTakeView(BaseModel):
+    model_config = ConfigDict(frozen=True, from_attributes=True)
+
+    id: UUID
+    session_id: UUID
+    exam_problem_id: UUID | None
+    public_payload: MCQPublicPayloadSchema
+    config: dict[str, Any] = Field(default_factory=dict)
+    score: Decimal
+    negative_score: Decimal
+    order_index: int
+
+    @field_validator("config", mode="before")
+    @classmethod
+    def empty_config(cls, value):
+        return value or {}
 
 
 class ExamSessionProblemPublicView(BaseModel):

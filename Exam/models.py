@@ -10,7 +10,10 @@ from api.models import School, UserProfile
 
 def booklet_upload_to(instance, filename):
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'pdf'
-    return f'exam_booklets/{instance.id}.{ext}'
+    if ext not in ('pdf',):
+        ext = 'pdf'
+    asset_id = instance.id or uuid.uuid4()
+    return f'exam_booklets/{asset_id}.{ext}'
 
 
 class ExamAsset(models.Model):

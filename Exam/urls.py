@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ConsultantExamBookletView,
     ConsultantExamDetailView,
     ConsultantExamListCreateView,
     ConsultantExamSessionListCreateView,
@@ -24,6 +25,7 @@ from .views import (
 urlpatterns = [
     path('exams/', ConsultantExamListCreateView.as_view(), name='exam_list_create'),
     path('exams/<int:exam_id>/', ConsultantExamDetailView.as_view(), name='exam_detail'),
+    path('exams/<int:exam_id>/booklet/', ConsultantExamBookletView.as_view(), name='exam_booklet'),
     path(
         'exams/<int:exam_id>/sessions/',
         ConsultantExamSessionListCreateView.as_view(),

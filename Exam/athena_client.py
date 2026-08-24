@@ -124,6 +124,25 @@ class AthenaClient:
             params={'limit': limit, 'offset': offset},
         )
 
+    def get_session_problems(self, session_id: UUID, *, limit: int = 100, offset: int = 0) -> dict:
+        return self._request(
+            'GET',
+            f'/api/v1/sessions/{session_id}/problems',
+            params={'limit': limit, 'offset': offset},
+        )
+
+    def list_all_session_problems(self, session_id: UUID) -> list[dict]:
+        items: list[dict] = []
+        offset = 0
+        while True:
+            page = self.get_session_problems(session_id, limit=100, offset=offset)
+            chunk = list(page.get('items') or [])
+            items.extend(chunk)
+            if offset + len(chunk) >= int(page.get('total') or 0) or not chunk:
+                break
+            offset += 100
+        return items
+
     def list_session_attempts(self, session_id: UUID, *, limit: int = 100, offset: int = 0) -> dict:
         return self._request(
             'GET',

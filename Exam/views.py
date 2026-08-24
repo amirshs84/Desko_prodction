@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
+from urllib.parse import quote
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
@@ -25,7 +26,57 @@ from .models import ExamAsset, ExamRecord, SessionParticipantRecord, SessionReco
 
 def _athena_response(exc: AthenaError) -> Response:
     http_status = exc.status_code if 400 <= exc.status_code < 600 else 502
-    return Response({'code': exc.code, 'detail': exc.detail}, status=http_status)
+    messages = {
+        'athena_error': 'موتور آزمون خطا داد.',
+        'athena_unavailable': 'ارتباط با موتور آزمون برقرار نشد.',
+        'attempt_already_exists': 'برای این آزمون قبلاً شروع کرده‌اید.',
+        'session_not_started_yet': 'زمان شروع آزمون هنوز نرسیده است.',
+        'session_already_expired': 'زمان این آزمون به پایان رسیده است.',
+        'session_attempt_not_found': 'تلاش آزمون پیدا نشد.',
+        'participant_is_not_assigned': 'شما در این آزمون ثبت نشده‌اید.',
+    }
+    code = str(exc.code)
+    return Response(
+        {
+            'code': code,
+            'detail': exc.detail,
+            'error': messages.get(code) or (exc.detail if isinstance(exc.detail, str) else code),
+        },
+        status=http_status,
+    )
+
+
+def _booklet_file_response(asset: ExamAsset):
+    if not asset or not asset.file:
+        return Response({'error': 'فایل دفترچه ثبت نشده است'}, status=404)
+    try:
+        exists = asset.file.storage.exists(asset.file.name)
+    except Exception:
+        exists = False
+    if not exists:
+        return Response({'error': 'فایل دفترچه روی سرور پیدا نشد. دوباره از پنل مشاور آپلود کنید.'}, status=404)
+    filename = asset.original_name or 'booklet.pdf'
+    response = FileResponse(
+        asset.file.open('rb'),
+        as_attachment=False,
+        filename=filename,
+        content_type=asset.content_type or 'application/pdf',
+    )
+    response['Content-Disposition'] = f"inline; filename*=UTF-8''{quote(filename)}"
+    return response
+
+
+def _can_access_session_booklet(user, record: SessionRecord) -> bool:
+    profile = _profile(user)
+    if record.created_by_id == user.id:
+        return True
+    if profile.role == 'manager' and profile.school_id == record.school_id:
+        return True
+    return SessionParticipantRecord.objects.filter(
+        session=record,
+        user=user,
+        status=SessionParticipantRecord.STATUS_ASSIGNED,
+    ).exists()
 
 
 def _profile(user) -> UserProfile:
@@ -78,6 +129,8 @@ def _serialize_exam(record: ExamRecord) -> dict:
         'description': record.description,
         'problems_count': record.problems_count,
         'options_per_problem': record.options_per_problem,
+        'booklet_url': f'/api/exams/{record.id}/booklet/',
+        'booklet_name': record.asset.original_name if record.asset_id else '',
         'created_at': record.created_at.isoformat(),
         'session_count': record.sessions.count(),
     }
@@ -95,6 +148,7 @@ def _serialize_session(record: SessionRecord, extra: dict | None = None) -> dict
         'status': record.status,
         'problems_count': record.exam.problems_count,
         'options_per_problem': record.exam.options_per_problem,
+        'booklet_url': f'/api/exam-sessions/{record.id}/booklet/',
         'participant_count': record.participants.filter(
             status=SessionParticipantRecord.STATUS_ASSIGNED
         ).count(),
@@ -144,7 +198,7 @@ class ConsultantExamListCreateView(APIView):
         school, error = _school_or_error(request)
         if error:
             return error
-        records = ExamRecord.objects.filter(created_by=request.user, school=school)
+        records = ExamRecord.objects.filter(created_by=request.user, school=school).select_related('asset')
         return Response([_serialize_exam(item) for item in records])
 
     def post(self, request):
@@ -237,6 +291,17 @@ class ConsultantExamDetailView(APIView):
         payload = _serialize_exam(exam)
         payload['sessions'] = sessions
         return Response(payload)
+
+
+class ConsultantExamBookletView(APIView):
+    permission_classes = [IsAuthenticated, IsConsultant]
+
+    def get(self, request, exam_id: int):
+        school, error = _school_or_error(request)
+        if error:
+            return error
+        exam = get_object_or_404(ExamRecord, id=exam_id, created_by=request.user, school=school)
+        return _booklet_file_response(exam.asset)
 
 
 class ConsultantExamSessionListCreateView(APIView):
@@ -562,25 +627,9 @@ class StudentSessionBookletView(APIView):
 
     def get(self, request, session_id: int):
         record = get_object_or_404(SessionRecord, id=session_id)
-        profile = _profile(request.user)
-        is_participant = SessionParticipantRecord.objects.filter(
-            session=record,
-            user=request.user,
-            status=SessionParticipantRecord.STATUS_ASSIGNED,
-        ).exists()
-        is_creator = record.created_by_id == request.user.id
-        is_school_manager = (
-            profile.role == 'manager' and profile.school_id == record.school_id
-        )
-        if not (is_participant or is_creator or is_school_manager):
+        if not _can_access_session_booklet(request.user, record):
             return Response({'error': 'دسترسی به دفترچه مجاز نیست'}, status=403)
-        asset = record.exam.asset
-        return FileResponse(
-            asset.file.open('rb'),
-            as_attachment=False,
-            filename=asset.original_name or 'booklet.pdf',
-            content_type=asset.content_type or 'application/pdf',
-        )
+        return _booklet_file_response(record.exam.asset)
 
 
 class StudentStartAttemptView(APIView):
@@ -594,10 +643,36 @@ class StudentStartAttemptView(APIView):
             status=SessionParticipantRecord.STATUS_ASSIGNED,
         )
         record = SessionRecord.objects.get(id=session_id)
+        client = _client_for(request.user)
         try:
-            result = _client_for(request.user).start_attempt(record.athena_session_id)
+            result = client.start_attempt(record.athena_session_id)
         except AthenaError as exc:
-            return _athena_response(exc)
+            if exc.code != 'attempt_already_exists':
+                return _athena_response(exc)
+            try:
+                page = client.list_my_sessions(limit=100, offset=0)
+            except AthenaError as inner:
+                return _athena_response(inner)
+            live = next(
+                (
+                    item
+                    for item in (page.get('items') or [])
+                    if str(item.get('session_id')) == str(record.athena_session_id)
+                    and item.get('attempt_id')
+                ),
+                None,
+            )
+            if live is None:
+                return _athena_response(exc)
+            try:
+                attempt = client.get_attempt(live['attempt_id'])
+            except AthenaError as inner:
+                return _athena_response(inner)
+            result = {
+                'attempt_id': live['attempt_id'],
+                'started_at': attempt.get('started_at'),
+                'expire_at': attempt.get('expire_at'),
+            }
         return Response(result, status=status.HTTP_201_CREATED)
 
 
@@ -616,11 +691,24 @@ class StudentAttemptProblemsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, attempt_id: UUID):
+        client = _client_for(request.user)
         try:
-            items = _client_for(request.user).list_all_attempt_problems(attempt_id)
-            answers = _client_for(request.user).get_attempt_answers(attempt_id)
-        except AthenaError as exc:
-            return _athena_response(exc)
+            items = client.list_all_attempt_problems(attempt_id)
+        except AthenaError:
+            items = []
+            try:
+                attempt = client.get_attempt(attempt_id)
+                session = SessionRecord.objects.filter(
+                    athena_session_id=attempt.get('session_id')
+                ).first()
+                if session is not None:
+                    items = client.list_all_session_problems(session.athena_session_id)
+            except AthenaError as exc:
+                return _athena_response(exc)
+        try:
+            answers = client.get_attempt_answers(attempt_id)
+        except AthenaError:
+            answers = {'answers': []}
         selected = {
             str(item['exam_session_problem_id']): (item.get('response_data') or {}).get('selected_option_id')
             for item in answers.get('answers') or []
