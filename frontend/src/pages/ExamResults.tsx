@@ -31,8 +31,9 @@ function ResultsList() {
   )
 
   return (
-    <div className="min-h-dvh bg-page text-ink" dir="rtl">
-      <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 space-y-4">
+    <div className="h-full flex flex-col bg-page text-ink" dir="rtl">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-6 pb-nav-safe">
+        <div className="max-w-3xl mx-auto space-y-4">
         <h1 className="text-2xl font-black">کارنامه‌ها</h1>
         {isLoading && <p className="text-sm text-ink-3">در حال بارگذاری…</p>}
         {!isLoading && !finished.length && (
@@ -50,6 +51,7 @@ function ResultsList() {
             <p className="text-xs text-ink-3 mt-1">{item.exam_title} · {formatWhen(item.end_time)}</p>
           </Link>
         ))}
+        </div>
       </div>
       <BottomNav />
     </div>
@@ -78,8 +80,9 @@ function ResultDetail({ attemptId }: { attemptId: string }) {
   }, [percent])
 
   return (
-    <div className="min-h-dvh bg-page text-ink" dir="rtl">
-      <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 space-y-5">
+    <div className="h-full flex flex-col bg-page text-ink" dir="rtl">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-6 pb-nav-safe">
+        <div className="max-w-3xl mx-auto space-y-5">
         <button type="button" onClick={() => navigate('/exams')} className="text-sm text-emerald-400">
           بازگشت به آزمون‌ها
         </button>
@@ -159,6 +162,7 @@ function ResultDetail({ attemptId }: { attemptId: string }) {
             </section>
           </>
         )}
+        </div>
       </div>
       <BottomNav />
     </div>

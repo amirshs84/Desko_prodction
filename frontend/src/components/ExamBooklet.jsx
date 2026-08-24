@@ -1,88 +1,116 @@
 import { useEffect, useRef, useState } from 'react';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-GlobalWorkerOptions.workerSrc = workerSrc;
+function workerUrl() {
+  return new URL('/mupdf-worker.js', window.location.origin).href;
+}
 
-function PdfPage({ pdf, pageNumber }) {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const canvas = canvasRef.current;
-    if (!canvas || !pdf) return undefined;
-    (async () => {
-      const page = await pdf.getPage(pageNumber);
-      if (cancelled) return;
-      const base = page.getViewport({ scale: 1 });
-      const width = Math.min(canvas.parentElement?.clientWidth || 800, 980);
-      const viewport = page.getViewport({ scale: Math.max(width / base.width, 0.8) });
-      const context = canvas.getContext('2d', { alpha: false });
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: context, viewport }).promise;
-    })().catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [pdf, pageNumber]);
-
-  return <canvas ref={canvasRef} className="w-full bg-white mb-3 rounded-sm shadow" />;
+function createWorker() {
+  const worker = new Worker(workerUrl(), { type: 'module' });
+  let seq = 0;
+  const pending = new Map();
+  worker.onmessage = (event) => {
+    const { id, result, error } = event.data || {};
+    const job = pending.get(id);
+    if (!job) return;
+    pending.delete(id);
+    if (error) job.reject(new Error(error));
+    else job.resolve(result);
+  };
+  worker.onerror = (event) => {
+    const err = new Error(event.message || 'خطا در موتور دفترچه');
+    pending.forEach((job) => job.reject(err));
+    pending.clear();
+  };
+  const send = (type, payload, transfer = []) => {
+    const id = ++seq;
+    return new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      worker.postMessage({ id, type, payload }, transfer);
+    });
+  };
+  return {
+    send,
+    terminate() {
+      pending.forEach((job) => job.reject(new Error('stopped')));
+      pending.clear();
+      worker.terminate();
+    },
+  };
 }
 
 export default function ExamBooklet({ blobUrl }) {
-  const [pdf, setPdf] = useState(null);
-  const [pageCount, setPageCount] = useState(0);
+  const hostRef = useRef(null);
+  const urlsRef = useRef([]);
+  const [pages, setPages] = useState([]);
   const [status, setStatus] = useState(blobUrl ? 'loading' : 'empty');
 
   useEffect(() => {
+    urlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    urlsRef.current = [];
+    setPages([]);
     if (!blobUrl) {
-      setPdf(null);
-      setPageCount(0);
       setStatus('empty');
       return undefined;
     }
+
     let cancelled = false;
-    let loadingTask;
+    const worker = createWorker();
     setStatus('loading');
+
     (async () => {
-      loadingTask = getDocument({ url: blobUrl });
-      const doc = await loadingTask.promise;
-      if (cancelled) {
-        doc.destroy();
-        return;
+      const pdfData = await fetch(blobUrl).then((res) => res.arrayBuffer());
+      if (cancelled) return;
+      const { totalPages } = await worker.send('LOAD', { data: pdfData }, [pdfData]);
+      const width = hostRef.current?.clientWidth || window.innerWidth || 800;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const scale = Math.max((width / 595) * dpr, 1.1);
+      const next = [];
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
+        const { png } = await worker.send('RENDER', { pageIndex, scale });
+        if (cancelled) return;
+        const url = URL.createObjectURL(new Blob([png], { type: 'image/png' }));
+        urlsRef.current.push(url);
+        next.push(url);
+        setPages([...next]);
+        setStatus('ready');
       }
-      setPdf(doc);
-      setPageCount(doc.numPages);
-      setStatus('ready');
     })().catch(() => {
-      if (!cancelled) setStatus('fallback');
+      if (!cancelled) setStatus('error');
     });
+
     return () => {
       cancelled = true;
-      loadingTask?.destroy?.();
+      worker.terminate();
+      urlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      urlsRef.current = [];
     };
   }, [blobUrl]);
 
   if (status === 'empty' || !blobUrl) {
     return <p className="text-sm text-ink-3 p-6">دفترچه در دسترس نیست.</p>;
   }
-  if (status === 'fallback') {
+  if (status === 'error') {
     return (
       <iframe
         title="دفترچه آزمون"
         src={blobUrl}
-        className="w-full h-full min-h-[45vh] bg-white"
+        className="w-full h-[70vh] lg:h-full min-h-[45vh] bg-white"
       />
     );
   }
-  if (status === 'loading') {
-    return <p className="text-sm text-ink-3 p-6">در حال نمایش دفترچه…</p>;
-  }
+
   return (
-    <div className="h-full overflow-auto bg-[#1a1a1a] p-3">
-      {Array.from({ length: pageCount }, (_, index) => (
-        <PdfPage key={index + 1} pdf={pdf} pageNumber={index + 1} />
+    <div ref={hostRef} className="bg-[#1a1a1a] p-3 space-y-3">
+      {status === 'loading' && !pages.length && (
+        <p className="text-sm text-ink-3 p-6">در حال نمایش دفترچه…</p>
+      )}
+      {pages.map((src, index) => (
+        <img
+          key={src}
+          src={src}
+          alt={`صفحه ${index + 1}`}
+          className="w-full bg-white rounded-sm shadow"
+        />
       ))}
     </div>
   );

@@ -45,8 +45,9 @@ export default function Exams() {
   }, [items, now]);
 
   return (
-    <div className="min-h-dvh bg-page text-ink" dir="rtl">
-      <div className="max-w-3xl mx-auto px-4 pt-6 pb-28 space-y-6">
+    <div className="h-full flex flex-col bg-page text-ink" dir="rtl">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-6 pb-nav-safe">
+        <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-black">آزمون‌ها</h1>
           <p className="text-sm text-ink-3 mt-1">دفترچه‌های زمان‌بندی‌شده و کارنامه شما</p>
@@ -79,6 +80,7 @@ export default function Exams() {
             <span className="text-xs text-ink-3">در انتظار نتیجه</span>
           )
         )} />
+        </div>
       </div>
       <BottomNav />
     </div>

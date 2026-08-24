@@ -48,6 +48,85 @@ function mergeProblems(incoming, fallbackSession) {
   return syntheticProblems(fallbackSession);
 }
 
+function saveLabel(state, selected) {
+  if (state === 'saving') return { text: 'در حال ذخیره…', className: 'text-ink-3' };
+  if (state === 'saved') return { text: 'ذخیره شد', className: 'text-emerald-400' };
+  if (state === 'queued') return { text: 'منتظر همگام‌سازی', className: 'text-amber-300' };
+  if (state === 'error') return { text: 'ذخیره نشد · دوباره تلاش', className: 'text-rose-400' };
+  if (selected != null) return { text: 'انتخاب شد', className: 'text-ink-3' };
+  return { text: 'انتخاب نشده', className: 'text-ink-4' };
+}
+
+function AnswerSheet({ problems, session, answers, saveState, canAnswer, onChoose, onRetry }) {
+  const answeredCount = Object.values(answers).filter((value) => value != null).length;
+  return (
+    <div className="p-4 lg:p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="font-black text-sm">پاسخ‌برگ</p>
+          <p className="text-[11px] text-ink-3 mt-0.5">با لمس دایره گزینه را انتخاب کنید</p>
+        </div>
+        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
+          {fa(answeredCount)}/{fa(problems.length)}
+        </span>
+      </div>
+      <div className="space-y-3">
+        {problems.map((problem, index) => {
+          const qNum = questionNumber(problem, index);
+          const selected = answers[qNum] == null ? null : Number(answers[qNum]);
+          const optionCount = optionCountFor(problem, session);
+          const state = saveState[qNum];
+          const label = saveLabel(state, selected);
+          return (
+            <div
+              key={problem.id || qNum}
+              className="rounded-2xl bg-panel px-3 py-3 border border-edge-2"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl bg-black/40 text-xs font-black flex items-center justify-center text-ink-2 shrink-0">
+                  {fa(qNum)}
+                </span>
+                <div className="flex-1 flex items-center justify-between gap-1.5">
+                  {Array.from({ length: optionCount }, (_, i) => {
+                    const opt = Number(problem.public_payload?.options?.[i]?.id || i + 1);
+                    const active = selected === opt;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        disabled={!canAnswer}
+                        onClick={() => onChoose(qNum, opt)}
+                        aria-pressed={active}
+                        className={`h-12 min-w-12 flex-1 rounded-full text-sm font-black border-2 transition active:scale-95 disabled:opacity-40 ${
+                          active
+                            ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_0_3px_rgba(16,185,129,0.25)]'
+                            : 'bg-transparent text-ink-2 border-ink-4 hover:border-emerald-400 hover:text-white'
+                        }`}
+                      >
+                        {fa(opt)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="text-[11px] mt-2 pr-12 min-h-4">
+                {state === 'error' ? (
+                  <button type="button" className={label.className} onClick={() => onRetry(qNum, selected)}>
+                    {label.text}
+                  </button>
+                ) : (
+                  <span className={label.className}>{label.text}</span>
+                )}
+              </p>
+            </div>
+          );
+        })}
+        {!problems.length && <p className="text-sm text-ink-3">سوالی برای این آزمون ثبت نشده است.</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function ExamTake() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -61,11 +140,13 @@ export default function ExamTake() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [timeUp, setTimeUp] = useState(false);
   const saveTimer = useRef({});
   const pdfUrlRef = useRef('');
   const problemsRef = useRef([]);
   const attemptRef = useRef(null);
   const answersRef = useRef({});
+  const expireHandled = useRef(false);
 
   useEffect(() => {
     problemsRef.current = problems;
@@ -212,9 +293,27 @@ export default function ExamTake() {
   const expireAt = attempt?.expire_at ? new Date(attempt.expire_at).getTime() : 0;
   const remaining = Math.max(0, expireAt - now);
   const expired = expireAt > 0 && remaining <= 0;
-  const canAnswer = Boolean(attempt) && !expired && !submitting;
+  const canAnswer = Boolean(attempt) && !expired && !submitting && !timeUp;
   const answeredCount = Object.values(answers).filter((value) => value != null).length;
   const sheetReady = problems.some((item) => isUuid(item.id));
+
+  useEffect(() => {
+    if (!expired || !attempt?.attempt_id || expireHandled.current) return;
+    expireHandled.current = true;
+    setTimeUp(true);
+    (async () => {
+      try {
+        await Promise.all(
+          Object.entries(answersRef.current).map(([qNum, optionId]) =>
+            persistAnswer(Number(qNum), optionId),
+          ),
+        );
+        await examAPI.submitAttempt(attempt.attempt_id);
+      } catch {
+        /* overlay still shows */
+      }
+    })();
+  }, [expired, attempt, persistAnswer]);
 
   const remainingLabel = useMemo(() => {
     const total = Math.max(0, Math.floor(remaining / 1000));
@@ -228,7 +327,7 @@ export default function ExamTake() {
     if (!canAnswer) return;
     const nextValue = Number(answers[qNum]) === Number(optionId) ? null : Number(optionId);
     setAnswers((prev) => ({ ...prev, [qNum]: nextValue }));
-    setSaveState((prev) => ({ ...prev, [qNum]: 'saving' }));
+    setSaveState((prev) => ({ ...prev, [qNum]: nextValue == null ? null : 'saving' }));
     queueSave(qNum, nextValue);
   };
 
@@ -251,7 +350,7 @@ export default function ExamTake() {
 
   if (busy) {
     return (
-      <div className="min-h-dvh bg-page text-ink flex items-center justify-center" dir="rtl">
+      <div className="h-full bg-page text-ink flex items-center justify-center" dir="rtl">
         در حال آماده‌سازی دفترچه…
       </div>
     );
@@ -259,7 +358,7 @@ export default function ExamTake() {
 
   if (error && !attempt) {
     return (
-      <div className="min-h-dvh bg-page text-ink p-6" dir="rtl">
+      <div className="h-full overflow-y-auto bg-page text-ink p-6" dir="rtl">
         <p className="text-rose-400">{error}</p>
         <button type="button" className="mt-4 text-emerald-400" onClick={() => navigate('/exams')}>بازگشت</button>
       </div>
@@ -267,8 +366,8 @@ export default function ExamTake() {
   }
 
   return (
-    <div className="h-dvh bg-page text-ink flex flex-col" dir="rtl">
-      <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-edge bg-panel/80">
+    <div className="relative h-full min-h-0 bg-page text-ink flex flex-col overflow-hidden" dir="rtl">
+      <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-edge bg-panel/80 shrink-0">
         <div className="min-w-0">
           <p className="font-bold truncate">{session?.title}</p>
           <p className="text-[11px] text-ink-3">
@@ -290,7 +389,7 @@ export default function ExamTake() {
           )}
           <button
             type="button"
-            disabled={submitting || expired}
+            disabled={submitting || expired || timeUp}
             onClick={submit}
             className="px-4 py-2 rounded-xl bg-emerald-500 text-black text-sm font-bold disabled:opacity-50"
           >
@@ -298,85 +397,49 @@ export default function ExamTake() {
           </button>
         </div>
       </header>
-      {!sheetReady && (
-        <p className="px-4 py-2 text-xs text-amber-300 bg-amber-500/10">
+      {!sheetReady && !timeUp && (
+        <p className="px-4 py-2 text-xs text-amber-300 bg-amber-500/10 shrink-0">
           پاسخ‌برگ روی دستگاه فعال است. همگام‌سازی با سرور در حال انجام است…
         </p>
       )}
-      {error && <p className="px-4 py-2 text-sm text-rose-400">{error}</p>}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-        <div className="min-h-0 bg-black/30 order-2 lg:order-1">
+      {error && <p className="px-4 py-2 text-sm text-rose-400 shrink-0">{error}</p>}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]">
+        <aside className="lg:order-2 lg:min-h-0 lg:overflow-y-auto bg-[#0b1220] border-b lg:border-b-0 lg:border-r border-edge">
+          <AnswerSheet
+            problems={problems}
+            session={session}
+            answers={answers}
+            saveState={saveState}
+            canAnswer={canAnswer}
+            onChoose={choose}
+            onRetry={persistAnswer}
+          />
+        </aside>
+        <div className="lg:order-1 lg:min-h-0 lg:overflow-y-auto bg-black/30">
           {pdfUrl ? (
             <ExamBooklet blobUrl={pdfUrl} />
           ) : (
             <p className="text-sm text-ink-3 p-6">دفترچه در دسترس نیست.</p>
           )}
         </div>
-        <aside className="order-1 lg:order-2 overflow-auto border-b lg:border-b-0 lg:border-r border-edge bg-[#0b1220] p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="font-black text-sm">پاسخ‌برگ</p>
-              <p className="text-[11px] text-ink-3 mt-0.5">با لمس دایره گزینه را انتخاب کنید</p>
-            </div>
-            <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
-              {fa(answeredCount)}/{fa(problems.length)}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {problems.map((problem, index) => {
-              const qNum = questionNumber(problem, index);
-              const selected = answers[qNum] == null ? null : Number(answers[qNum]);
-              const optionCount = optionCountFor(problem, session);
-              const state = saveState[qNum];
-              return (
-                <div
-                  key={problem.id || qNum}
-                  className="rounded-2xl bg-panel px-3 py-2.5 border border-edge-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-xl bg-black/40 text-xs font-black flex items-center justify-center text-ink-2">
-                      {fa(qNum)}
-                    </span>
-                    <div className="flex-1 flex items-center justify-between gap-1">
-                      {Array.from({ length: optionCount }, (_, i) => {
-                        const opt = Number(problem.public_payload?.options?.[i]?.id || i + 1);
-                        const active = selected === opt;
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            disabled={!canAnswer}
-                            onClick={() => choose(qNum, opt)}
-                            aria-pressed={active}
-                            className={`h-11 min-w-11 flex-1 rounded-full text-sm font-black border-2 transition active:scale-95 disabled:opacity-40 ${
-                              active
-                                ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_0_3px_rgba(16,185,129,0.25)]'
-                                : 'bg-transparent text-ink-2 border-ink-4 hover:border-emerald-400 hover:text-white'
-                            }`}
-                          >
-                            {fa(opt)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <p className="text-[10px] mt-1.5 pr-11 h-4">
-                    {state === 'saving' && <span className="text-ink-3">در حال ذخیره…</span>}
-                    {state === 'saved' && <span className="text-emerald-400">ذخیره شد</span>}
-                    {state === 'queued' && <span className="text-amber-300">منتظر همگام‌سازی</span>}
-                    {state === 'error' && (
-                      <button type="button" className="text-rose-400" onClick={() => persistAnswer(qNum, selected)}>
-                        ذخیره نشد · دوباره تلاش
-                      </button>
-                    )}
-                  </p>
-                </div>
-              );
-            })}
-            {!problems.length && <p className="text-sm text-ink-3">سوالی برای این آزمون ثبت نشده است.</p>}
-          </div>
-        </aside>
       </div>
+      {timeUp && (
+        <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-6">
+          <div className="w-full max-w-sm rounded-3xl bg-panel border border-edge-2 p-6 text-center">
+            <p className="text-xl font-black">زمان آزمون تمام شد</p>
+            <p className="text-sm text-ink-3 mt-3 leading-7">
+              پاسخ‌های ثبت‌شده ارسال شد. برای دیدن کارنامه بعد از تصحیح، به فهرست آزمون‌ها برگردید.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/exams', { replace: true })}
+              className="mt-6 w-full px-4 py-3 rounded-2xl bg-emerald-500 text-black text-sm font-bold"
+            >
+              بازگشت به آزمون‌ها
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
