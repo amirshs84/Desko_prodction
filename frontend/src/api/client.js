@@ -176,7 +176,8 @@ async function asPdfBlob(response) {
     const message = 'فایل دفترچه روی سرور PDF معتبر نیست';
     throw Object.assign(new Error(message), { response: { data: { error: message } } });
   }
-  return new Blob([blob], { type: 'application/pdf' });
+  if (blob.type === 'application/pdf') return blob;
+  return blob.slice(0, blob.size, 'application/pdf');
 }
 
 export const examAPI = {
@@ -184,7 +185,12 @@ export const examAPI = {
   createExam: (formData) => api.post('exams/', formData, { timeout: 180000 }),
   getExam: (examId) => api.get(`exams/${examId}/`),
   getExamBookletBlob: (examId) =>
-    api.get(`exams/${examId}/booklet/`, { responseType: 'blob', timeout: 120000 }).then(asPdfBlob),
+    api.get(`exams/${examId}/booklet/`, {
+      responseType: 'blob',
+      timeout: 180000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    }).then(asPdfBlob),
   createSession: (examId, data) => api.post(`exams/${examId}/sessions/`, data),
   getSession: (sessionId) => api.get(`exam-sessions/${sessionId}/`),
   updateSession: (sessionId, data) => api.patch(`exam-sessions/${sessionId}/`, data),
@@ -199,7 +205,12 @@ export const examAPI = {
 
   getMySessions: () => api.get('me/exam-sessions/'),
   getBookletBlob: (sessionId) =>
-    api.get(`exam-sessions/${sessionId}/booklet/`, { responseType: 'blob', timeout: 120000 }).then(asPdfBlob),
+    api.get(`exam-sessions/${sessionId}/booklet/`, {
+      responseType: 'blob',
+      timeout: 180000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    }).then(asPdfBlob),
   startAttempt: (sessionId) => api.post(`exam-sessions/${sessionId}/attempts/`),
   getAttempt: (attemptId) => api.get(`attempts/${attemptId}/`),
   getAttemptProblems: (attemptId) => api.get(`attempts/${attemptId}/problems/`),

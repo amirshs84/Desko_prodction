@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -16,7 +17,6 @@ import Settings from './pages/Settings';
 import AiAssistant from './pages/AiAssistant';
 import ExamResults from './pages/ExamResults';
 import Exams from './pages/Exams';
-import ExamTake from './pages/ExamTake';
 import Achievements from './pages/Achievements';
 import OnlineClass from './pages/OnlineClass';
 import TodoList from './pages/TodoList';
@@ -24,6 +24,16 @@ import { UnifiedCalendar } from './calendar/UnifiedCalendar';
 import { EventsProvider } from './calendar/context/EventsContext';
 import { SelectedDayProvider } from './calendar/context/SelectedDayContext';
 import BottomNav from './components/BottomNav';
+
+const ExamTake = lazy(() => import('./pages/ExamTake'));
+
+function ExamTakeFallback() {
+  return (
+    <div className="h-full bg-page text-ink flex items-center justify-center" dir="rtl">
+      در حال آماده‌سازی دفترچه…
+    </div>
+  );
+}
 
 function CalendarPage() {
   return (
@@ -55,7 +65,14 @@ function App() {
           <Route path="/notes"         element={<QuickNotes />} />
           <Route path="/ai-assistant"  element={<AiAssistant />} />
           <Route path="/exams"         element={<Exams />} />
-          <Route path="/exams/:sessionId/take" element={<ExamTake />} />
+          <Route
+            path="/exams/:sessionId/take"
+            element={(
+              <Suspense fallback={<ExamTakeFallback />}>
+                <ExamTake />
+              </Suspense>
+            )}
+          />
           <Route path="/exam-results"  element={<ExamResults />} />
           <Route path="/exam-results/:attemptId" element={<ExamResults />} />
           <Route path="/achievements"  element={<Achievements />} />

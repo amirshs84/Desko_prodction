@@ -137,6 +137,8 @@ export default function ExamTake() {
   const [saveState, setSaveState] = useState({});
   const [now, setNow] = useState(Date.now());
   const [pdfUrl, setPdfUrl] = useState('');
+  const [pdfFile, setPdfFile] = useState(null);
+  const [bookletStatus, setBookletStatus] = useState('idle');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -214,11 +216,14 @@ export default function ExamTake() {
   }, []);
 
   const loadBooklet = useCallback(async (id) => {
+    setBookletStatus('loading');
     const blob = await examAPI.getBookletBlob(id);
     if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
     const url = URL.createObjectURL(blob);
     pdfUrlRef.current = url;
+    setPdfFile(blob);
     setPdfUrl(url);
+    setBookletStatus('ready');
   }, []);
 
   useEffect(() => {
@@ -237,7 +242,11 @@ export default function ExamTake() {
         setAttempt(started);
         attemptRef.current = started;
         loadBooklet(sessionId).catch(() => {
-          if (!cancelled) setPdfUrl('');
+          if (!cancelled) {
+            setPdfFile(null);
+            setPdfUrl('');
+            setBookletStatus('error');
+          }
         });
 
         const loadSheet = async () => {
@@ -416,8 +425,14 @@ export default function ExamTake() {
           />
         </aside>
         <div className="lg:order-1 lg:min-h-0 lg:overflow-y-auto bg-black/30">
-          {pdfUrl ? (
-            <ExamBooklet blobUrl={pdfUrl} />
+          {pdfFile ? (
+            <ExamBooklet file={pdfFile} />
+          ) : bookletStatus === 'loading' ? (
+            <p className="text-sm text-ink-3 p-6">در حال دریافت دفترچه…</p>
+          ) : bookletStatus === 'error' ? (
+            <p className="text-sm text-rose-400 p-6 leading-7">
+              نمایش دفترچه ناموفق بود. اگر دانلود در بالا فعال است، فایل را از همان‌جا بگیرید.
+            </p>
           ) : (
             <p className="text-sm text-ink-3 p-6">دفترچه در دسترس نیست.</p>
           )}
