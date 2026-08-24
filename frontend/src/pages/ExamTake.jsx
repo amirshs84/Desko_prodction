@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { examAPI } from '../api/client';
+import ExamBooklet from '../components/ExamBooklet';
 import { toFaDigits } from '../lib/persianDigits';
 
 function fa(value) {
@@ -149,12 +150,13 @@ export default function ExamTake() {
         if (!current) throw new Error('این آزمون برای شما ثبت نشده است');
         if (cancelled) return;
         setSession(current);
+        setProblems(syntheticProblems(current));
         const started = await examAPI.startAttempt(sessionId).then((r) => r.data);
         if (cancelled) return;
         setAttempt(started);
         attemptRef.current = started;
-        loadBooklet(sessionId).catch((err) => {
-          if (!cancelled) setError(errorMessage(err) || 'دفترچه در دسترس نیست.');
+        loadBooklet(sessionId).catch(() => {
+          if (!cancelled) setPdfUrl('');
         });
 
         const loadSheet = async () => {
@@ -163,13 +165,13 @@ export default function ExamTake() {
           return applyProblemPage(problemPage, current);
         };
 
-        try {
-          const ready = await loadSheet();
-          if (!ready && !cancelled) {
-            setProblems(syntheticProblems(current));
+        const sheetReadyNow = applyProblemPage(started?.problems, current);
+        if (!sheetReadyNow) {
+          try {
+            await loadSheet();
+          } catch {
+            if (!cancelled) setProblems(syntheticProblems(current));
           }
-        } catch {
-          if (!cancelled) setProblems(syntheticProblems(current));
         }
 
         const flushQueued = () => {
@@ -301,15 +303,11 @@ export default function ExamTake() {
           پاسخ‌برگ روی دستگاه فعال است. همگام‌سازی با سرور در حال انجام است…
         </p>
       )}
-      {error && sheetReady && <p className="px-4 py-2 text-sm text-rose-400">{error}</p>}
+      {error && <p className="px-4 py-2 text-sm text-rose-400">{error}</p>}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
         <div className="min-h-0 bg-black/30 order-2 lg:order-1">
           {pdfUrl ? (
-            <iframe
-              title="دفترچه آزمون"
-              src={pdfUrl}
-              className="w-full h-full min-h-[45vh] bg-white"
-            />
+            <ExamBooklet blobUrl={pdfUrl} />
           ) : (
             <p className="text-sm text-ink-3 p-6">دفترچه در دسترس نیست.</p>
           )}

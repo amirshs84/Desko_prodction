@@ -28,6 +28,8 @@ def _athena_response(exc: AthenaError) -> Response:
     http_status = exc.status_code if 400 <= exc.status_code < 600 else 502
     messages = {
         'athena_error': 'موتور آزمون خطا داد.',
+        'internal_server_error': 'موتور آزمون خطا داد.',
+        'Internal Server Error': 'موتور آزمون خطا داد.',
         'athena_unavailable': 'ارتباط با موتور آزمون برقرار نشد.',
         'attempt_already_exists': 'برای این آزمون قبلاً شروع کرده‌اید.',
         'session_not_started_yet': 'زمان شروع آزمون هنوز نرسیده است.',
@@ -632,6 +634,35 @@ class StudentSessionBookletView(APIView):
         return _booklet_file_response(record.exam.asset)
 
 
+def _problem_page_for_attempt(client: AthenaClient, attempt_id: UUID, session_record: SessionRecord | None = None) -> dict:
+    items: list[dict] = []
+    try:
+        items = client.list_all_attempt_problems(attempt_id)
+    except AthenaError:
+        try:
+            if session_record is None:
+                attempt = client.get_attempt(attempt_id)
+                session_record = SessionRecord.objects.filter(
+                    athena_session_id=attempt.get('session_id')
+                ).first()
+            if session_record is not None:
+                items = client.list_all_session_problems(session_record.athena_session_id)
+        except AthenaError:
+            items = []
+    try:
+        answers = client.get_attempt_answers(attempt_id)
+    except AthenaError:
+        answers = {'answers': []}
+    selected = {
+        str(item['exam_session_problem_id']): (item.get('response_data') or {}).get('selected_option_id')
+        for item in answers.get('answers') or []
+    }
+    for problem in items:
+        if isinstance(problem, dict):
+            problem['selected_option_id'] = selected.get(str(problem.get('id')))
+    return {'items': items, 'total': len(items)}
+
+
 class StudentStartAttemptView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -673,6 +704,9 @@ class StudentStartAttemptView(APIView):
                 'started_at': attempt.get('started_at'),
                 'expire_at': attempt.get('expire_at'),
             }
+        result['problems'] = _problem_page_for_attempt(client, result['attempt_id'], record)
+        result['problems_count'] = record.exam.problems_count
+        result['options_per_problem'] = record.exam.options_per_problem
         return Response(result, status=status.HTTP_201_CREATED)
 
 
@@ -692,30 +726,8 @@ class StudentAttemptProblemsView(APIView):
 
     def get(self, request, attempt_id: UUID):
         client = _client_for(request.user)
-        try:
-            items = client.list_all_attempt_problems(attempt_id)
-        except AthenaError:
-            items = []
-            try:
-                attempt = client.get_attempt(attempt_id)
-                session = SessionRecord.objects.filter(
-                    athena_session_id=attempt.get('session_id')
-                ).first()
-                if session is not None:
-                    items = client.list_all_session_problems(session.athena_session_id)
-            except AthenaError as exc:
-                return _athena_response(exc)
-        try:
-            answers = client.get_attempt_answers(attempt_id)
-        except AthenaError:
-            answers = {'answers': []}
-        selected = {
-            str(item['exam_session_problem_id']): (item.get('response_data') or {}).get('selected_option_id')
-            for item in answers.get('answers') or []
-        }
-        for problem in items:
-            problem['selected_option_id'] = selected.get(str(problem.get('id')))
-        return Response({'items': items, 'total': len(items)})
+        payload = _problem_page_for_attempt(client, attempt_id)
+        return Response(payload)
 
 
 class StudentSendAnswerView(APIView):

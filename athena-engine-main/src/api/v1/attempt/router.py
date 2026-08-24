@@ -220,7 +220,7 @@ async def get_attempt_problems(
     )
     return Page[AttemptProblemContent](
         items=tuple(
-            AttemptProblemContent.model_validate(item)
+            AttemptProblemContent.model_validate(item.model_dump())
             for item in result.items
         ),
         total=result.total,

@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       workbox: {
+        cacheId: 'desko-exam-take-v2',
         globPatterns: ['**/' + '*.{js,css,html,ico,png,svg}'],
         skipWaiting: true,
         clientsClaim: true,

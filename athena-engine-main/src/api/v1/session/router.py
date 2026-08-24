@@ -78,7 +78,7 @@ async def list_my_sessions(
         )
     )
     return Page[MySessionContent](
-        items=tuple(MySessionContent.model_validate(item) for item in result.items),
+        items=tuple(MySessionContent.model_validate(item.model_dump()) for item in result.items),
         total=result.total,
         limit=result.limit,
         offset=result.offset,
@@ -188,7 +188,10 @@ async def get_session_problems(
         )
     )
     return Page[ProblemPreviewContent](
-        items=tuple(ProblemPreviewContent.model_validate(item) for item in result.items),
+        items=tuple(
+            ProblemPreviewContent.model_validate(item.model_dump())
+            for item in result.items
+        ),
         total=result.total,
         limit=result.limit,
         offset=result.offset,

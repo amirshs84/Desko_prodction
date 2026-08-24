@@ -45,9 +45,19 @@ class AthenaClient:
             code = 'athena_error'
             try:
                 payload = response.json()
-                code = payload.get('code') or payload.get('detail') or code
             except ValueError:
                 payload = response.text
+            if isinstance(payload, dict):
+                raw_code = payload.get('code')
+                raw_detail = payload.get('detail')
+                if isinstance(raw_code, str) and raw_code:
+                    code = raw_code
+                elif isinstance(raw_detail, str) and raw_detail:
+                    code = raw_detail
+                elif isinstance(raw_detail, list) and raw_detail:
+                    first = raw_detail[0]
+                    if isinstance(first, dict):
+                        code = str(first.get('msg') or first.get('type') or code)
             raise AthenaError(response.status_code, str(code), payload)
 
         if response.status_code == 204 or not response.content:
