@@ -322,25 +322,22 @@ const Login = () => {
             </div>
           )}
 
-          {/* مرحله ۱: نام کاربری */}
+          {/* مرحله ۱: شماره تلفن / نام کاربری */}
           {step === 1 && (
             <form onSubmit={handlePhoneSubmit} className="space-y-6">
               <div>
-                <label className="block text-ink-2 mb-2 text-sm font-medium">نام کاربری</label>
+                <label className="block text-ink-2 mb-2 text-sm font-medium">شماره تلفن</label>
                 <input
                   type="text"
                   autoComplete="username"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(normalizeUsername(e.target.value).slice(0, 150))}
-                  placeholder="نام کاربری یا شماره موبایل"
+                  placeholder="09123456789"
                   dir="ltr"
                   className={`${inputClass} text-left`}
                   disabled={loading}
                   maxLength="150"
                 />
-                <p className="text-xs text-ink-3 mt-2">
-                  حروف انگلیسی، عدد و علامت‌های خاص مجاز است
-                </p>
               </div>
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white
@@ -363,7 +360,7 @@ const Login = () => {
                   setNeedsFirstPassword(false);
                 }}
                 className="text-ink-3 hover:text-ink text-sm mb-4">
-                ← تغییر نام کاربری
+                ← تغییر شماره تلفن
               </button>
 
               {isExistingUser ? (
