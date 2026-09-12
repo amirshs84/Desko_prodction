@@ -29,14 +29,18 @@ class SuperAdminConsultantsTests(APITestCase):
         url = CONSULTANTS_URL.format(school_id=self.school.id)
         phone = '09121112233'
 
-        create = self.client.post(url, {'phone_number': phone}, format='json')
+        create = self.client.post(
+            url,
+            {'phone_number': phone, 'password': 'Aa123456!', 'full_name': 'مشاور یک'},
+            format='json',
+        )
         self.assertEqual(create.status_code, 201, create.data)
 
         listed = self.client.get(url)
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(len(listed.data), 1)
         self.assertEqual(listed.data[0]['phone_number'], phone)
-        self.assertFalse(listed.data[0]['is_password_set'])
+        self.assertTrue(listed.data[0]['is_password_set'])
 
         profile = UserProfile.objects.get(phone_number=phone)
         self.assertEqual(profile.role, 'consultant')

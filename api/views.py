@@ -26,6 +26,7 @@ from .serializers import (
     AssignManagerSerializer,
     AssignConsultantSerializer,
     SuperAdminManualStudentSerializer,
+    SuperAdminMemberUpdateSerializer,
     PDFReadProgressSerializer,
     NotificationSerializer,
     SendNotificationSerializer,
@@ -37,22 +38,31 @@ from .serializers import (
 )
 from .permissions import IsManager, IsSuperAdmin
 from .jalali_utils import IRAN_TZ, iran_today, build_attendance_trend_30d, make_iran_day_start
+from .username import validate_username
 
 
 import re
 from django.contrib.auth.hashers import make_password, check_password
 
 
+def _require_login_username(data):
+    raw = data.get('phone_number') or data.get('username')
+    try:
+        return validate_username(raw), None
+    except ValueError as exc:
+        return None, str(exc)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def check_phone(request):
-    """Check if phone number exists in database"""
-    phone_number = request.data.get('phone_number')
-    if not phone_number:
-        return Response({'error': 'شماره تلفن الزامی است'}, status=status.HTTP_400_BAD_REQUEST)
-    
+    """Check if username / phone exists in database"""
+    username, error = _require_login_username(request.data)
+    if error:
+        return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        user = User.objects.get(username=phone_number)
+        user = User.objects.get(username=username)
         has_pw = False
         if hasattr(user, 'profile'):
             has_pw = user.profile.is_password_set
@@ -98,11 +108,14 @@ def validate_password(password):
 @permission_classes([AllowAny])
 def register_with_password(request):
     """Register new user with password"""
-    phone_number = request.data.get('phone_number')
+    phone_number, username_error = _require_login_username(request.data)
     password = request.data.get('password')
     password_confirm = request.data.get('password_confirm')
+
+    if username_error:
+        return Response({'error': username_error}, status=status.HTTP_400_BAD_REQUEST)
     
-    if not phone_number or not password or not password_confirm:
+    if not password or not password_confirm:
         return Response({'error': 'همه فیلدها الزامی هستند'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Check if passwords match
@@ -121,7 +134,7 @@ def register_with_password(request):
         user = User.objects.get(username=phone_number)
         # If user exists and has a password set, return error
         if hasattr(user, 'profile') and user.profile.is_password_set:
-            return Response({'error': 'این شماره قبلاً ثبت شده است'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'این نام کاربری قبلاً ثبت شده است'}, status=status.HTTP_400_BAD_REQUEST)
         
         # If user exists but has no password (e.g. pre-created manager), update password
         user.set_password(password)
@@ -173,11 +186,13 @@ def register_with_password(request):
 @permission_classes([AllowAny])
 def login_with_password(request):
     """Login existing user with password"""
-    phone_number = request.data.get('phone_number')
+    phone_number, username_error = _require_login_username(request.data)
     password = request.data.get('password')
-    
-    if not phone_number or not password:
-        return Response({'error': 'شماره تلفن و رمز عبور الزامی هستند'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if username_error:
+        return Response({'error': username_error}, status=status.HTTP_400_BAD_REQUEST)
+    if not password:
+        return Response({'error': 'نام کاربری و رمز عبور الزامی هستند'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
         user = User.objects.get(username=phone_number)
@@ -198,7 +213,7 @@ def login_with_password(request):
         }, status=status.HTTP_200_OK)
         
     except User.DoesNotExist:
-        return Response({'error': 'کاربری با این شماره یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'کاربری با این نام کاربری یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
 
 
 # Legacy OTP endpoints (keeping for backward compatibility)
@@ -1883,8 +1898,10 @@ class SuperAdminAssignManagerView(views.APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         phone_number = serializer.validated_data['phone_number']
+        password = serializer.validated_data.get('password') or ''
+        full_name = (serializer.validated_data.get('full_name') or '').strip()
         
-        # Get or create user with this phone number
+        # Get or create user with this username
         user, created = User.objects.get_or_create(username=phone_number)
         profile, _ = UserProfile.objects.get_or_create(
             user=user,
@@ -1892,7 +1909,7 @@ class SuperAdminAssignManagerView(views.APIView):
         )
         
         # Remove manager role from previous manager of this school (if exists)
-        previous_managers = UserProfile.objects.filter(school=school, role='manager')
+        previous_managers = UserProfile.objects.filter(school=school, role='manager').exclude(pk=profile.pk)
         for prev_manager in previous_managers:
             prev_manager.role = 'student'
             prev_manager.save()
@@ -1900,13 +1917,19 @@ class SuperAdminAssignManagerView(views.APIView):
         # Assign new manager
         profile.school = school
         profile.role = 'manager'
-        # مثل مشاور: پروفایل دانش‌آموزی لازم نیست؛ فقط باید رمز را (در صورت نبود) ست کند
         profile.is_profile_complete = True
+        if full_name:
+            profile.full_name = full_name
+        if password:
+            user.set_password(password)
+            user.save(update_fields=['password'])
+            profile.is_password_set = True
         profile.save()
         
         return Response({
-            'message': f'مدیر با شماره {phone_number} به مدرسه {school.name} اختصاص یافت',
+            'message': f'مدیر با نام کاربری {phone_number} به مدرسه {school.name} اختصاص یافت',
             'manager': {
+                'user_id': profile.user_id,
                 'phone_number': phone_number,
                 'full_name': profile.full_name or 'تعیین نشده',
                 'school': school.name,
@@ -1939,6 +1962,7 @@ class SuperAdminConsultantsView(views.APIView):
                 'phone_number': profile.phone_number,
                 'full_name': profile.full_name or 'تعیین نشده',
                 'is_password_set': profile.is_password_set,
+                'role': profile.role,
             }
             for profile in consultants
         ])
@@ -1953,6 +1977,8 @@ class SuperAdminConsultantsView(views.APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         phone_number = serializer.validated_data['phone_number']
+        password = serializer.validated_data.get('password') or ''
+        full_name = (serializer.validated_data.get('full_name') or '').strip()
         user, _ = User.objects.get_or_create(username=phone_number)
         profile, _ = UserProfile.objects.get_or_create(
             user=user,
@@ -1968,15 +1994,22 @@ class SuperAdminConsultantsView(views.APIView):
         profile.school = school
         profile.role = 'consultant'
         profile.is_profile_complete = True
+        if full_name:
+            profile.full_name = full_name
+        if password:
+            user.set_password(password)
+            user.save(update_fields=['password'])
+            profile.is_password_set = True
         profile.save()
 
         return Response({
-            'message': f'مشاور با شماره {phone_number} به مدرسه {school.name} اختصاص یافت',
+            'message': f'مشاور با نام کاربری {phone_number} به مدرسه {school.name} اختصاص یافت',
             'consultant': {
                 'user_id': profile.user_id,
                 'phone_number': phone_number,
                 'full_name': profile.full_name or 'تعیین نشده',
                 'school': school.name,
+                'is_password_set': profile.is_password_set,
             }
         }, status=status.HTTP_201_CREATED)
 
@@ -2017,20 +2050,114 @@ class SuperAdminSchoolMembersView(views.APIView):
         members = UserProfile.objects.filter(school=school)
         
         members_data = []
-        for profile in members:
+        for profile in members.order_by('role', 'full_name', 'phone_number'):
             members_data.append({
                 'id': profile.user.id,
                 'full_name': profile.full_name,
                 'phone_number': profile.phone_number,
-                'role': profile.get_role_display(),
-                'grade': profile.get_grade_display() if profile.grade else '-',
-                'is_profile_complete': profile.is_profile_complete
+                'role': profile.role,
+                'role_display': profile.get_role_display(),
+                'grade': profile.grade or '',
+                'grade_display': profile.get_grade_display() if profile.grade else '',
+                'olympiad_field': profile.olympiad_field or '',
+                'olympiad_display': profile.get_olympiad_field_display() if profile.olympiad_field else '',
+                'is_profile_complete': profile.is_profile_complete,
+                'is_password_set': profile.is_password_set,
             })
         
         return Response({
             'school': SchoolSerializer(school).data,
             'members': members_data,
             'total_count': len(members_data)
+        })
+
+
+class SuperAdminSchoolMemberDetailView(views.APIView):
+    """مشاهده و ویرایش مشخصات یک عضو مدرسه (سوپرادمین)"""
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def _get_member(self, school_id, user_id):
+        school = School.objects.filter(id=school_id).first()
+        if school is None:
+            return None, None, Response({'error': 'مدرسه یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+        profile = UserProfile.objects.filter(school=school, user_id=user_id).select_related('user').first()
+        if profile is None:
+            return school, None, Response({'error': 'کاربر در این مدرسه یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+        return school, profile, None
+
+    def _serialize_member(self, profile):
+        return {
+            'id': profile.user_id,
+            'full_name': profile.full_name,
+            'phone_number': profile.phone_number,
+            'role': profile.role,
+            'role_display': profile.get_role_display(),
+            'grade': profile.grade or '',
+            'grade_display': profile.get_grade_display() if profile.grade else '',
+            'olympiad_field': profile.olympiad_field or '',
+            'olympiad_display': profile.get_olympiad_field_display() if profile.olympiad_field else '',
+            'is_profile_complete': profile.is_profile_complete,
+            'is_password_set': profile.is_password_set,
+        }
+
+    def get(self, request, school_id, user_id):
+        _school, profile, error = self._get_member(school_id, user_id)
+        if error:
+            return error
+        return Response(self._serialize_member(profile))
+
+    def patch(self, request, school_id, user_id):
+        school, profile, error = self._get_member(school_id, user_id)
+        if error:
+            return error
+
+        serializer = SuperAdminMemberUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user = profile.user
+
+        if 'phone_number' in data:
+            new_username = data['phone_number']
+            if User.objects.filter(username=new_username).exclude(pk=user.pk).exists():
+                return Response(
+                    {'error': 'این نام کاربری قبلاً ثبت شده است'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if UserProfile.objects.filter(phone_number=new_username).exclude(pk=profile.pk).exists():
+                return Response(
+                    {'error': 'این نام کاربری قبلاً ثبت شده است'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.username = new_username
+            user.save(update_fields=['username'])
+            profile.phone_number = new_username
+
+        if 'full_name' in data:
+            profile.full_name = data['full_name']
+        if 'grade' in data:
+            profile.grade = data['grade']
+        if 'olympiad_field' in data:
+            profile.olympiad_field = data['olympiad_field']
+
+        if 'role' in data:
+            new_role = data['role']
+            if new_role == 'manager':
+                UserProfile.objects.filter(school=school, role='manager').exclude(pk=profile.pk).update(role='student')
+            profile.role = new_role
+            if new_role in ('manager', 'consultant'):
+                profile.is_profile_complete = True
+
+        if data.get('password'):
+            user.set_password(data['password'])
+            user.save(update_fields=['password'])
+            profile.is_password_set = True
+
+        profile.save()
+        return Response({
+            'message': 'مشخصات کاربر به‌روز شد',
+            'member': self._serialize_member(profile),
         })
 
 
@@ -2056,7 +2183,7 @@ class SuperAdminCreateStudentView(views.APIView):
 
         if User.objects.filter(username=phone_number).exists():
             return Response(
-                {'error': 'کاربری با این شماره از قبل وجود دارد'},
+                {'error': 'کاربری با این نام کاربری از قبل وجود دارد'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

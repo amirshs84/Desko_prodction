@@ -295,6 +295,8 @@ export const superadminAPI = {
   revokeConsultant: (schoolId, data) =>
     api.delete(`superadmin/schools/${schoolId}/consultants/`, { data }),
   getSchoolMembers: (schoolId) => api.get(`superadmin/schools/${schoolId}/members/`),
+  updateSchoolMember: (schoolId, userId, data) =>
+    api.patch(`superadmin/schools/${schoolId}/members/${userId}/`, data),
   createStudent: (schoolId, data) => api.post(`superadmin/schools/${schoolId}/students/`, data),
   getTickets: () => api.get('superadmin/tickets/'),
   replyToTicket: (ticketId, reply) => api.post(`superadmin/tickets/${ticketId}/reply/`, { reply }),

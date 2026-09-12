@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import UserProfile, Subject, StudySession, ConsultantTicket, School, PDFReadProgress, Notification, SchoolClass, ClassEnrollment
+from .username import USERNAME_MAX_LEN, validate_username
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -145,8 +146,14 @@ class TicketReplySerializer(serializers.Serializer):
 
 
 class PhoneLoginSerializer(serializers.Serializer):
-    phone_number = serializers.CharField(max_length=15)
+    phone_number = serializers.CharField(max_length=USERNAME_MAX_LEN)
     otp = serializers.CharField(max_length=6)
+
+    def validate_phone_number(self, value):
+        try:
+            return validate_username(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
 
 # Manager Panel Serializers
@@ -255,14 +262,21 @@ class SchoolSerializer(serializers.ModelSerializer):
         return manager.full_name if manager else 'تعیین نشده'
 
 
+def _validate_login_username(value):
+    try:
+        return validate_username(value)
+    except ValueError as exc:
+        raise serializers.ValidationError(str(exc)) from exc
+
+
 class AssignManagerSerializer(serializers.Serializer):
     """Serializer for assigning a manager to a school"""
-    phone_number = serializers.CharField(max_length=11)
-    
+    phone_number = serializers.CharField(max_length=USERNAME_MAX_LEN)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=1)
+    full_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+
     def validate_phone_number(self, value):
-        if not value.startswith('09') or len(value) != 11:
-            raise serializers.ValidationError('شماره تلفن معتبر نیست')
-        return value
+        return _validate_login_username(value)
 
 
 class AssignConsultantSerializer(serializers.Serializer):
@@ -271,21 +285,53 @@ class AssignConsultantSerializer(serializers.Serializer):
     Unlike managers, a school may have several consultants, so assigning one
     never demotes the others.
     """
-    phone_number = serializers.CharField(max_length=11)
+    phone_number = serializers.CharField(max_length=USERNAME_MAX_LEN)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=1)
+    full_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
 
     def validate_phone_number(self, value):
-        if not value.startswith('09') or len(value) != 11:
-            raise serializers.ValidationError('شماره تلفن معتبر نیست')
-        return value
+        return _validate_login_username(value)
 
 
 class SuperAdminManualStudentSerializer(serializers.Serializer):
     """ثبت دستی دانش‌آموز توسط سوپرادمین — بدون محدودیت پیچیدگی رمز"""
-    phone_number = serializers.CharField(max_length=11)
+    phone_number = serializers.CharField(max_length=USERNAME_MAX_LEN)
     password = serializers.CharField(write_only=True, min_length=1)
     full_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
     grade = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
     olympiad_field = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
+
+    def validate_grade(self, value):
+        if not value:
+            return ''
+        valid = {c[0] for c in UserProfile.GRADE_CHOICES}
+        if value not in valid:
+            raise serializers.ValidationError('پایه تحصیلی نامعتبر است')
+        return value
+
+    def validate_phone_number(self, value):
+        return _validate_login_username(value)
+
+    def validate_olympiad_field(self, value):
+        if not value:
+            return ''
+        valid = {c[0] for c in UserProfile.OLYMPIAD_CHOICES}
+        if value not in valid:
+            raise serializers.ValidationError('رشته المپیاد نامعتبر است')
+        return value
+
+
+class SuperAdminMemberUpdateSerializer(serializers.Serializer):
+    """ویرایش مشخصات عضو مدرسه توسط سوپرادمین"""
+    phone_number = serializers.CharField(max_length=USERNAME_MAX_LEN, required=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=1)
+    full_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    grade = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    olympiad_field = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    role = serializers.ChoiceField(choices=UserProfile.ROLE_CHOICES, required=False)
+
+    def validate_phone_number(self, value):
+        return _validate_login_username(value)
 
     def validate_grade(self, value):
         if not value:

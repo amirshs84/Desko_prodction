@@ -9,6 +9,9 @@ case "$1" in
     mkdir -p "${MEDIA_ROOT:-/app/media}/exam_booklets"
     exec gunicorn desko_backend.wsgi:application \
       --bind 0.0.0.0:8000 \
+      --worker-class gthread \
+      --workers "${WEB_CONCURRENCY:-3}" \
+      --threads "${GUNICORN_THREADS:-8}" \
       --keep-alive 75 \
       --timeout 120
     ;;

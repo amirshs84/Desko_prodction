@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { HiPlus, HiOfficeBuilding, HiUserGroup, HiKey, HiLogout, HiChat, HiUserAdd, HiBell, HiTrash } from 'react-icons/hi';
 import { superadminAPI, notificationAPI } from '../../api/client';
 import SuperAdminMessages from './SuperAdminMessages';
+import SuperAdminMembersModal from './SuperAdminMembersModal';
 import { performLogout } from '../../utils/auth';
 import { queryClient } from '../../lib/queryClient';
 
@@ -16,9 +17,14 @@ export default function SuperAdminDashboard() {
   const [selectedSchool, setSelectedSchool] = useState(null);
   const [newSchool, setNewSchool] = useState({ name: '', normal_study_threshold: 21600 });
   const [managerPhone, setManagerPhone] = useState('');
+  const [managerPassword, setManagerPassword] = useState('');
+  const [managerFullName, setManagerFullName] = useState('');
   const [consultantPhone, setConsultantPhone] = useState('');
+  const [consultantPassword, setConsultantPassword] = useState('');
+  const [consultantFullName, setConsultantFullName] = useState('');
   const [consultants, setConsultants] = useState([]);
   const [consultantsLoading, setConsultantsLoading] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [studentTargetSchool, setStudentTargetSchool] = useState(null);
   const [manualStudent, setManualStudent] = useState({
@@ -111,10 +117,16 @@ export default function SuperAdminDashboard() {
   const handleAssignManager = async (e) => {
     e.preventDefault();
     try {
-      await superadminAPI.assignManager(selectedSchool.id, { phone_number: managerPhone });
+      await superadminAPI.assignManager(selectedSchool.id, {
+        phone_number: managerPhone.trim(),
+        password: managerPassword,
+        full_name: managerFullName.trim(),
+      });
       alert(`مدیر با موفقیت به ${selectedSchool.name} اختصاص یافت`);
       setShowAssignModal(false);
       setManagerPhone('');
+      setManagerPassword('');
+      setManagerFullName('');
       fetchSchools();
     } catch (error) {
       console.error('Error assigning manager:', error);
@@ -129,6 +141,8 @@ export default function SuperAdminDashboard() {
     setSelectedSchool(school);
     setShowConsultantModal(true);
     setConsultantPhone('');
+    setConsultantPassword('');
+    setConsultantFullName('');
     setConsultantsLoading(true);
     try {
       const res = await superadminAPI.getConsultants(school.id);
@@ -153,9 +167,13 @@ export default function SuperAdminDashboard() {
     try {
       await superadminAPI.assignConsultant(selectedSchool.id, {
         phone_number: consultantPhone.trim(),
+        password: consultantPassword,
+        full_name: consultantFullName.trim(),
       });
       alert(`مشاور با موفقیت به ${selectedSchool.name} اختصاص یافت`);
       setConsultantPhone('');
+      setConsultantPassword('');
+      setConsultantFullName('');
       await refreshConsultants(selectedSchool.id);
       fetchSchools();
     } catch (error) {
@@ -484,6 +502,17 @@ export default function SuperAdminDashboard() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    setSelectedSchool(school);
+                    setShowMembersModal(true);
+                  }}
+                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold text-sm flex items-center justify-center gap-1"
+                >
+                  <HiUserGroup className="text-lg shrink-0" />
+                  مشاهده و ویرایش اعضا
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleDeleteSchool(school)}
                   className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-semibold text-sm"
                 >
@@ -561,16 +590,18 @@ export default function SuperAdminDashboard() {
             <p className="text-gray-600 text-sm mb-6">مدرسه: {studentTargetSchool.name}</p>
             <form onSubmit={handleCreateManualStudent} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">شماره موبایل (نام کاربری)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">نام کاربری</label>
                 <input
                   type="text"
+                  dir="ltr"
                   value={manualStudent.phone_number}
                   onChange={(e) => setManualStudent({ ...manualStudent, phone_number: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
                   required
-                  maxLength={11}
-                  placeholder="09123456789"
+                  maxLength={150}
+                  placeholder="نام کاربری یا شماره موبایل"
                 />
+                <p className="text-xs text-gray-500 mt-1">حروف انگلیسی، عدد و علامت‌های خاص مجاز است</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">رمز عبور</label>
@@ -652,20 +683,38 @@ export default function SuperAdminDashboard() {
             <p className="text-gray-600 text-sm mb-6">مدرسه: {selectedSchool?.name}</p>
             <form onSubmit={handleAssignManager} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">شماره تلفن مدیر</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">نام کاربری مدیر</label>
                 <input
-                  type="tel"
+                  type="text"
+                  dir="ltr"
                   value={managerPhone}
                   onChange={(e) => setManagerPhone(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
                   required
-                  placeholder="09123456789"
-                  pattern="09[0-9]{9}"
-                  maxLength={11}
+                  placeholder="نام کاربری یا شماره موبایل"
+                  maxLength={150}
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  اگر کاربر وجود نداشته باشد، به صورت خودکار ساخته می‌شود. در ورود اول باید رمز تعیین کند.
-                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">نام و نام خانوادگی</label>
+                <input
+                  type="text"
+                  value={managerFullName}
+                  onChange={(e) => setManagerFullName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="اختیاری"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">رمز عبور</label>
+                <input
+                  type="password"
+                  value={managerPassword}
+                  onChange={(e) => setManagerPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  autoComplete="new-password"
+                  placeholder="اختیاری؛ اگر خالی باشد در ورود اول تعیین می‌شود"
+                />
               </div>
               <div className="flex gap-3 pt-4">
                 <button
@@ -673,6 +722,8 @@ export default function SuperAdminDashboard() {
                   onClick={() => {
                     setShowAssignModal(false);
                     setManagerPhone('');
+                    setManagerPassword('');
+                    setManagerFullName('');
                   }}
                   className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
                 >
@@ -697,21 +748,42 @@ export default function SuperAdminDashboard() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">تعیین مشاور</h2>
             <p className="text-gray-600 text-sm mb-4">مدرسه: {selectedSchool?.name}</p>
             <p className="text-xs text-gray-500 mb-4">
-              هر مدرسه می‌تواند چند مشاور داشته باشد. مشاور در ورود اول (اگر رمز نداشته باشد) باید رمز تعیین کند و سپس به پنل مشاور می‌رود.
+              هر مدرسه می‌تواند چند مشاور داشته باشد. اگر رمز را همین‌جا وارد کنید، مشاور بلافاصله می‌تواند وارد شود.
             </p>
 
             <form onSubmit={handleAssignConsultant} className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">شماره تلفن مشاور</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">نام کاربری مشاور</label>
                 <input
-                  type="tel"
+                  type="text"
+                  dir="ltr"
                   value={consultantPhone}
                   onChange={(e) => setConsultantPhone(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
                   required
-                  placeholder="09123456789"
-                  pattern="09[0-9]{9}"
-                  maxLength={11}
+                  placeholder="نام کاربری یا شماره موبایل"
+                  maxLength={150}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">نام و نام خانوادگی</label>
+                <input
+                  type="text"
+                  value={consultantFullName}
+                  onChange={(e) => setConsultantFullName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  placeholder="اختیاری"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">رمز عبور</label>
+                <input
+                  type="password"
+                  value={consultantPassword}
+                  onChange={(e) => setConsultantPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  autoComplete="new-password"
+                  placeholder="اختیاری؛ اگر خالی باشد در ورود اول تعیین می‌شود"
                 />
               </div>
               <button
@@ -762,6 +834,8 @@ export default function SuperAdminDashboard() {
               onClick={() => {
                 setShowConsultantModal(false);
                 setConsultantPhone('');
+                setConsultantPassword('');
+                setConsultantFullName('');
                 setConsultants([]);
               }}
               className="w-full mt-6 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold"
@@ -770,6 +844,16 @@ export default function SuperAdminDashboard() {
             </button>
           </div>
         </div>
+      )}
+
+      {showMembersModal && selectedSchool && (
+        <SuperAdminMembersModal
+          school={selectedSchool}
+          gradeOptions={gradeOptions}
+          olympiadOptions={olympiadOptions}
+          onClose={() => setShowMembersModal(false)}
+          onChanged={fetchSchools}
+        />
       )}
     </div>
   );

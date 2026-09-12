@@ -31,6 +31,9 @@ x-app-env: &app-env
   ATHENA_JWT_AUDIENCE: ${ATHENA_JWT_AUDIENCE:-athena}
   ATHENA_JWT_PRIVATE_KEY_FILE: /keys/athena-private.pem
   MEDIA_ROOT: /app/media
+  WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}
+  GUNICORN_THREADS: ${GUNICORN_THREADS:-8}
+  EXAM_BOOKLET_X_ACCEL: ${EXAM_BOOKLET_X_ACCEL:-1}
 
 x-app-build: &app-build
   context: .
@@ -136,7 +139,7 @@ services:
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
-    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
     environment:
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
@@ -263,6 +266,8 @@ services:
       - "${WEB_PORT:-80}:80"
     volumes:
       - static_volume:/app/staticfiles
+      - exam_media:/exam_media:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - web
     restart: unless-stopped

@@ -34,7 +34,7 @@ const PasswordField = ({ value, onChange, placeholder, show, onToggle, disabled 
 
 const Login = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: phone  2: password  3: profile
+  const [step, setStep] = useState(1); // 1: username  2: password  3: profile
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isExistingUser, setIsExistingUser] = useState(false);
   /** کاربر از قبل ساخته شده (مدیر/مشاور) ولی هنوز رمز ندارد */
@@ -144,7 +144,8 @@ const Login = () => {
     setPasswordStrength(checkPasswordStrength(pass));
   };
 
-  const normalizePhone = (raw) => toEnDigits(raw).replace(/\D/g, '');
+  const USERNAME_RE = /^[A-Za-z0-9@._+\-!#$%&*?=~]+$/;
+  const normalizeUsername = (raw) => toEnDigits(raw).replace(/\s+/g, '');
 
   const phoneApiError = (err, fallback) => {
     if (!err.response) {
@@ -153,17 +154,17 @@ const Login = () => {
     return err.response?.data?.error || fallback;
   };
 
-  /* ── مرحله ۱: بررسی شماره ── */
+  /* ── مرحله ۱: بررسی نام کاربری ── */
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const normalized = normalizePhone(phoneNumber);
-    if (normalized.length !== 11) {
-      setError('شماره تلفن باید ۱۱ رقم باشد (مثال: 09123456789)');
+    const normalized = normalizeUsername(phoneNumber);
+    if (normalized.length < 3) {
+      setError('نام کاربری باید حداقل ۳ کاراکتر باشد');
       return;
     }
-    if (!normalized.startsWith('09')) {
-      setError('شماره موبایل باید با 09 شروع شود');
+    if (!USERNAME_RE.test(normalized)) {
+      setError('نام کاربری فقط می‌تواند شامل حروف انگلیسی، عدد و علامت‌های خاص باشد');
       return;
     }
     setPhoneNumber(normalized);
@@ -176,7 +177,7 @@ const Login = () => {
       setNeedsFirstPassword(exists && !hasPassword);
       setStep(2);
     } catch (err) {
-      setError(phoneApiError(err, 'خطا در بررسی شماره تلفن'));
+      setError(phoneApiError(err, 'خطا در بررسی نام کاربری'));
     } finally {
       setLoading(false);
     }
@@ -321,22 +322,25 @@ const Login = () => {
             </div>
           )}
 
-          {/* مرحله ۱: شماره تلفن */}
+          {/* مرحله ۱: نام کاربری */}
           {step === 1 && (
             <form onSubmit={handlePhoneSubmit} className="space-y-6">
               <div>
-                <label className="block text-ink-2 mb-2 text-sm font-medium">شماره تلفن</label>
+                <label className="block text-ink-2 mb-2 text-sm font-medium">نام کاربری</label>
                 <input
-                  type="tel"
-                  inputMode="numeric"
+                  type="text"
+                  autoComplete="username"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(normalizePhone(e.target.value).slice(0, 11))}
-                  placeholder="09123456789"
+                  onChange={(e) => setPhoneNumber(normalizeUsername(e.target.value).slice(0, 150))}
+                  placeholder="نام کاربری یا شماره موبایل"
                   dir="ltr"
                   className={`${inputClass} text-left`}
                   disabled={loading}
-                  maxLength="11"
+                  maxLength="150"
                 />
+                <p className="text-xs text-ink-3 mt-2">
+                  حروف انگلیسی، عدد و علامت‌های خاص مجاز است
+                </p>
               </div>
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white
@@ -359,7 +363,7 @@ const Login = () => {
                   setNeedsFirstPassword(false);
                 }}
                 className="text-ink-3 hover:text-ink text-sm mb-4">
-                ← تغییر شماره تلفن
+                ← تغییر نام کاربری
               </button>
 
               {isExistingUser ? (

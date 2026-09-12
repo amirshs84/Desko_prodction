@@ -84,7 +84,12 @@ class UserProfile(models.Model):
         blank=True,
         verbose_name='مدرسه'
     )
-    phone_number = models.CharField(max_length=11, unique=True)
+    phone_number = models.CharField(
+        max_length=150,
+        unique=True,
+        verbose_name='نام کاربری',
+        help_text='نام کاربری ورود: حروف انگلیسی، عدد یا علامت خاص',
+    )
     full_name = models.CharField(max_length=200, blank=True)
     grade = models.CharField(max_length=20, choices=GRADE_CHOICES, blank=True)
     olympiad_field = models.CharField(max_length=20, choices=OLYMPIAD_CHOICES, blank=True)

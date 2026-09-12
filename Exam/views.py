@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
 from urllib.parse import quote
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
@@ -58,13 +59,22 @@ def _booklet_file_response(asset: ExamAsset):
     if not exists:
         return Response({'error': 'فایل دفترچه روی سرور پیدا نشد. دوباره از پنل مشاور آپلود کنید.'}, status=404)
     filename = asset.original_name or 'booklet.pdf'
+    content_type = asset.content_type or 'application/pdf'
+    disposition = f"inline; filename*=UTF-8''{quote(filename)}"
+    relative = str(asset.file.name or '').replace('\\', '/').lstrip('/')
+    use_accel = os.environ.get('EXAM_BOOKLET_X_ACCEL', '').strip().lower() in {'1', 'true', 'yes'}
+    if use_accel and relative and '..' not in relative.split('/'):
+        response = HttpResponse(content_type=content_type)
+        response['Content-Disposition'] = disposition
+        response['X-Accel-Redirect'] = f'/internal-exam-media/{relative}'
+        return response
     response = FileResponse(
         asset.file.open('rb'),
         as_attachment=False,
         filename=filename,
-        content_type=asset.content_type or 'application/pdf',
+        content_type=content_type,
     )
-    response['Content-Disposition'] = f"inline; filename*=UTF-8''{quote(filename)}"
+    response['Content-Disposition'] = disposition
     return response
 
 

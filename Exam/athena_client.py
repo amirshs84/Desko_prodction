@@ -8,6 +8,11 @@ from django.conf import settings
 
 from .identity import mint_athena_token
 
+_http = httpx.Client(
+    timeout=30.0,
+    limits=httpx.Limits(max_connections=64, max_keepalive_connections=32),
+)
+
 
 class AthenaError(Exception):
     def __init__(self, status_code: int, code: str, detail: Any = None) -> None:
@@ -31,7 +36,7 @@ class AthenaClient:
     def _request(self, method: str, path: str, **kwargs) -> Any:
         url = f'{settings.ATHENA_BASE_URL}{path}'
         try:
-            response = httpx.request(
+            response = _http.request(
                 method,
                 url,
                 headers=self._headers(),
