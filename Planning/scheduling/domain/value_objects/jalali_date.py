@@ -110,9 +110,13 @@ def _roundtrip(jy: int, jm: int, jd: int) -> tuple[int, int, int]:
     return gregorian_to_jalali(gy, gm, gd)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class JalaliDate(ValueObject):
-    """یک روز شمسی. تغییرناپذیر؛ همه‌ی عملیات نمونه‌ی جدید برمی‌گردانند."""
+    """یک روز شمسی. تغییرناپذیر؛ همه‌ی عملیات نمونه‌ی جدید برمی‌گردانند.
+
+    ``order=True`` است چون ترتیب تاریخی روی سه‌تایی ``(jy, jm, jd)`` همان ترتیب
+    تقویمی است و موتور زمان‌بندی برای مقایسه‌ی ددلاین به آن نیاز دارد.
+    """
 
     jy: int
     jm: int

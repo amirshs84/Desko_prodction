@@ -32,6 +32,10 @@ class CalendarEventMapper:
             origin=EventOrigin(row.origin),
             group_id=row.group_id,
             version=row.version,
+            priority=row.priority,
+            movability=row.movability,
+            subject_tags=tuple(row.subject_tags or ()),
+            cognitive_load=row.cognitive_load,
             created_at=row.created_at,
             persisted_version=row.version,
         )
@@ -62,12 +66,17 @@ class CalendarEventMapper:
         row.origin = entity.origin.value
         row.group_id = entity.group_id
         row.version = entity.version
+        row.priority = entity.priority
+        row.movability = entity.movability
+        row.subject_tags = list(entity.subject_tags)
+        row.cognitive_load = entity.cognitive_load
 
     #: ستون‌هایی که در به‌روزرسانی نوشته می‌شوند (ورودی ``bulk_update``/``update``).
     MUTABLE_COLUMNS = (
         'jy', 'jm', 'jd', 'date', 'title', 'description',
         'start_minutes', 'end_minutes', 'color', 'all_day',
         'kind', 'origin', 'group_id', 'version',
+        'priority', 'movability', 'subject_tags', 'cognitive_load',
     )
 
 
@@ -96,6 +105,10 @@ class SnapshotPayloadMapper:
             'origin': event.origin.value,
             'group_id': event.group_id,
             'version': event.version,
+            'priority': event.priority,
+            'movability': event.movability,
+            'subject_tags': list(event.subject_tags),
+            'cognitive_load': event.cognitive_load,
         }
 
     @staticmethod
@@ -112,4 +125,10 @@ class SnapshotPayloadMapper:
             origin=EventOrigin(data.get('origin', EventOrigin.STUDENT.value)),
             group_id=data.get('group_id', ''),
             version=data.get('version', 1),
+            # اسنپ‌شات‌های پیش از افزوده‌شدن اولویت این کلیدها را ندارند؛
+            # پیش‌فرض‌ها همان مقادیر خنثای موجودیت‌اند تا بازگردانی نشکند.
+            priority=data.get('priority', 3),
+            movability=data.get('movability', 2),
+            subject_tags=tuple(data.get('subject_tags') or ()),
+            cognitive_load=data.get('cognitive_load', 2),
         )

@@ -47,7 +47,7 @@ export function WeekView() {
   const [toast, setToast] = useState<string | null>(null)
 
   const {
-    events, eventsForDay, eventsForRange, addEventsBatch, updateEvent, moveEvent, placeTimedBlock,
+    events, eventsForDay, eventsForRange, addEventsBatch, updateEvent, moveEvent, placeTimedBlock, isOutsideAwake,
   } = useEvents()
   const { data: subjectsRaw = [] } = useSubjects()
   const { data: sessionsRaw = [] } = useSessions()
@@ -196,6 +196,10 @@ export function WeekView() {
 
   const openCreate = (d: JalaliDate, minute: number) => {
     const quarter = Math.floor(minute / 15) * 15
+    if (isOutsideAwake(quarter)) {
+      showToast('این بازه خارج از ساعت بیداری است؛ اینجا نمی‌شود چیزی گذاشت.')
+      return
+    }
     const end = Math.min(quarter + 60, 24 * 60)
     setEditing(null)
     setDraft({ date: d, startMinutes: quarter, endMinutes: end, allDay: false })

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -18,6 +19,12 @@ import type {
   EventRepeatScope,
 } from '../types/calendar'
 import { STORAGE_KEY } from '../types/calendar'
+import {
+  DEFAULT_AWAKE_END,
+  DEFAULT_AWAKE_START,
+  isOutsideAwake as isOutsideAwakeRange,
+  isProposedEvent,
+} from '../lib/eventAppearance'
 import { calendarAPI, planningAPI } from '../../api/client'
 
 function formatJalaliDate(d: JalaliDate): string {
@@ -44,6 +51,10 @@ interface ServerEvent {
   kind?: 'mutable' | 'immutable'
   origin?: string
   version?: number
+  priority?: number
+  movability?: number
+  subject_tags?: string[]
+  cognitive_load?: number
 }
 
 function fromServer(e: ServerEvent): CalendarEventRecord {
@@ -63,6 +74,10 @@ function fromServer(e: ServerEvent): CalendarEventRecord {
     kind: e.kind,
     origin: e.origin,
     version: e.version,
+    priority: e.priority,
+    movability: e.movability,
+    subjectTags: e.subject_tags,
+    cognitiveLoad: e.cognitive_load,
   }
 }
 
@@ -131,6 +146,61 @@ function persist(list: CalendarEventRecord[]) {
   }
 }
 
+type ServerProposalBlock = {
+  jy: number
+  jm: number
+  jd: number
+  subject: string
+  start_minutes: number
+  end_minutes: number
+  color?: string
+}
+
+type ServerProposal = {
+  id: number
+  status: string
+  consultant_id?: number
+  block_decisions?: string[]
+  blocks: ServerProposalBlock[]
+}
+
+type UndoEntry = {
+  label: string
+  apply: () => Promise<void> | void
+}
+
+function overlayFromProposals(list: ServerProposal[]): CalendarEventRecord[] {
+  const out: CalendarEventRecord[] = []
+  for (const proposal of list) {
+    if (proposal.status !== 'pending') continue
+    const decisions = proposal.block_decisions ?? []
+    proposal.blocks.forEach((block, index) => {
+      const decision = decisions[index] ?? 'pending'
+      if (decision !== 'pending') return
+      out.push({
+        id: `proposal:${proposal.id}:${index}`,
+        jy: block.jy,
+        jm: block.jm,
+        jd: block.jd,
+        title: block.subject,
+        description: 'پیشنهاد مشاور — هنوز قطعی نشده',
+        startMinutes: block.start_minutes,
+        endMinutes: block.end_minutes,
+        color: block.color || '#38bdf8',
+        allDay: false,
+        createdAt: new Date().toISOString(),
+        kind: 'mutable',
+        origin: 'plan_proposal',
+        proposed: true,
+        proposalId: proposal.id,
+        blockIndex: index,
+        consultantId: proposal.consultant_id,
+      })
+    })
+  }
+  return out
+}
+
 function expandRepeatDates(date: JalaliDate, repeat: EventRepeatScope): JalaliDate[] {
   const week = weekDaysFromDate(date.jy, date.jm, date.jd)
   switch (repeat) {
@@ -156,6 +226,9 @@ function expandRepeatDates(date: JalaliDate, repeat: EventRepeatScope): JalaliDa
 
 type EventsContextValue = {
   events: CalendarEventRecord[]
+  /** تقویم خود دانش‌آموز است، نه نمای مشاور از تقویم دیگری. */
+  isOwnCalendar: boolean
+  ownerUserId: string
   addEvent: (input: {
     date: JalaliDate
     title: string
@@ -203,6 +276,13 @@ type EventsContextValue = {
   countInGroup: (groupId: string) => number
   eventsForDay: (d: JalaliDate) => CalendarEventRecord[]
   eventsForRange: (start: JalaliDate, days: number) => CalendarEventRecord[]
+  awakeStartMinutes: number
+  awakeEndMinutes: number
+  isOutsideAwake: (startMinutes: number, endMinutes?: number) => boolean
+  canUndo: boolean
+  undoLabel: string | null
+  undo: () => Promise<void>
+  respondProposed: (id: string, accept: boolean, reason?: string) => Promise<void>
 }
 
 const EventsContext = createContext<EventsContextValue | null>(null)
@@ -246,6 +326,49 @@ export function EventsProvider({
     placeholderData: persistLocal ? loadInitial : [],
   })
 
+  const { data: awakeWindow } = useQuery<{ start_minutes: number; end_minutes: number }>({
+    queryKey: ['awake-window', ownerKey],
+    queryFn: () => planningAPI.getAwakeWindow(apiParams).then((r) => r.data),
+    enabled: isLoggedIn(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const awakeStartMinutes = awakeWindow?.start_minutes ?? DEFAULT_AWAKE_START
+  const awakeEndMinutes = awakeWindow?.end_minutes ?? DEFAULT_AWAKE_END
+
+  const { data: pendingProposals = [] } = useQuery<ServerProposal[]>({
+    queryKey: ['my-proposals', 'pending-overlay'],
+    queryFn: () => planningAPI.getMyProposals({ pending: true }).then((r) => r.data),
+    enabled: isLoggedIn() && persistLocal && !previewMode,
+    staleTime: 15_000,
+  })
+  const proposedOverlay = useMemo(
+    () => (persistLocal && !previewMode ? overlayFromProposals(pendingProposals) : []),
+    [persistLocal, previewMode, pendingProposals],
+  )
+
+  const skipUndoRef = useRef(false)
+  const undoStackRef = useRef<UndoEntry[]>([])
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([])
+  const recordUndo = useCallback((label: string, apply: UndoEntry['apply']) => {
+    if (skipUndoRef.current) return
+    const next = [...undoStackRef.current.slice(-39), { label, apply }]
+    undoStackRef.current = next
+    setUndoStack(next)
+  }, [])
+  const undo = useCallback(async () => {
+    const stack = undoStackRef.current
+    if (stack.length === 0) return
+    const entry = stack[stack.length - 1]!
+    undoStackRef.current = stack.slice(0, -1)
+    setUndoStack(undoStackRef.current)
+    skipUndoRef.current = true
+    try {
+      await entry.apply()
+    } finally {
+      skipUndoRef.current = false
+    }
+  }, [])
+
   const [draftEvents, setDraftEvents] = useState<CalendarEventRecord[]>(draftSeed ?? [])
   useEffect(() => {
     setDraftEvents(draftSeed ?? [])
@@ -256,8 +379,11 @@ export function EventsProvider({
   }, [draftEvents, onDraftEventsChange])
 
   const events = useMemo(
-    () => (previewMode ? [...serverEvents, ...draftEvents] : serverEvents),
-    [previewMode, serverEvents, draftEvents],
+    () =>
+      previewMode
+        ? [...serverEvents, ...draftEvents]
+        : [...serverEvents, ...proposedOverlay],
+    [previewMode, serverEvents, draftEvents, proposedOverlay],
   )
 
   const isDraftEvent = useCallback(
@@ -265,6 +391,12 @@ export function EventsProvider({
       previewMode &&
       (id.startsWith('draft:') || draftEvents.some((d) => d.id === id)),
     [previewMode, draftEvents],
+  )
+
+  const isOutsideAwake = useCallback(
+    (startMinutes: number, endMinutes?: number) =>
+      isOutsideAwakeRange(startMinutes, awakeStartMinutes, awakeEndMinutes, endMinutes),
+    [awakeStartMinutes, awakeEndMinutes],
   )
 
   const mutate = useCallback(
@@ -315,6 +447,18 @@ export function EventsProvider({
       }))
 
       mutate((prev) => [...prev, ...newRecs])
+      recordUndo(
+        newRecs.length > 1 ? `افزودن ${newRecs.length} رویداد` : 'افزودن رویداد',
+        () => {
+          const ids = new Set(newRecs.map((item) => item.id))
+          mutate((prev) => prev.filter((e) => !ids.has(e.id)))
+          if (isLoggedIn()) {
+            newRecs.forEach((item) => {
+              calendarAPI.deleteEvent(item.id, apiParams).catch(() => undefined)
+            })
+          }
+        },
+      )
 
       if (isLoggedIn()) {
         calendarAPI
@@ -337,7 +481,7 @@ export function EventsProvider({
 
       return newRecs[newRecs.length - 1]!
     },
-    [mutate, apiParams],
+    [mutate, apiParams, recordUndo],
   )
 
   const addEventsBatch = useCallback<EventsContextValue['addEventsBatch']>(
@@ -364,6 +508,15 @@ export function EventsProvider({
       const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
 
       mutate((prev) => [...prev, ...newRecs])
+      recordUndo(`افزودن ${newRecs.length} رویداد`, () => {
+        const ids = new Set(newRecs.map((item) => item.id))
+        mutate((prev) => prev.filter((e) => !ids.has(e.id)))
+        if (isLoggedIn()) {
+          newRecs.forEach((item) => {
+            calendarAPI.deleteEvent(item.id, apiParams).catch(() => undefined)
+          })
+        }
+      })
 
       if (!isLoggedIn()) return newRecs
 
@@ -385,13 +538,23 @@ export function EventsProvider({
         throw new Error('خطا در ذخیره رویدادها روی سرور.')
       }
     },
-    [mutate, queryClient, queryKey, apiParams, persistLocal],
+    [mutate, queryClient, queryKey, apiParams, persistLocal, recordUndo],
   )
 
   const updateEvent = useCallback<EventsContextValue['updateEvent']>(
     (id, patch, scope = 'single') => {
       if (isDraftEvent(id)) {
+        const before = draftEvents.find((e) => e.id === id)
         mutateDraft((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
+        if (before) {
+          recordUndo('ویرایش پیش‌نویس', () => {
+            mutateDraft((prev) => prev.map((e) => (e.id === id ? before : e)))
+          })
+        }
+        return
+      }
+      if (isProposedEvent({ id } as CalendarEventRecord)) {
+        alert('این بلوک پیشنهادی است؛ اول تأیید یا رد کنید.')
         return
       }
       const current = queryClient
@@ -412,6 +575,22 @@ export function EventsProvider({
         mutate((prev) =>
           prev.map((e) => (e.groupId === gid ? { ...e, ...patch, jy: e.jy, jm: e.jm, jd: e.jd } : e)),
         )
+        recordUndo('ویرایش گروه رویداد', () => {
+          if (backup) {
+            queryClient.setQueryData(queryKey, backup)
+            if (persistLocal) persist(backup)
+          }
+          if (isLoggedIn() && backup) {
+            calendarAPI.updateGroup(gid, groupPatchToServer({
+              title: current.title,
+              description: current.description,
+              startMinutes: current.startMinutes,
+              endMinutes: current.endMinutes,
+              color: current.color,
+              allDay: current.allDay,
+            }), apiParams).catch(() => undefined)
+          }
+        })
         if (isLoggedIn()) {
           calendarAPI.updateGroup(gid, shared, apiParams).catch(() => {
             if (backup) {
@@ -424,6 +603,15 @@ export function EventsProvider({
       }
 
       mutate((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
+      if (backup && current) {
+        recordUndo('ویرایش رویداد', () => {
+          queryClient.setQueryData(queryKey, backup)
+          if (persistLocal) persist(backup)
+          if (isLoggedIn()) {
+            calendarAPI.updateEvent(id, patchToServer(current), apiParams).catch(() => undefined)
+          }
+        })
+      }
       if (isLoggedIn()) {
         calendarAPI.updateEvent(id, patchToServer(patch), apiParams).catch((err: unknown) => {
           if (backup) {
@@ -438,13 +626,23 @@ export function EventsProvider({
         })
       }
     },
-    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal, isDraftEvent, mutateDraft],
+    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal, isDraftEvent, mutateDraft, recordUndo, draftEvents],
   )
 
   const removeEvent = useCallback<EventsContextValue['removeEvent']>(
     (id, scope = 'single') => {
       if (isDraftEvent(id)) {
+        const removed = draftEvents.find((e) => e.id === id)
         mutateDraft((prev) => prev.filter((e) => e.id !== id))
+        if (removed) {
+          recordUndo('حذف پیش‌نویس', () => {
+            mutateDraft((prev) => [...prev, removed])
+          })
+        }
+        return
+      }
+      if (isProposedEvent({ id } as CalendarEventRecord)) {
+        alert('این بلوک پیشنهادی است؛ از دکمه رد استفاده کنید.')
         return
       }
       const backup = queryClient.getQueryData<CalendarEventRecord[]>(queryKey)
@@ -460,6 +658,11 @@ export function EventsProvider({
       if (applyGroup && target?.groupId) {
         const gid = target.groupId
         mutate((prev) => prev.filter((e) => e.groupId !== gid))
+        recordUndo('حذف گروه رویداد', () => {
+          if (!backup) return
+          queryClient.setQueryData(queryKey, backup)
+          if (persistLocal) persist(backup)
+        })
         if (isLoggedIn()) {
           calendarAPI.deleteGroup(gid, apiParams).catch(() => {
             if (backup) {
@@ -472,6 +675,14 @@ export function EventsProvider({
       }
 
       mutate((prev) => prev.filter((e) => e.id !== id))
+      if (target) {
+        recordUndo('حذف رویداد', () => {
+          mutate((prev) => (prev.some((e) => e.id === target.id) ? prev : [...prev, target]))
+          if (isLoggedIn()) {
+            calendarAPI.createEvents([toServer(target)], apiParams).catch(() => undefined)
+          }
+        })
+      }
       if (isLoggedIn()) {
         calendarAPI.deleteEvent(id, apiParams).catch((err: unknown) => {
           if (backup) {
@@ -486,7 +697,7 @@ export function EventsProvider({
         })
       }
     },
-    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal, isDraftEvent, mutateDraft],
+    [mutate, queryClient, countInGroup, queryKey, apiParams, persistLocal, isDraftEvent, mutateDraft, recordUndo, draftEvents],
   )
 
   const moveEvent = useCallback<EventsContextValue['moveEvent']>(
@@ -497,6 +708,10 @@ export function EventsProvider({
       if (!current) return { snapped: false }
       if (isImmutable(current)) {
         alert('این رویداد ثابت مدرسه است و قابل جابه‌جایی نیست.')
+        return { snapped: false }
+      }
+      if (isProposedEvent(current)) {
+        alert('بلوک پیشنهادی را نمی‌شود جابه‌جا کرد؛ اول تأیید یا رد کنید.')
         return { snapped: false }
       }
 
@@ -520,10 +735,30 @@ export function EventsProvider({
 
       if (isDraftEvent(id)) {
         mutateDraft((prev) => prev.map((e) => (e.id === id ? optimistic : e)))
+        recordUndo('جابه‌جایی پیش‌نویس', () => {
+          mutateDraft((prev) => prev.map((e) => (e.id === id ? current : e)))
+        })
         return { snapped: false }
       }
 
       mutate((prev) => prev.map((e) => (e.id === id ? optimistic : e)))
+      recordUndo('جابه‌جایی رویداد', async () => {
+        mutate((prev) => prev.map((e) => (e.id === id ? current : e)))
+        if (isLoggedIn()) {
+          await planningAPI
+            .moveBlock(
+              id,
+              {
+                date: formatJalaliDate({ jy: current.jy, jm: current.jm, jd: current.jd }),
+                start_minutes: current.startMinutes,
+                snap: true,
+                expected_version: current.version,
+              },
+              apiParams,
+            )
+            .catch(() => undefined)
+        }
+      })
 
       if (!isLoggedIn()) return { snapped: false }
 
@@ -561,7 +796,7 @@ export function EventsProvider({
         return { snapped: false }
       }
     },
-    [mutate, queryClient, queryKey, apiParams, persistLocal, draftEvents, isDraftEvent, mutateDraft],
+    [mutate, queryClient, queryKey, apiParams, persistLocal, draftEvents, isDraftEvent, mutateDraft, recordUndo],
   )
 
   const placeTimedBlock = useCallback<EventsContextValue['placeTimedBlock']>(
@@ -585,6 +820,9 @@ export function EventsProvider({
           kind: 'mutable',
         }
         mutateDraft((prev) => [...prev, draft])
+        recordUndo('گذاشتن پیش‌نویس', () => {
+          mutateDraft((prev) => prev.filter((e) => e.id !== draft.id))
+        })
         return { snapped: false }
       }
       if (!isLoggedIn()) {
@@ -611,6 +849,10 @@ export function EventsProvider({
           }
           return [...prev, serverEv]
         })
+        recordUndo('گذاشتن بلوک', () => {
+          mutate((prev) => prev.filter((e) => e.id !== serverEv.id))
+          calendarAPI.deleteEvent(serverEv.id, apiParams).catch(() => undefined)
+        })
         return { snapped: !!payload.snapped }
       } catch (err: unknown) {
         const code = (err as { response?: { data?: { error?: { code?: string; message?: string } } } })
@@ -625,7 +867,52 @@ export function EventsProvider({
         return { snapped: false }
       }
     },
-    [apiParams, mutate, previewMode, mutateDraft],
+    [apiParams, mutate, previewMode, mutateDraft, recordUndo],
+  )
+
+  const respondProposed = useCallback<EventsContextValue['respondProposed']>(
+    async (id, accept, reason) => {
+      const event = events.find((item) => item.id === id)
+      if (!event || !isProposedEvent(event) || event.proposalId == null || event.blockIndex == null) {
+        return
+      }
+      try {
+        const res = await planningAPI.respondProposalBlock(event.proposalId, {
+          block_index: event.blockIndex,
+          accept,
+          reason: reason || '',
+        })
+        const payload = res.data as { event?: ServerEvent; status?: string }
+        queryClient.setQueryData<ServerProposal[]>(['my-proposals', 'pending-overlay'], (prev = []) =>
+          prev.map((item) => {
+            if (item.id !== event.proposalId) return item
+            const decisions = [...(item.block_decisions ?? item.blocks.map(() => 'pending'))]
+            decisions[event.blockIndex!] = accept ? 'accepted' : 'rejected'
+            const stillPending = decisions.some((d) => d === 'pending')
+            return {
+              ...item,
+              block_decisions: decisions,
+              status: stillPending ? 'pending' : payload.status || (accept ? 'accepted' : 'rejected'),
+            }
+          }),
+        )
+        await queryClient.invalidateQueries({ queryKey: ['my-proposals'] })
+        if (accept && payload.event) {
+          const serverEv = fromServer(payload.event)
+          mutate((prev) => {
+            if (prev.some((item) => item.id === serverEv.id)) {
+              return prev.map((item) => (item.id === serverEv.id ? serverEv : item))
+            }
+            return [...prev, serverEv]
+          })
+        }
+      } catch (err: unknown) {
+        const message = (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message
+        alert(message || 'پاسخ به پیشنهاد انجام نشد.')
+      }
+    },
+    [events, mutate, queryClient],
   )
 
   const eventsForDay = useCallback(
@@ -650,6 +937,8 @@ export function EventsProvider({
   const value = useMemo(
     () => ({
       events,
+      isOwnCalendar: persistLocal,
+      ownerUserId: ownerKey,
       addEvent,
       addEventsBatch,
       updateEvent,
@@ -659,9 +948,18 @@ export function EventsProvider({
       countInGroup,
       eventsForDay,
       eventsForRange,
+      awakeStartMinutes,
+      awakeEndMinutes,
+      isOutsideAwake,
+      canUndo: undoStack.length > 0,
+      undoLabel: undoStack.at(-1)?.label ?? null,
+      undo,
+      respondProposed,
     }),
     [
       events,
+      persistLocal,
+      ownerKey,
       addEvent,
       addEventsBatch,
       updateEvent,
@@ -671,6 +969,12 @@ export function EventsProvider({
       countInGroup,
       eventsForDay,
       eventsForRange,
+      awakeStartMinutes,
+      awakeEndMinutes,
+      isOutsideAwake,
+      undoStack,
+      undo,
+      respondProposed,
     ],
   )
 

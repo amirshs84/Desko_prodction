@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from '../components/BottomNav';
 import SubjectDonutChart from '../components/SubjectDonutChart';
+import { WeeklyGoalPopup } from '../calendar/components/WeeklyGoalPopup';
 import { useSessions, useSubjects } from '../hooks/useDataQueries';
 import { formatRelativeDateIran, getStartOfDayIran, getIranDate } from '../utils/dateUtils';
 import { isDevAuthBypass } from '../utils/devAuth';
@@ -255,6 +256,7 @@ const Dashboard = () => {
   // layout اصلی همیشه رندر می‌شود تا BottomNav همیشه نمایش داشته باشد
   return (
     <div className="h-full flex flex-col bg-bg text-ink">
+      <WeeklyGoalPopup />
       <div className="flex-1 overflow-y-auto overscroll-none p-4 md:p-8 pb-nav-safe">
         <div className="max-w-6xl mx-auto">
 

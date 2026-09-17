@@ -10,12 +10,28 @@ import {
   useConsultantGroups,
   useConsultantRoster,
   useConsultantStudents,
+  useSubjectCatalog,
   CONSULTANT_KEYS,
 } from '../hooks/useConsultantQueries';
 import { planningAPI } from '../../../../api/client';
 import { todayJalali, addDays } from '../../../../calendar/lib/jalaliUtils';
 import { PreviewCalendarModal } from './planning/PreviewCalendarModal';
 import { STEPS, STUDIO } from './planning/studioTheme';
+
+function newDemand(subject = '') {
+  return {
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    subject,
+    amount: 90,
+    unit: 'minutes',
+    activity: 'study',
+    priority: 3,
+    movability: 2,
+  };
+}
+
+const PRIORITY_HINT = ['حذف‌شدنی', 'مرور جزئی', 'عادی', 'مهم', 'آزمون/جمع‌بندی'];
+const MOVABILITY_HINT = ['میخ‌شده', 'کم', 'متوسط', 'زیاد', 'آزاد'];
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -130,6 +146,12 @@ function PlanningBody() {
   const { data: groups = [] } = useConsultantGroups();
   const { data: students = [] } = useConsultantStudents();
   const { data: rosterPage } = useConsultantRoster({ period: 'weekly' });
+  const { data: catalog } = useSubjectCatalog();
+  const catalogByName = useMemo(() => {
+    const map = {};
+    for (const s of catalog?.subjects || []) map[s.name] = s;
+    return map;
+  }, [catalog]);
   const rosterById = useMemo(() => {
     const map = {};
     for (const s of rosterPage?.students || []) map[s.user_id] = s;
@@ -147,9 +169,9 @@ function PlanningBody() {
   const [start, setStart] = useState(jalaliStr(t));
   const [end, setEnd] = useState(jalaliStr(addDays(t.jy, t.jm, t.jd, 6)));
   const [intensity, setIntensity] = useState('normal');
-  const [subjectsText, setSubjectsText] = useState('ریاضی، فیزیک');
-  const [totalMinutes, setTotalMinutes] = useState(180);
+  const [demands, setDemands] = useState(() => [newDemand('ریاضی'), newDemand('فیزیک')]);
   const [mode, setMode] = useState('suggested');
+  const [goalMessage, setGoalMessage] = useState('');
   const [preview, setPreview] = useState(null);
   const [publishResult, setPublishResult] = useState(null);
   const [error, setError] = useState('');
@@ -169,9 +191,9 @@ function PlanningBody() {
     }
   }, [planningSeed, clearPlanningSeed, setSelectedGroupId]);
 
-  const subjects = useMemo(
-    () => subjectsText.split(/[,،]/).map((s) => s.trim()).filter(Boolean),
-    [subjectsText],
+  const validDemands = useMemo(
+    () => demands.filter((d) => d.subject.trim() && Number(d.amount) > 0),
+    [demands],
   );
 
   const sortedGroups = useMemo(() => {
@@ -196,9 +218,15 @@ function PlanningBody() {
       start,
       end,
       intensity,
-      subjects,
-      total_minutes: Number(totalMinutes),
       mode,
+      demands: validDemands.map((d) => ({
+        subject: d.subject.trim(),
+        amount: Number(d.amount),
+        unit: d.unit,
+        activity: d.unit === 'count' ? 'test' : d.activity,
+        priority: Number(d.priority),
+        movability: Number(d.movability),
+      })),
     };
     if (audience === 'group' && !removedIds.length) {
       body.group_id = Number(groupId);
@@ -256,7 +284,7 @@ function PlanningBody() {
   };
 
   const canGoDemand = audience === 'group' ? !!groupId : manualIds.length > 0;
-  const canPreview = subjects.length > 0 && Number(totalMinutes) > 0 && start && end;
+  const canPreview = validDemands.length > 0 && start && end;
 
   const previewStudents = useMemo(() => {
     // افراد ثبت‌شده‌ی فردی از لیست بچ حذف می‌شوند؛ «حذف از بچ» فقط برای انتشار است.
@@ -469,34 +497,118 @@ function PlanningBody() {
               />
             </label>
           </div>
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-semibold text-gray-600">تقاضای هر درس</p>
+            {demands.map((row) => {
+              const profile = catalogByName[row.subject.trim()];
+              return (
+                <div key={row.key} className="rounded-xl border border-gray-100 p-3 flex flex-col gap-2">
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    <input
+                      value={row.subject}
+                      onChange={(e) => setDemands((prev) => prev.map((d) => (
+                        d.key === row.key ? { ...d, subject: e.target.value } : d
+                      )))}
+                      placeholder="نام درس"
+                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                      list="planning-subject-names"
+                    />
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        value={row.amount}
+                        onChange={(e) => setDemands((prev) => prev.map((d) => (
+                          d.key === row.key ? { ...d, amount: e.target.value } : d
+                        )))}
+                        className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                      />
+                      <select
+                        value={row.unit}
+                        onChange={(e) => setDemands((prev) => prev.map((d) => (
+                          d.key === row.key ? { ...d, unit: e.target.value } : d
+                        )))}
+                        className="rounded-xl border border-gray-200 px-2 py-2 text-sm bg-white"
+                      >
+                        <option value="minutes">دقیقه</option>
+                        <option value="count">تست</option>
+                      </select>
+                    </div>
+                    <select
+                      value={row.unit === 'count' ? 'test' : row.activity}
+                      disabled={row.unit === 'count'}
+                      onChange={(e) => setDemands((prev) => prev.map((d) => (
+                        d.key === row.key ? { ...d, activity: e.target.value } : d
+                      )))}
+                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white disabled:bg-gray-50"
+                    >
+                      <option value="study">مطالعه</option>
+                      <option value="test">تست‌زنی</option>
+                      <option value="review">مرور</option>
+                      <option value="solve">حل سوال</option>
+                    </select>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <label className="text-[11px] text-gray-500">
+                      اهمیت {row.priority} · {PRIORITY_HINT[row.priority - 1]}
+                      <input
+                        type="range" min={1} max={5}
+                        value={row.priority}
+                        onChange={(e) => setDemands((prev) => prev.map((d) => (
+                          d.key === row.key ? { ...d, priority: Number(e.target.value) } : d
+                        )))}
+                        className="w-full accent-emerald-600"
+                      />
+                    </label>
+                    <label className="text-[11px] text-gray-500">
+                      شناوری {row.movability} · {MOVABILITY_HINT[row.movability]}
+                      <input
+                        type="range" min={0} max={4}
+                        value={row.movability}
+                        onChange={(e) => setDemands((prev) => prev.map((d) => (
+                          d.key === row.key ? { ...d, movability: Number(e.target.value) } : d
+                        )))}
+                        className="w-full accent-emerald-600"
+                      />
+                    </label>
+                  </div>
+                  {profile && (
+                    <p className="text-[11px] text-emerald-700">
+                      تگ کاتالوگ: {(profile.tags || []).join('، ') || 'بدون تگ'}
+                      {profile.is_analytical ? ' · تحلیلی (بلوک سنگین)' : ''}
+                    </p>
+                  )}
+                  {demands.length > 1 && (
+                    <button
+                      type="button"
+                      className="self-start text-[11px] text-red-500"
+                      onClick={() => setDemands((prev) => prev.filter((d) => d.key !== row.key))}
+                    >
+                      حذف درس
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <datalist id="planning-subject-names">
+              {(catalog?.subjects || []).map((s) => (
+                <option key={s.name} value={s.name} />
+              ))}
+            </datalist>
+            <SecondaryButton type="button" onClick={() => setDemands((prev) => [...prev, newDemand()])}>
+              + درس دیگر
+            </SecondaryButton>
+          </div>
           <label className="text-xs text-gray-500">
-            درس‌ها (با ویرگول)
-            <input
-              value={subjectsText}
-              onChange={(e) => setSubjectsText(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-            />
-          </label>
-          <label className="text-xs text-gray-500">
-            مجموع دقیقه
-            <input
-              type="number"
-              min={1}
-              value={totalMinutes}
-              onChange={(e) => setTotalMinutes(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
-            />
-          </label>
-          <label className="text-xs text-gray-500">
-            فشردگی
+            فشردگی — طول بلوک و استراحت بعد از هر تگ
             <select
               value={intensity}
               onChange={(e) => setIntensity(e.target.value)}
               className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white"
             >
-              <option value="light">سبک</option>
-              <option value="normal">عادی</option>
-              <option value="heavy">سنگین</option>
+              <option value="light">سبک (۶۰ دقیقه + ۱۵ استراحت)</option>
+              <option value="normal">عادی (۹۰ دقیقه + ۱۵ استراحت)</option>
+              <option value="heavy">سنگین (۱۲۰ دقیقه + ۱۰ استراحت)</option>
             </select>
           </label>
           <div className="flex gap-2">
@@ -679,12 +791,29 @@ function PlanningBody() {
               قطعی
             </SecondaryButton>
           </div>
+          <label className="flex flex-col gap-1 text-sm text-gray-700">
+            پیام هدف هفته برای دانش‌آموز
+            <textarea
+              value={goalMessage}
+              onChange={(e) => setGoalMessage(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="مثلاً: هدف این هفته ما: افزایش ۳۰ درصدی تست‌های فیزیک و تسلط روی مبحث توابع است. آماده‌ای؟"
+              className="rounded-xl border border-gray-200 px-3 py-2 text-sm"
+            />
+          </label>
           <div className="flex gap-2">
             <SecondaryButton onClick={() => setStep(2)}>بازگشت</SecondaryButton>
             <PrimaryButton
               disabled={publishMutation.isPending}
               style={{ background: STUDIO.brand }}
-              onClick={() => publishMutation.mutate({ ...buildBody(), mode })}
+              onClick={() =>
+                publishMutation.mutate({
+                  ...buildBody(),
+                  mode,
+                  goal_message: goalMessage.trim(),
+                })
+              }
             >
               {publishMutation.isPending ? 'در حال انتشار…' : 'انتشار'}
             </PrimaryButton>

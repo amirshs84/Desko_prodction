@@ -67,6 +67,15 @@ export function IconArrowRight(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function IconUndo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="M9 14 4 9l5-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 9h10.5a6.5 6.5 0 1 1 0 13H11" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function IconX(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>

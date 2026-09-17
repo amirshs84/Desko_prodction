@@ -5,6 +5,7 @@ import BottomNav from '../components/BottomNav';
 import { useAppUpdate } from '../hooks/useAppUpdate';
 import { openExternalUrl } from '../utils/download';
 import { API_BASE_URL } from '../api/config';
+import { AwakeWindowEditor } from '../calendar/components/AwakeWindowEditor';
 
 /* ── آدرس APK از همان پایه سرور ── */
 function buildApkUrl() {
@@ -50,6 +51,7 @@ export default function Settings() {
   } = useAppUpdate();
 
   const [showChangelog, setShowChangelog] = useState(false);
+  const [awakeOpen, setAwakeOpen] = useState(false);
   const isNative = Capacitor.isNativePlatform();
 
   const handleDownloadApk = () => openExternalUrl(buildApkUrl());
@@ -73,6 +75,33 @@ export default function Settings() {
 
       <div className="flex-1 overflow-y-auto overscroll-contain pb-nav-safe">
         <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+
+          <section>
+            <h2 className="text-xs font-semibold text-ink-4 uppercase tracking-wider mb-3 px-1">
+              برنامه‌ریزی
+            </h2>
+            <div className="bg-panel border border-edge rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAwakeOpen(true)}
+                className="w-full flex items-center gap-3 px-4 py-4
+                           hover:bg-panel-hover transition-colors active:scale-[0.98]"
+              >
+                <div className="w-8 h-8 rounded-lg bg-panel-hover flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                  </svg>
+                </div>
+                <div className="text-right flex-1">
+                  <p className="text-sm font-medium text-ink">بازه فعال روزانه</p>
+                  <p className="text-xs text-ink-4">ساعت‌هایی که موتور حق برنامه‌دادن دارد — پیش‌فرض ۷ تا ۲۳</p>
+                </div>
+                <ChevronIcon />
+              </button>
+            </div>
+          </section>
 
           {/* ─── آپدیت برنامه ─── */}
           <section>
@@ -316,6 +345,7 @@ export default function Settings() {
       </div>
 
       <BottomNav />
+      <AwakeWindowEditor open={awakeOpen} onClose={() => setAwakeOpen(false)} canEdit />
     </div>
   );
 }

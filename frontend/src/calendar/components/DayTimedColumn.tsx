@@ -11,6 +11,12 @@ import {
 } from '../lib/dragMime'
 import type { CalendarEventRecord } from '../types/calendar'
 import { minutesToLabel } from '../types/calendar'
+import { useEvents } from '../context/EventsContext'
+import {
+  eventBlockStyle,
+  INACTIVE_HATCH,
+  isProposedEvent,
+} from '../lib/eventAppearance'
 
 /** جلوگیری از انتخاب اسلات هنگام اسکرول لمسی؛ فقط ضربه مستقیم */
 const TAP_MOVE_THRESH_SQ = 10 * 10
@@ -60,19 +66,31 @@ export function DayTimedColumn({
   const draggedRef = useRef(false)
   const columnRef = useRef<HTMLDivElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [hint, setHint] = useState<string | null>(null)
+  const { awakeStartMinutes, awakeEndMinutes, isOutsideAwake, respondProposed, isOwnCalendar } =
+    useEvents()
 
   const canDrop = !!(date && (onDropEvent || onDropTemplate))
 
+  const showInactiveHint = () => {
+    setHint('این بازه خارج از ساعت بیداری است؛ اینجا نمی‌شود چیزی گذاشت.')
+    window.setTimeout(() => setHint(null), 2200)
+  }
+
   const runBackgroundTap = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-cal-event="1"]')) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const minute = yToMinute(e.clientY - rect.top, GRID_PX)
+    if (isOutsideAwake(minute)) {
+      showInactiveHint()
+      return
+    }
     if (weekSlot) {
       weekSlot.onBackgroundPointer(e)
       return
     }
     if (onSimpleCreate) {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const y = e.clientY - rect.top
-      onSimpleCreate(yToMinute(y, GRID_PX))
+      onSimpleCreate(minute)
     }
   }
 
@@ -122,6 +140,10 @@ export function DayTimedColumn({
       date,
       startMinutes: resolveDropMinutes(e.clientY),
     }
+    if (isOutsideAwake(target.startMinutes)) {
+      showInactiveHint()
+      return
+    }
     const template = parseTemplateDrag(e.dataTransfer)
     if (template && onDropTemplate) {
       void onDropTemplate(template, target)
@@ -167,6 +189,39 @@ export function DayTimedColumn({
         </div>
       ))}
 
+      {awakeStartMinutes > 0 ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-[4] overflow-hidden"
+          style={{
+            top: 0,
+            height: pixelsForRange(0, awakeStartMinutes).height,
+            backgroundImage: INACTIVE_HATCH,
+          }}
+        >
+          <div className="flex h-full min-h-[48px] items-center justify-center">
+            <span className="rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+              خارج از بازه فعال
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {awakeEndMinutes < 1440 ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-[4] overflow-hidden"
+          style={{
+            top: pixelsForRange(awakeEndMinutes, 1440).top,
+            height: pixelsForRange(awakeEndMinutes, 1440).height,
+            backgroundImage: INACTIVE_HATCH,
+          }}
+        >
+          <div className="flex h-full items-start justify-center pt-3">
+            <span className="rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+              استراحت · چیزی اضافه نمی‌شود
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className="absolute inset-0 z-[5]"
         role="presentation"
@@ -194,7 +249,9 @@ export function DayTimedColumn({
         const w = 100 / ev.laneCount
         const laneOffset = (ev.lane / ev.laneCount) * 100
         const locked = ev.kind === 'immutable'
-        const draggable = !locked && !!onDropEvent
+        const proposed = isProposedEvent(ev)
+        const draggable = !locked && !proposed && !!onDropEvent
+        const look = eventBlockStyle(ev)
         return (
           <button
             key={ev.id}
@@ -205,14 +262,18 @@ export function DayTimedColumn({
             title={
               locked
                 ? 'رویداد ثابت مدرسه — قابل جابه‌جایی نیست'
-                : 'بکشید و رها کنید تا جابه‌جا شود؛ برای ویرایش کلیک کنید'
+                : proposed
+                  ? 'پیشنهاد مشاور — تأیید یا رد کنید'
+                  : 'بکشید و رها کنید تا جابه‌جا شود؛ برای ویرایش کلیک کنید'
             }
             className={`absolute z-10 overflow-hidden rounded-md border px-1.5 py-1 text-start text-xs leading-tight shadow-md ${
               locked
-                ? 'border-amber-700/50 cursor-default'
-                : draggable
-                  ? 'border-black/30 cursor-grab active:cursor-grabbing'
-                  : 'border-black/30 active:scale-[0.99]'
+                ? 'border-slate-500/70 cursor-default'
+                : proposed
+                  ? 'border-dashed border-white/50 cursor-pointer'
+                  : draggable
+                    ? 'border-black/30 cursor-grab active:cursor-grabbing'
+                    : 'border-black/30 active:scale-[0.99]'
             }`}
             style={{
               top,
@@ -221,12 +282,7 @@ export function DayTimedColumn({
                 ? { right: `${laneOffset}%` }
                 : { left: `${laneOffset}%` }),
               width: `${w}%`,
-              background: ev.color,
-              color: '#081016',
-              opacity: locked ? 0.92 : 1,
-              backgroundImage: locked
-                ? 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 8px)'
-                : undefined,
+              ...look,
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={
@@ -257,13 +313,47 @@ export function DayTimedColumn({
             }}
           >
             <div className="truncate font-bold">
-              {locked ? '🔒 ' : ''}
+              {locked ? '🔒 ' : proposed ? '✦ ' : ''}
               {ev.title}
             </div>
             <div className="truncate text-[10px] opacity-75">{minutesToLabel(ev.startMinutes)}</div>
+            {proposed && isOwnCalendar ? (
+              <div className="mt-1 flex gap-1" dir="rtl">
+                <span
+                  role="presentation"
+                  className="rounded bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-black"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void respondProposed(ev.id, true)
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  تأیید
+                </span>
+                <span
+                  role="presentation"
+                  className="rounded bg-black/40 px-1.5 py-0.5 text-[9px] font-black text-white"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const reason = window.prompt('چرا این بلوک را رد می‌کنی؟ (برای مشاور)')
+                    if (reason === null) return
+                    void respondProposed(ev.id, false, reason)
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  رد
+                </span>
+              </div>
+            ) : null}
           </button>
         )
       })}
+
+      {hint ? (
+        <div className="pointer-events-none absolute inset-x-2 top-3 z-20 rounded-xl bg-slate-900/90 px-3 py-2 text-center text-[11px] font-semibold text-slate-100 shadow-lg">
+          {hint}
+        </div>
+      ) : null}
     </div>
   )
 }

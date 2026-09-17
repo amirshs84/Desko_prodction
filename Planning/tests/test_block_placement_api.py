@@ -126,9 +126,9 @@ class AvailabilityTests(BlockPlacementTestCase):
         response = self.client.get(self.url())
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['window'], {
-            'start_minutes': 360, 'end_minutes': 1380, 'duration_minutes': 1020,
+            'start_minutes': 420, 'end_minutes': 1380, 'duration_minutes': 960,
         })
-        self.assertEqual(response.data['free_minutes'], 1020)
+        self.assertEqual(response.data['free_minutes'], 960)
         self.assertEqual(response.data['busy_minutes'], 0)
         self.assertEqual(len(response.data['free_slots']), 1)
 
@@ -138,7 +138,7 @@ class AvailabilityTests(BlockPlacementTestCase):
         self.assertEqual(response.data['busy_minutes'], 120)
         self.assertEqual(
             [(slot['start_minutes'], slot['end_minutes']) for slot in response.data['free_slots']],
-            [(360, 480), (600, 1380)],
+            [(420, 480), (600, 1380)],
         )
 
     def test_duration_filter_hides_short_gaps(self):
@@ -182,11 +182,11 @@ class PlaceBlockTests(BlockPlacementTestCase):
 
     def test_without_start_time_uses_beginning_of_awake_window(self):
         response = self.place()
-        self.assertEqual(response.data['event']['start_minutes'], 360)
+        self.assertEqual(response.data['event']['start_minutes'], 420)
 
     def test_request_before_awake_window_snaps_into_it(self):
         response = self.place(start_minutes=minutes('04:00'))
-        self.assertEqual(response.data['event']['start_minutes'], 360)
+        self.assertEqual(response.data['event']['start_minutes'], 420)
         self.assertTrue(response.data['snapped'])
 
     def test_snap_disabled_reports_conflict_with_details(self):
@@ -306,11 +306,11 @@ class MoveBlockTests(BlockPlacementTestCase):
 
     def test_same_day_move_can_always_fall_back_to_its_own_slot(self):
         # روزِ پر، اما فضای خودِ رویداد در دسترس است؛ پس جابه‌جایی سر جای قبلی می‌نشیند.
-        self.seed_event('evt-1', '06:00', '07:00')
-        self.seed_event('wall', '07:00', '23:00')
+        self.seed_event('evt-1', '07:00', '08:00')
+        self.seed_event('wall', '08:00', '23:00')
         response = self.move('evt-1', start_minutes=minutes('12:00'))
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data['event']['start_minutes'], 360)
+        self.assertEqual(response.data['event']['start_minutes'], 420)
         self.assertTrue(response.data['snapped'])
 
     def test_missing_target_is_rejected(self):

@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from ....scheduling.domain.value_objects.jalali_date import JalaliDate
+from ....scheduling.domain.value_objects.time_range import TimeRange
 from ..enums import IntensityLevel, PlanWarningCode
 from ..value_objects.plan_window import PlanWindow
 from ..value_objects.planned_block import PlannedBlock
@@ -24,6 +26,23 @@ class PlanWarning:
 
 
 @dataclass(frozen=True)
+class BlockRelocation:
+    """بلوکی که از قبل روی تقویم بود و موتور برای باز کردن جا آن را جابه‌جا کرد.
+
+    جدا از ``blocks`` نگه داشته می‌شود چون مسیر انتشارش فرق دارد: این‌ها به‌روزرسانی
+    رویداد موجودند نه ساخت رویداد تازه، و باید کنترل همزمانی خوش‌بینانه را رعایت
+    کنند.
+    """
+
+    client_id: str
+    subject: str
+    date: JalaliDate
+    slot: TimeRange
+    from_date: JalaliDate
+    from_slot: TimeRange
+
+
+@dataclass(frozen=True)
 class StudentPlanDraft:
     """برنامه‌ی پیشنهادی یک دانش‌آموز به‌همراه تشخیص بن‌بست."""
 
@@ -33,6 +52,7 @@ class StudentPlanDraft:
     allocated_by_subject: Mapping[str, int]
     capacity_minutes: int
     warnings: tuple[PlanWarning, ...] = ()
+    relocations: tuple[BlockRelocation, ...] = ()
 
     @property
     def required_minutes(self) -> int:
@@ -100,6 +120,7 @@ def format_minutes(minutes: int) -> str:
 
 
 __all__ = [
+    'BlockRelocation',
     'PlanPreview',
     'PlanWarning',
     'PlanWarningCode',

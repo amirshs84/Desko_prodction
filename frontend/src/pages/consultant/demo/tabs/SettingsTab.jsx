@@ -9,6 +9,7 @@ import {
   MessageSquareText,
   Plus,
   Save,
+  Tags,
   Trash2,
   UserRound,
 } from 'lucide-react';
@@ -18,6 +19,8 @@ import { ticketAPI } from '../../../../api/client';
 import {
   useConsultantPreferences,
   usePreferencesMutation,
+  useSubjectCatalog,
+  useSubjectCatalogMutations,
 } from '../hooks/useConsultantQueries';
 import { STUDIO } from './planning/studioTheme';
 
@@ -371,6 +374,8 @@ function SettingsBody() {
         </div>
       </Section>
 
+      <SubjectCatalogSection />
+
       <Section icon={LifeBuoy} title="ارتباط با پشتیبانی" hint={data?.support?.note}>
         <textarea
           value={supportMsg}
@@ -445,6 +450,121 @@ function Field({ label, value }) {
       <p className="text-[11px]" style={{ color: CC.muted }}>{label}</p>
       <p className="text-sm font-semibold mt-0.5" style={{ color: CC.ink }}>{value}</p>
     </div>
+  );
+}
+
+const TAG_OPTIONS = [
+  { value: 'general', label: 'عمومی' },
+  { value: 'specialized', label: 'اختصاصی' },
+  { value: 'analytical', label: 'تحلیلی' },
+  { value: 'memorization', label: 'حفظی' },
+];
+
+function SubjectCatalogSection() {
+  const { data, isLoading } = useSubjectCatalog();
+  const { upsert, remove } = useSubjectCatalogMutations();
+  const [name, setName] = useState('');
+  const [tags, setTags] = useState(['specialized', 'analytical']);
+  const [priority, setPriority] = useState(3);
+  const [error, setError] = useState('');
+
+  const toggleTag = (value) => {
+    setTags((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]));
+  };
+
+  const onSave = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await upsert.mutateAsync({
+        name: name.trim(),
+        tags,
+        default_priority: Number(priority),
+      });
+      setName('');
+    } catch (err) {
+      setError(err?.response?.data?.error?.message || 'ذخیره نشد');
+    }
+  };
+
+  return (
+    <Section
+      icon={Tags}
+      title="کاتالوگ دروس مدرسه"
+      hint="تگ تحلیلی/حفظی طول بلوک و استراحت را عوض می‌کند و از چسباندن دو بلوک سنگین به هم جلوگیری می‌کند."
+    >
+      {isLoading && <p className="text-xs" style={{ color: CC.muted }}>در حال بارگذاری…</p>}
+      <ul className="flex flex-col gap-2 mb-3">
+        {(data?.subjects || []).map((s) => (
+          <li
+            key={s.name}
+            className="flex items-center justify-between gap-2 rounded-xl px-3 py-2"
+            style={{ background: CC.pageBg }}
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold" style={{ color: CC.ink }}>{s.name}</p>
+              <p className="text-[11px]" style={{ color: CC.muted }}>
+                {(s.tags || []).join('، ') || 'بدون تگ'} · اهمیت {s.default_priority}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-[11px] text-red-500"
+              onClick={() => remove.mutate(s.name)}
+            >
+              حذف
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={onSave} className="flex flex-col gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="نام درس (مثلاً ریاضی)"
+          required
+          className="text-sm rounded-xl px-3 py-2.5 outline-none"
+          style={{ border: `1px solid ${CC.border}`, color: CC.ink }}
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {TAG_OPTIONS.map((opt) => {
+            const on = tags.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleTag(opt.value)}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-lg"
+                style={{
+                  background: on ? CC.brandSoft : '#fff',
+                  color: on ? CC.brandStrong : CC.muted,
+                  border: `1px solid ${on ? CC.brandMid : CC.border}`,
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <label className="text-[11px]" style={{ color: CC.muted }}>
+          اهمیت پیش‌فرض {priority}
+          <input
+            type="range" min={1} max={5} value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+            className="w-full accent-emerald-600"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={upsert.isPending || !name.trim()}
+          className="text-sm font-medium px-3.5 py-2 rounded-xl disabled:opacity-50"
+          style={{ background: CC.brandSoft, color: CC.brandStrong }}
+        >
+          {upsert.isPending ? '…' : 'ثبت درس'}
+        </button>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </form>
+    </Section>
   );
 }
 

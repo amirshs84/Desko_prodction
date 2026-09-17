@@ -7,6 +7,7 @@
 نشت کند.
 """
 from .intervention.infrastructure.persistence.models import (
+    BlockFeedbackModel,
     ConsultantDirectMessageModel,
     ConsultantPreferencesModel,
     ConsultantStudentNoteModel,
@@ -14,17 +15,21 @@ from .intervention.infrastructure.persistence.models import (
     PlanRunModel,
     StudentGroupMemberModel,
     StudentGroupModel,
+    SubjectProfileModel,
 )
 from .scheduling.infrastructure.persistence.models import (
     CalendarEventModel,
     CalendarSnapshotModel,
     SavedBlockTemplateModel,
+    StudentAwakeWindowModel,
 )
 
 __all__ = [
+    'BlockFeedbackModel',
     'CalendarEventModel',
     'CalendarSnapshotModel',
     'SavedBlockTemplateModel',
+    'StudentAwakeWindowModel',
     'ConsultantDirectMessageModel',
     'ConsultantPreferencesModel',
     'ConsultantStudentNoteModel',
@@ -32,4 +37,5 @@ __all__ = [
     'PlanRunModel',
     'StudentGroupMemberModel',
     'StudentGroupModel',
+    'SubjectProfileModel',
 ]

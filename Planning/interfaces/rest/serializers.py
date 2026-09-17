@@ -12,7 +12,17 @@ from __future__ import annotations
 from rest_framework import serializers
 from rest_framework.fields import DateTimeField
 
-from ...intervention.domain.enums import IntensityLevel, PlanMode
+from ...intervention.domain.enums import (
+    ActivityKind,
+    DemandUnit,
+    IntensityLevel,
+    MAX_MOVABILITY,
+    MAX_PRIORITY,
+    MIN_MOVABILITY,
+    MIN_PRIORITY,
+    PlanMode,
+)
+from ...intervention.domain.value_objects.subject_tag import SubjectTag
 from ...scheduling.domain.entities.calendar_event import DEFAULT_EVENT_COLOR, CalendarEvent
 from ...scheduling.domain.value_objects.jalali_date import JalaliDate
 from ...scheduling.domain.value_objects.time_range import MINUTES_IN_DAY
@@ -36,6 +46,10 @@ def event_to_dict(event: CalendarEvent) -> dict:
         'kind': event.kind.value,
         'origin': event.origin.value,
         'version': event.version,
+        'priority': event.priority,
+        'movability': event.movability,
+        'subject_tags': list(event.subject_tags),
+        'cognitive_load': event.cognitive_load,
         'created_at': _datetime_field.to_representation(event.created_at) if event.created_at else None,
     }
 
@@ -326,15 +340,50 @@ def roster_page_to_dict(page) -> dict:
 
 
 class SubjectQuotaSerializer(serializers.Serializer):
+    """سهمیه‌ی صریح یک درس بر حسب دقیقه (قرارداد قدیمی، هنوز پشتیبانی می‌شود)."""
+
     subject = serializers.CharField(max_length=100)
     minutes = serializers.IntegerField(min_value=1)
+    priority = serializers.IntegerField(
+        required=False, allow_null=True, min_value=MIN_PRIORITY, max_value=MAX_PRIORITY,
+    )
+    movability = serializers.IntegerField(
+        required=False, allow_null=True, min_value=MIN_MOVABILITY, max_value=MAX_MOVABILITY,
+    )
+
+
+class SubjectDemandSerializer(serializers.Serializer):
+    """تقاضای یک درس: یا دقیقه، یا تعداد (مثلاً «۱۰۰ تست ریاضی»).
+
+    در حالت ``count`` موتور با نرخ واقعی همان دانش‌آموز زمان لازم را تخمین می‌زند؛
+    پس یک درخواست واحد برای دو دانش‌آموز می‌تواند دو حجم زمانی متفاوت بسازد.
+    """
+
+    subject = serializers.CharField(max_length=100)
+    amount = serializers.IntegerField(min_value=1)
+    unit = serializers.ChoiceField(
+        choices=[unit.value for unit in DemandUnit],
+        required=False, default=DemandUnit.MINUTES.value,
+    )
+    activity = serializers.ChoiceField(
+        choices=[kind.value for kind in ActivityKind],
+        required=False, default=ActivityKind.STUDY.value,
+    )
+    priority = serializers.IntegerField(
+        required=False, allow_null=True, min_value=MIN_PRIORITY, max_value=MAX_PRIORITY,
+    )
+    movability = serializers.IntegerField(
+        required=False, allow_null=True, min_value=MIN_MOVABILITY, max_value=MAX_MOVABILITY,
+    )
 
 
 class PlanBuildSerializer(serializers.Serializer):
     """ورودی مشترک پیش‌نمایش و انتشار برنامه‌ی گروهی.
 
-    مخاطب: ``group_id`` یا ``student_ids``. تقاضا: یا ``quotas`` (سهمیه‌ی صریح هر
-    درس) یا ``subjects`` + ``total_minutes`` که با ``ratios`` وزن‌دهی می‌شود.
+    مخاطب: ``group_id`` یا ``student_ids``. تقاضا دقیقاً یکی از سه شکل زیر:
+      • ``demands`` — تقاضای هر درس بر حسب دقیقه یا تعداد (قرارداد جدید)
+      • ``quotas`` — سهمیه‌ی صریح هر درس بر حسب دقیقه (قرارداد قدیمی)
+      • ``subjects`` + ``total_minutes`` که با ``ratios`` وزن‌دهی می‌شود
     """
 
     group_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
@@ -347,6 +396,7 @@ class PlanBuildSerializer(serializers.Serializer):
         choices=[level.value for level in IntensityLevel],
         required=False, default=IntensityLevel.NORMAL.value,
     )
+    demands = SubjectDemandSerializer(many=True, required=False, default=list)
     quotas = SubjectQuotaSerializer(many=True, required=False, default=list)
     subjects = serializers.ListField(
         child=serializers.CharField(max_length=100), required=False, default=list,
@@ -360,23 +410,74 @@ class PlanBuildSerializer(serializers.Serializer):
         required=False, default=PlanMode.SUGGESTED.value,
     )
     color = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
+    goal_message = serializers.CharField(
+        required=False, allow_blank=True, default='', max_length=500,
+    )
 
     def validate(self, attrs):
         if bool(attrs.get('group_id')) == bool(attrs.get('student_ids')):
             raise serializers.ValidationError(
                 'دقیقاً یکی از «group_id» یا «student_ids» را بفرستید.'
             )
-        if bool(attrs.get('quotas')) == bool(attrs.get('subjects')):
+        provided = [
+            key for key in ('demands', 'quotas', 'subjects') if attrs.get(key)
+        ]
+        if len(provided) != 1:
             raise serializers.ValidationError(
-                'یا سهمیه‌ی هر درس («quotas») را بفرستید یا فهرست درس‌ها و زمان کل.'
+                'دقیقاً یکی از «demands»، «quotas» یا «subjects» را بفرستید.'
             )
         if attrs.get('subjects') and not attrs.get('total_minutes'):
             raise serializers.ValidationError('«total_minutes» برای این حالت الزامی است.')
         return attrs
 
 
+class AwakeWindowSerializer(serializers.Serializer):
+    """بازه‌ی فعال شبانه‌روز دانش‌آموز، بر حسب دقیقه از نیمه‌شب."""
+
+    start_minutes = serializers.IntegerField(min_value=0, max_value=1439)
+    end_minutes = serializers.IntegerField(min_value=1, max_value=1440)
+
+
+class SubjectProfileWriteSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+    tags = serializers.ListField(
+        child=serializers.ChoiceField(choices=[tag.value for tag in SubjectTag]),
+        required=False, default=list,
+    )
+    cognitive_load = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=3,
+    )
+    default_priority = serializers.IntegerField(
+        required=False, min_value=MIN_PRIORITY, max_value=MAX_PRIORITY, default=3,
+    )
+    default_movability = serializers.IntegerField(
+        required=False, min_value=MIN_MOVABILITY, max_value=MAX_MOVABILITY, default=2,
+    )
+    baseline_units_per_hour = serializers.IntegerField(
+        required=False, min_value=0, max_value=600, default=0,
+    )
+
+
+class BlockFeedbackSerializer(serializers.Serializer):
+    """امتیاز پایان بلوک: ۱ تا ۵ برای بازدهی و ۱ تا ۵ برای حال و انرژی."""
+
+    client_id = serializers.CharField(max_length=64)
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    mood = serializers.IntegerField(required=False, min_value=1, max_value=5, default=3)
+    actual_minutes = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0, max_value=720,
+    )
+
+
 class ProposalRespondSerializer(serializers.Serializer):
     accept = serializers.BooleanField()
+    reason = serializers.CharField(required=False, allow_blank=True, default='', max_length=2000)
+
+
+class ProposalBlockRespondSerializer(serializers.Serializer):
+    block_index = serializers.IntegerField(min_value=0)
+    accept = serializers.BooleanField()
+    reason = serializers.CharField(required=False, allow_blank=True, default='', max_length=2000)
 
 
 class ApplyBlockItemSerializer(serializers.Serializer):
@@ -404,6 +505,30 @@ def planned_block_to_dict(block) -> dict:
         'end_minutes': block.slot.end_minutes,
         'duration_minutes': block.minutes,
         'color': block.color,
+        'priority': block.priority,
+        'movability': block.movability,
+        'activity': block.activity.value,
+        'tags': list(block.tag_values),
+        'cognitive_load': block.cognitive_load,
+    }
+
+
+def _relocation_to_dict(move) -> dict:
+    return {
+        'client_id': move.client_id,
+        'subject': move.subject,
+        'jy': move.date.jy,
+        'jm': move.date.jm,
+        'jd': move.date.jd,
+        'start_minutes': move.slot.start_minutes,
+        'end_minutes': move.slot.end_minutes,
+        'from': {
+            'jy': move.from_date.jy,
+            'jm': move.from_date.jm,
+            'jd': move.from_date.jd,
+            'start_minutes': move.from_slot.start_minutes,
+            'end_minutes': move.from_slot.end_minutes,
+        },
     }
 
 
@@ -425,7 +550,18 @@ def plan_draft_to_dict(draft, student_name: str = '') -> dict:
         'student_name': student_name,
         'blocks': [planned_block_to_dict(block) for block in draft.blocks],
         'quotas': [
-            {'subject': quota.subject, 'minutes': quota.minutes} for quota in draft.quotas
+            {
+                'subject': quota.subject,
+                'minutes': quota.minutes,
+                'priority': quota.priority,
+                'movability': quota.movability,
+                'activity': quota.activity.value,
+                'tags': sorted(tag.value for tag in quota.tags),
+                'cognitive_load': quota.cognitive_load,
+                'requested_units': quota.requested_units,
+                'estimate_confidence': round(quota.estimate_confidence, 2),
+            }
+            for quota in draft.quotas
         ],
         'allocated_by_subject': dict(draft.allocated_by_subject),
         'required_minutes': draft.required_minutes,
@@ -434,6 +570,7 @@ def plan_draft_to_dict(draft, student_name: str = '') -> dict:
         'shortfall_minutes': draft.shortfall_minutes,
         'has_deadlock': draft.has_deadlock,
         'warnings': [_warning_to_dict(warning) for warning in draft.warnings],
+        'relocations': [_relocation_to_dict(move) for move in draft.relocations],
     }
 
 
@@ -464,6 +601,7 @@ def plan_run_to_dict(dto) -> dict:
         'summary': run.summary,
         'student_count': run.student_count,
         'created_events': dto.created_events,
+        'moved_events': dto.moved_events,
         'snapshots_taken': dto.snapshots_taken,
         'created_at': _datetime_field.to_representation(run.created_at) if run.created_at else None,
         'proposals': [
@@ -507,6 +645,14 @@ def proposal_to_dict(proposal) -> dict:
         'total_minutes': proposal.total_minutes,
         'shortfall_minutes': proposal.shortfall_minutes,
         'applied_blocks': proposal.applied_blocks,
+        'block_decisions': list(proposal.normalized_decisions()),
+        'consultant_id': proposal.consultant_id,
+        'goal_message': proposal.goal_message,
+        'notice_seen_at': (
+            _datetime_field.to_representation(proposal.notice_seen_at)
+            if proposal.notice_seen_at else None
+        ),
+        'mode': proposal.mode.value if proposal.mode else None,
         'blocks': [planned_block_to_dict(block) for block in proposal.blocks],
         'created_at': _datetime_field.to_representation(proposal.created_at) if proposal.created_at else None,
         'responded_at': _datetime_field.to_representation(proposal.responded_at) if proposal.responded_at else None,

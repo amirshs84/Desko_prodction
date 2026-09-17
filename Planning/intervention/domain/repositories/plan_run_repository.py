@@ -34,3 +34,7 @@ class PlanProposalRepository(ABC):
     @abstractmethod
     def save(self, proposal: PlanProposal) -> None:
         """ذخیره‌ی وضعیت پاسخ (پذیرش/رد) — با محافظت در برابر پاسخ همزمان."""
+
+    @abstractmethod
+    def mark_notice_seen(self, proposal_id: int, *, student_id: int) -> PlanProposal:
+        """علامت‌زدن پاپ‌آپ هدف هفته به‌عنوان دیده‌شده."""

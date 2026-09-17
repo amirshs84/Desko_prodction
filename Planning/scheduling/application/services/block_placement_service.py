@@ -24,6 +24,7 @@ from ....shared.domain.errors import (
 from ...domain.entities.calendar_event import DEFAULT_EVENT_COLOR, CalendarEvent
 from ...domain.entities.day_agenda import DayAgenda
 from ...domain.enums import EventKind
+from ...domain.repositories.awake_window_repository import AwakeWindowRepository
 from ...domain.repositories.block_template_repository import BlockTemplateRepository
 from ...domain.repositories.calendar_event_repository import CalendarEventRepository
 from ...domain.services.awake_window_policy import AwakeWindowPolicy
@@ -50,12 +51,20 @@ class BlockPlacementService:
         uow_factory: Callable[[], UnitOfWork],
         templates: BlockTemplateRepository | None = None,
         policy: AwakeWindowPolicy | None = None,
+        windows: AwakeWindowRepository | None = None,
     ) -> None:
         self._events = events
         self._ids = ids
         self._uow_factory = uow_factory
         self._templates = templates
-        self._policy = policy or AwakeWindowPolicy.default()
+        self._windows = windows
+        self._default_policy = policy or AwakeWindowPolicy.default()
+
+    def _policy_for(self, owner_id: int) -> AwakeWindowPolicy:
+        """بازه‌ی فعالِ همین دانش‌آموز؛ در نبود مخزن، پیش‌فرض سیستم."""
+        if self._windows is None:
+            return self._default_policy
+        return self._windows.get(owner_id)
 
     # ---------- خواندن ----------
 
@@ -166,11 +175,11 @@ class BlockPlacementService:
         free_minutes = sum(slot.duration_minutes for slot in free)
         return DayAvailabilityDTO(
             date=date,
-            window=self._policy.window,
+            window=agenda.policy.window,
             free_slots=free,
             busy_slots=tuple(agenda.busy_ranges()),
             free_minutes=free_minutes,
-            busy_minutes=self._policy.capacity_minutes - agenda.free_minutes(),
+            busy_minutes=agenda.policy.capacity_minutes - agenda.free_minutes(),
             largest_free_minutes=max((slot.duration_minutes for slot in free), default=0),
         )
 
@@ -253,7 +262,7 @@ class BlockPlacementService:
 
     def _agenda(self, owner_id: int, date: JalaliDate) -> DayAgenda:
         events = self._events.list_for_owner(owner_id, date_from=date, date_to=date)
-        return DayAgenda.build(owner_id, date, events, policy=self._policy)
+        return DayAgenda.build(owner_id, date, events, policy=self._policy_for(owner_id))
 
     def _resolve_slot(
         self,
@@ -272,7 +281,7 @@ class BlockPlacementService:
             )
 
         # حالت «دقیقاً همین‌جا»: هر مانعی خطاست، چون کاربر صریحاً snap را خاموش کرده.
-        self._policy.ensure_fits(preferred_start, duration_minutes)
+        agenda.policy.ensure_fits(preferred_start, duration_minutes)
         slot = TimeRange.of_duration(preferred_start, duration_minutes)
         clashes = agenda.conflicts(slot, exclude_client_id=exclude_client_id)
         if clashes:

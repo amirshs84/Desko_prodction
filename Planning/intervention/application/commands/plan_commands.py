@@ -25,6 +25,7 @@ class BuildPlanCommand(Command):
     ratios: tuple[tuple[str, float], ...] = ()
     mode: PlanMode = PlanMode.SUGGESTED
     color: str = ''
+    goal_message: str = ''
 
     def __post_init__(self) -> None:
         if self.group_id is None and not self.student_ids:
@@ -41,3 +42,12 @@ class BuildPlanCommand(Command):
 class RespondToProposalCommand(Command):
     proposal_id: int
     accept: bool
+    reason: str = ''
+
+
+@dataclass(frozen=True)
+class RespondToProposalBlockCommand(Command):
+    proposal_id: int
+    block_index: int
+    accept: bool
+    reason: str = ''

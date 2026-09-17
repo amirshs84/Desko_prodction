@@ -28,6 +28,7 @@ class DjangoPlanRunRepository(PlanRunRepository):
                 blocks=[PlannedBlockMapper.dump(block) for block in proposal.blocks],
                 shortfall_minutes=proposal.shortfall_minutes,
                 applied_blocks=proposal.applied_blocks,
+                block_decisions=list(proposal.normalized_decisions()),
                 responded_at=(
                     timezone.now() if proposal.status is not ProposalStatus.PENDING else None
                 ),
@@ -67,7 +68,7 @@ class DjangoPlanRunRepository(PlanRunRepository):
 
 class DjangoPlanProposalRepository(PlanProposalRepository):
     def get_for_student(self, proposal_id: int, *, student_id: int) -> PlanProposal:
-        row = m.PlanProposalModel.objects.filter(
+        row = m.PlanProposalModel.objects.select_related('plan_run').filter(
             id=proposal_id, student_id=student_id,
         ).first()
         if row is None:
@@ -77,7 +78,9 @@ class DjangoPlanProposalRepository(PlanProposalRepository):
     def list_for_student(
         self, student_id: int, *, pending_only: bool = False,
     ) -> list[PlanProposal]:
-        queryset = m.PlanProposalModel.objects.filter(student_id=student_id)
+        queryset = m.PlanProposalModel.objects.select_related('plan_run').filter(
+            student_id=student_id,
+        )
         if pending_only:
             queryset = queryset.filter(status=ProposalStatus.PENDING.value)
         return [PlanProposalMapper.to_entity(row) for row in queryset]
@@ -88,13 +91,22 @@ class DjangoPlanProposalRepository(PlanProposalRepository):
         شرط ``status='pending'`` داخل خود ``UPDATE`` است تا دو کلیک همزمانِ
         دانش‌آموز، برنامه را دو بار روی تقویم ننشاند.
         """
+        fields = {
+            'status': proposal.status.value,
+            'applied_blocks': proposal.applied_blocks,
+            'block_decisions': list(proposal.normalized_decisions()),
+        }
+        if not proposal.is_pending:
+            fields['responded_at'] = timezone.now()
         updated = m.PlanProposalModel.objects.filter(
             id=proposal.id, student_id=proposal.student_id,
             status=ProposalStatus.PENDING.value,
-        ).update(
-            status=proposal.status.value,
-            applied_blocks=proposal.applied_blocks,
-            responded_at=timezone.now(),
-        )
+        ).update(**fields)
         if updated == 0:
             raise ConflictError('به این پیشنهاد قبلاً پاسخ داده شده است.')
+
+    def mark_notice_seen(self, proposal_id: int, *, student_id: int) -> PlanProposal:
+        m.PlanProposalModel.objects.filter(
+            id=proposal_id, student_id=student_id, notice_seen_at__isnull=True,
+        ).update(notice_seen_at=timezone.now())
+        return self.get_for_student(proposal_id, student_id=student_id)

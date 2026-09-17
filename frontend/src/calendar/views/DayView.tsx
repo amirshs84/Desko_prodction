@@ -28,7 +28,7 @@ export function DayView() {
   const [draft, setDraft] = useState<EventModalInitial | null>(null)
   const [editing, setEditing] = useState<CalendarEventRecord | null>(null)
 
-  const { eventsForDay, moveEvent, placeTimedBlock } = useEvents()
+  const { eventsForDay, moveEvent, placeTimedBlock, isOutsideAwake } = useEvents()
   const [toast, setToast] = useState<string | null>(null)
   const closeModal = () => {
     setOpen(false)
@@ -78,6 +78,10 @@ export function DayView() {
 
   const openCreate = (minute: number) => {
     const quarter = Math.floor(minute / 15) * 15
+    if (isOutsideAwake(quarter)) {
+      setToast('این بازه خارج از ساعت بیداری است؛ اینجا نمی‌شود چیزی گذاشت.')
+      return
+    }
     const end = Math.min(quarter + 60, 24 * 60)
     setEditing(null)
     setDraft({ date, startMinutes: quarter, endMinutes: end, allDay: false })

@@ -121,6 +121,15 @@ export const planningAPI = {
   placeBlock: (data, params) => api.post('planning/calendar/blocks/', data, { params }),
   moveBlock: (clientId, data, params) =>
     api.post(`planning/calendar/blocks/${clientId}/move/`, data, { params }),
+  getAwakeWindow: (params) => api.get('planning/calendar/awake-window/', { params }),
+  updateAwakeWindow: (data) => api.put('planning/calendar/awake-window/', data),
+  resetAwakeWindow: () => api.delete('planning/calendar/awake-window/'),
+  getBlockFeedback: (params) => api.get('planning/me/block-feedback/', { params }),
+  submitBlockFeedback: (data) => api.post('planning/me/block-feedback/', data),
+  getSubjectCatalog: () => api.get('planning/consultant/subjects/'),
+  upsertSubjectProfile: (data) => api.post('planning/consultant/subjects/', data),
+  deleteSubjectProfile: (name) =>
+    api.delete(`planning/consultant/subjects/${encodeURIComponent(name)}/`),
   getSnapshots: (params) => api.get('planning/calendar/snapshots/', { params }),
   restoreSnapshot: (snapshotId, params) =>
     api.post(`planning/calendar/snapshots/${snapshotId}/restore/`, {}, { params }),
@@ -135,6 +144,10 @@ export const planningAPI = {
   getMyProposals: (params) => api.get('planning/me/proposals/', { params }),
   respondProposal: (proposalId, data) =>
     api.post(`planning/me/proposals/${proposalId}/respond/`, data),
+  respondProposalBlock: (proposalId, data) =>
+    api.post(`planning/me/proposals/${proposalId}/blocks/respond/`, data),
+  ackProposalNotice: (proposalId) =>
+    api.post(`planning/me/proposals/${proposalId}/notice/`),
 
   getStudentNotes: (userId) =>
     api.get(`planning/consultant/students/${userId}/notes/`),

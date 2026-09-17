@@ -20,6 +20,9 @@ from ..value_objects.time_range import TimeRange
 
 DEFAULT_EVENT_COLOR = '#10b981'
 MAX_TITLE_LENGTH = 300
+DEFAULT_EVENT_PRIORITY = 3
+DEFAULT_EVENT_MOVABILITY = 2
+DEFAULT_COGNITIVE_LOAD = 2
 
 _ORIGIN_BY_AUTHORITY = {
     WriteAuthority.STUDENT: EventOrigin.STUDENT,
@@ -49,6 +52,13 @@ class CalendarEvent(Entity):
     origin: EventOrigin = EventOrigin.STUDENT
     group_id: str = ''
     version: int = 1
+    #: اهمیت ۱ تا ۵ و شناوری ۰ تا ۴ — ورودی موتور برنامه‌ریزی در اجراهای بعدی.
+    #: اینجا فقط حمل و اعتبارسنجی می‌شوند؛ معنای زمان‌بندی‌شان در کانتکست مداخله است.
+    priority: int = DEFAULT_EVENT_PRIORITY
+    movability: int = DEFAULT_EVENT_MOVABILITY
+    #: کپی غیرنرمال از کاتالوگ درس تا موتور برای هر تصمیم join نزند.
+    subject_tags: tuple[str, ...] = ()
+    cognitive_load: int = DEFAULT_COGNITIVE_LOAD
     created_at: datetime | None = None
     #: نسخه‌ای که در آخرین همگام‌سازی با دیتابیس دیده شده (``None`` = ذخیره‌نشده).
     #: مخزن با مقایسه‌ی همین مقدار، نوشتن روی نسخه‌ی کهنه را رد می‌کند.
@@ -70,6 +80,10 @@ class CalendarEvent(Entity):
         color: str = DEFAULT_EVENT_COLOR,
         all_day: bool = False,
         group_id: str = '',
+        priority: int | None = None,
+        movability: int | None = None,
+        subject_tags: tuple[str, ...] = (),
+        cognitive_load: int | None = None,
     ) -> 'CalendarEvent':
         if kind is EventKind.IMMUTABLE and authority is not WriteAuthority.SCHOOL_MANAGER:
             raise ImmutableEventViolationError(
@@ -87,6 +101,10 @@ class CalendarEvent(Entity):
             kind=kind,
             origin=_ORIGIN_BY_AUTHORITY[authority],
             group_id=group_id or '',
+            priority=_clamp(priority, 1, 5, DEFAULT_EVENT_PRIORITY),
+            movability=_clamp(movability, 0, 4, DEFAULT_EVENT_MOVABILITY),
+            subject_tags=tuple(subject_tags or ()),
+            cognitive_load=_clamp(cognitive_load, 1, 3, DEFAULT_COGNITIVE_LOAD),
         )
 
     # ---------- شناسه ----------
@@ -102,6 +120,19 @@ class CalendarEvent(Entity):
     @property
     def is_immutable(self) -> bool:
         return self.kind is EventKind.IMMUTABLE
+
+    @property
+    def is_algorithmic(self) -> bool:
+        """آیا موتور برنامه‌ریزی این رویداد را ساخته است؟
+
+        فقط همین‌ها کاندید جابه‌جایی اجباری در اجرای بعدی‌اند؛ چیزی که دانش‌آموز یا
+        مشاور با دست گذاشته، دیوار قطعی است حتی اگر ``MUTABLE`` باشد.
+        """
+        return self.origin is EventOrigin.ALGORITHM
+
+    @property
+    def is_relocatable_by_engine(self) -> bool:
+        return self.is_algorithmic and not self.is_immutable and self.movability > 0
 
     # ---------- قواعد نوشتن ----------
 
@@ -130,9 +161,15 @@ class CalendarEvent(Entity):
         description: str | None = None,
         color: str | None = None,
         all_day: bool | None = None,
+        priority: int | None = None,
+        movability: int | None = None,
     ) -> None:
         """اعمال یک تغییر جزئی؛ ``None`` یعنی «دست نزن». یک‌بار نسخه را بالا می‌برد."""
         self.ensure_writable_by(authority)
+        if priority is not None:
+            self.priority = _clamp(priority, 1, 5, DEFAULT_EVENT_PRIORITY)
+        if movability is not None:
+            self.movability = _clamp(movability, 0, 4, DEFAULT_EVENT_MOVABILITY)
         if date is not None:
             self.date = date
         if title is not None:
@@ -152,6 +189,15 @@ class CalendarEvent(Entity):
 
     def overlaps(self, other: 'CalendarEvent') -> bool:
         return self.date == other.date and self.slot.overlaps(other.slot)
+
+
+def _clamp(value: int | None, low: int, high: int, fallback: int) -> int:
+    if value is None:
+        return fallback
+    try:
+        return max(low, min(high, int(value)))
+    except (TypeError, ValueError):
+        return fallback
 
 
 def _clean_title(title: str) -> str:

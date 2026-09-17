@@ -47,10 +47,10 @@ def agenda(*events: CalendarEvent) -> DayAgenda:
 
 
 class AwakeWindowPolicyTests(TestCase):
-    def test_default_window_is_six_to_twenty_three(self):
+    def test_default_window_is_seven_to_twenty_three(self):
         policy = AwakeWindowPolicy.default()
-        self.assertEqual(policy.window, TimeRange.from_clock('06:00', '23:00'))
-        self.assertEqual(policy.capacity_minutes, 17 * 60)
+        self.assertEqual(policy.window, TimeRange.from_clock('07:00', '23:00'))
+        self.assertEqual(policy.capacity_minutes, 16 * 60)
 
     def test_ensure_contains_rejects_slot_outside_window(self):
         policy = AwakeWindowPolicy.default()
@@ -58,7 +58,7 @@ class AwakeWindowPolicyTests(TestCase):
         with self.assertRaises(ValidationError):
             policy.ensure_contains(TimeRange.from_clock('22:30', '23:30'))
         with self.assertRaises(ValidationError):
-            policy.ensure_contains(TimeRange.from_clock('05:00', '06:30'))
+            policy.ensure_contains(TimeRange.from_clock('06:00', '07:30'))
 
 
 class DayAgendaTests(TestCase):
@@ -70,7 +70,7 @@ class DayAgendaTests(TestCase):
     def test_all_day_events_do_not_consume_capacity(self):
         day = agenda(event('note', '00:00', '24:00', all_day=True))
         self.assertEqual(day.busy_ranges(), [])
-        self.assertEqual(day.free_minutes(), 17 * 60)
+        self.assertEqual(day.free_minutes(), 16 * 60)
 
     def test_busy_ranges_are_merged(self):
         day = agenda(event('a', '08:00', '10:00'), event('b', '09:30', '11:00'))
@@ -106,14 +106,14 @@ class FindSlotTests(TestCase):
     def test_falls_back_to_earlier_gap_when_rest_of_day_is_full(self):
         day = agenda(event('evening', '15:00', '23:00'))
         slot = day.find_slot(90, preferred_start=16 * 60)
-        self.assertEqual(slot, TimeRange.from_clock('06:00', '07:30'))
+        self.assertEqual(slot, TimeRange.from_clock('07:00', '08:30'))
 
     def test_placement_stays_inside_awake_window(self):
         slot = agenda().find_slot(60, preferred_start=23 * 60)
-        self.assertEqual(slot, TimeRange.from_clock('06:00', '07:00'))
+        self.assertEqual(slot, TimeRange.from_clock('07:00', '08:00'))
 
     def test_full_day_raises_capacity_error_with_diagnostics(self):
-        day = agenda(event('all', '06:00', '22:30'))
+        day = agenda(event('all', '07:00', '22:30'))
         with self.assertRaises(DailyCapacityFullError) as ctx:
             day.find_slot(90, preferred_start=8 * 60)
         meta = ctx.exception.meta

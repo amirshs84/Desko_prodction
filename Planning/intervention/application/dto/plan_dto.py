@@ -34,6 +34,8 @@ class PlanRunDTO:
     students: dict[int, StudentInfo]
     created_events: int = 0
     snapshots_taken: int = 0
+    #: بلوک‌های الگوریتمیِ قبلی که برای باز کردن جا جابه‌جا شدند.
+    moved_events: int = 0
 
     def student_name(self, student_id: int) -> str:
         info = self.students.get(student_id)
@@ -46,3 +48,17 @@ class ProposalResponseDTO:
     accepted: bool
     applied_blocks: int
     skipped_blocks: int
+    status: str = ''
+    reason_sent: bool = False
+
+
+@dataclass(frozen=True)
+class ProposalBlockResponseDTO:
+    proposal_id: int
+    block_index: int
+    accepted: bool
+    applied: bool
+    skipped: bool
+    status: str
+    event: object | None = None
+    reason_sent: bool = False

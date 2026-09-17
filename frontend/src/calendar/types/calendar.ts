@@ -29,6 +29,17 @@ export interface CalendarEventRecord {
   kind?: CalendarEventKind
   origin?: string
   version?: number
+  /** اهمیت ۱ تا ۵ — موتور هنگام کمبود زمان بلوک‌های کم‌اهمیت را کوتاه می‌کند */
+  priority?: number
+  /** شناوری ۰ تا ۴ — صفر یعنی میخ‌شده */
+  movability?: number
+  subjectTags?: string[]
+  cognitiveLoad?: number
+  /** بلوک پیشنهادی مشاور — هنوز روی تقویم قطعی نشده */
+  proposed?: boolean
+  proposalId?: number
+  blockIndex?: number
+  consultantId?: number
 }
 
 export interface EventDraft {

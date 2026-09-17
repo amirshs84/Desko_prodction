@@ -196,8 +196,12 @@ function MonthDayCell({
               ev.stopPropagation()
               onEdit(e)
             }}
-            className="block w-full truncate rounded-md px-1 py-0.5 text-start text-[10px] font-semibold text-black"
-            style={{ background: e.color }}
+            className="block w-full truncate rounded-md px-1 py-0.5 text-start text-[10px] font-semibold"
+            style={
+              e.kind === 'immutable'
+                ? { background: '#475569', color: '#f1f5f9' }
+                : { background: e.color, color: '#081016' }
+            }
           >
             {e.title}
           </button>
@@ -208,6 +212,16 @@ function MonthDayCell({
             type="button"
             data-cal-event="1"
             className="flex w-full items-center gap-1 rounded-md bg-black/25 px-1 py-0.5 text-[10px] text-[var(--t-ink)]"
+            style={
+              e.kind === 'immutable'
+                ? { background: '#475569', color: '#f1f5f9' }
+                : e.proposed
+                  ? {
+                      backgroundImage:
+                        'repeating-linear-gradient(-52deg, rgba(255,255,255,0.2) 0 4px, rgba(15,23,42,0.15) 4px 8px)',
+                    }
+                  : undefined
+            }
             onClick={(ev) => {
               ev.stopPropagation()
               onEdit(e)

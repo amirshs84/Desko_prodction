@@ -119,6 +119,13 @@ class PlanProposalModel(models.Model):
     blocks = models.JSONField(default=list, verbose_name='بلوک‌های پیشنهادی')
     shortfall_minutes = models.PositiveIntegerField(default=0, verbose_name='کسری زمان')
     applied_blocks = models.PositiveIntegerField(default=0, verbose_name='بلوک‌های اعمال‌شده')
+    block_decisions = models.JSONField(
+        default=list, verbose_name='تصمیم هر بلوک',
+        help_text='pending/accepted/rejected به‌ازای هر بلوک پیشنهادی',
+    )
+    notice_seen_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='زمان مشاهده اعلان هدف هفته',
+    )
     responded_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان پاسخ')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -286,4 +293,107 @@ class ConsultantDirectMessageModel(models.Model):
                 fields=['student', '-created_at'],
                 name='planning_dm_student_idx',
             ),
+        ]
+
+
+class SubjectProfileModel(models.Model):
+    """کاتالوگ درس در سطح مدرسه: تگ‌ها، بار شناختی و پیش‌فرض‌های زمان‌بندی.
+
+    کلید یکتا ``(school, name)`` است نه ``(consultant, name)``: تگ «ریاضی تحلیلی
+    است» یک واقعیت درسی است، نه سلیقه‌ی یک مشاور؛ اگر هر مشاور نسخه‌ی خودش را
+    می‌ساخت، دو برنامه برای یک دانش‌آموز رفتار متناقض پیدا می‌کردند.
+    """
+
+    school = models.ForeignKey(
+        'api.School', on_delete=models.CASCADE, related_name='planning_subject_profiles',
+        verbose_name='مدرسه',
+    )
+    name = models.CharField(max_length=100, verbose_name='نام درس')
+    tags = models.JSONField(
+        default=list, blank=True, verbose_name='تگ‌ها',
+        help_text='ترکیبی از general/specialized و analytical/memorization',
+    )
+    cognitive_load = models.PositiveSmallIntegerField(
+        default=2, verbose_name='بار شناختی',
+        help_text='۱ تا ۳؛ خالی بگذارید تا از روی تگ‌ها استنتاج شود',
+    )
+    default_priority = models.PositiveSmallIntegerField(default=3, verbose_name='اهمیت پیش‌فرض')
+    default_movability = models.PositiveSmallIntegerField(default=2, verbose_name='شناوری پیش‌فرض')
+    #: نرخ پایه‌ی «واحد بر دقیقه» وقتی دانش‌آموز هیچ سابقه‌ای ندارد (مثلاً تست ریاضی).
+    baseline_units_per_hour = models.PositiveSmallIntegerField(
+        default=0, verbose_name='نرخ پایه (واحد در ساعت)',
+        help_text='صفر یعنی از پیش‌فرض سراسری بر اساس تگ استفاده شود',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.name} @ school#{self.school_id}'
+
+    class Meta:
+        db_table = 'planning_subjectprofile'
+        ordering = ['name']
+        verbose_name = 'پروفایل درس'
+        verbose_name_plural = 'پروفایل‌های درس'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['school', 'name'],
+                name='unique_subject_profile_per_school',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['school', 'name'], name='planning_subjprof_idx'),
+        ]
+
+
+class BlockFeedbackModel(models.Model):
+    """بازخورد گیمیفای‌شده‌ی دانش‌آموز در پایان یک بلوک مطالعه.
+
+    به ``client_id`` رویداد گره خورده و نه به کلید خارجی: رویداد ممکن است حذف یا
+    بازگردانی شود، ولی بازخورد یک واقعیت تاریخی درباره‌ی عملکرد دانش‌آموز است و
+    باید بماند تا ضریب بازدهی را تغذیه کند.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_block_feedback',
+        verbose_name='دانش‌آموز',
+    )
+    event_client_id = models.CharField(max_length=64, verbose_name='شناسه بلوک')
+    subject = models.CharField(max_length=100, blank=True, default='', verbose_name='درس')
+    rating = models.PositiveSmallIntegerField(
+        verbose_name='بازدهی', help_text='۱ تا ۵ ستاره',
+    )
+    mood = models.PositiveSmallIntegerField(
+        default=3, verbose_name='حال و انرژی', help_text='۱ (خسته) تا ۵ (پرانرژی)',
+    )
+    planned_minutes = models.PositiveIntegerField(default=0, verbose_name='دقیقه برنامه‌ریزی‌شده')
+    actual_minutes = models.PositiveIntegerField(default=0, verbose_name='دقیقه واقعی')
+    #: ساعت شروع بلوک (۰ تا ۲۳) — برای ساختن نیم‌رخ ساعتی بدون join به تقویم.
+    start_hour = models.PositiveSmallIntegerField(default=0, verbose_name='ساعت شروع')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'feedback#{self.id} · {self.rating}★'
+
+    class Meta:
+        db_table = 'planning_blockfeedback'
+        ordering = ['-created_at', '-id']
+        verbose_name = 'بازخورد بلوک'
+        verbose_name_plural = 'بازخوردهای بلوک'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'event_client_id'],
+                name='unique_block_feedback_per_event',
+            ),
+            models.CheckConstraint(
+                check=models.Q(rating__gte=1)
+                & models.Q(rating__lte=5)
+                & models.Q(mood__gte=1)
+                & models.Q(mood__lte=5),
+                name='planning_block_feedback_valid_scores',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='planning_fb_user_idx'),
+            models.Index(fields=['user', 'subject'], name='planning_fb_subject_idx'),
         ]

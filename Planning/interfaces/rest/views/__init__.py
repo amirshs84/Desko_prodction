@@ -1,3 +1,6 @@
+from .awake_window_views import AwakeWindowView
+from .feedback_views import BlockFeedbackView
+from .subject_catalog_views import SubjectCatalogDetailView, SubjectCatalogView
 from .block_views import (
     BlockTemplateDetailView,
     BlockTemplateListCreateView,
@@ -45,9 +48,15 @@ from .plan_views import (
     PlanRunListView,
     StudentProposalListView,
     StudentProposalRespondView,
+    StudentProposalBlockRespondView,
+    StudentProposalNoticeView,
 )
 
 __all__ = [
+    'AwakeWindowView',
+    'BlockFeedbackView',
+    'SubjectCatalogDetailView',
+    'SubjectCatalogView',
     'BlockTemplateDetailView',
     'BlockTemplateListCreateView',
     'DayAvailabilityView',
@@ -82,4 +91,6 @@ __all__ = [
     'StudentProgressView',
     'StudentProposalListView',
     'StudentProposalRespondView',
+    'StudentProposalBlockRespondView',
+    'StudentProposalNoticeView',
 ]

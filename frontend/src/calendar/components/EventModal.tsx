@@ -11,6 +11,9 @@ import {
   type EventEditScope,
   type EventRepeatScope,
 } from '../types/calendar'
+import { BlockFeedbackPanel } from './BlockFeedbackPanel'
+import { useEvents } from '../context/EventsContext'
+import { isProposedEvent } from '../lib/eventAppearance'
 
 export type ModalMode = 'create' | 'edit'
 
@@ -57,6 +60,7 @@ export function EventModal({
   onSave,
   onDelete,
 }: Props) {
+  const { isOwnCalendar, respondProposed } = useEvents()
   const colorPopoverRef = useRef<HTMLDivElement>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -70,6 +74,7 @@ export function EventModal({
   const [colorMenuOpen, setColorMenuOpen] = useState(false)
   const [repeatScope, setRepeatScope] = useState<EventRepeatScope>('none')
   const [editScope, setEditScope] = useState<EventEditScope>('single')
+  const [rejectReason, setRejectReason] = useState('')
   const titleId = useId()
 
   const hasGroup = mode === 'edit' && groupSize > 1
@@ -93,6 +98,7 @@ export function EventModal({
     setColorMenuOpen(false)
     setRepeatScope('none')
     setEditScope('single')
+    setRejectReason('')
     const smin = base?.startMinutes ?? initial.startMinutes
     const emin = base?.endMinutes ?? initial.endMinutes
     setSh(Math.floor(smin / 60) % 24)
@@ -119,6 +125,7 @@ export function EventModal({
   if (!open) return null
 
   const locked = existing?.kind === 'immutable'
+  const proposed = isProposedEvent(existing)
 
   const date = existing
     ? { jy: existing.jy, jm: existing.jm, jd: existing.jd }
@@ -188,11 +195,16 @@ export function EventModal({
 
         <div className="border-b border-[var(--t-edge)] px-3 py-3">
           <div className="text-sm font-bold text-[var(--t-ink)]">
-            {locked ? 'رویداد ثابت (فقط مشاهده)' : 'رویداد'}
+            {locked ? 'رویداد ثابت (فقط مشاهده)' : proposed ? 'بلوک پیشنهادی مشاور' : 'رویداد'}
           </div>
           {locked ? (
-            <p className="mt-1 text-[11px] text-amber-300/90">
+            <p className="mt-1 text-[11px] text-slate-300">
               این رویداد توسط مدرسه قفل شده و قابل جابه‌جایی یا حذف نیست.
+            </p>
+          ) : null}
+          {proposed ? (
+            <p className="mt-1 text-[11px] text-sky-300">
+              این بلوک هنوز قطعی نیست. تأییدش کن تا با رنگ ثابت روی تقویم بنشیند.
             </p>
           ) : null}
         </div>
@@ -206,7 +218,7 @@ export function EventModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               dir="rtl"
-              disabled={locked}
+              disabled={locked || proposed}
             />
             <div className="relative shrink-0" ref={colorPopoverRef}>
               <button
@@ -235,6 +247,10 @@ export function EventModal({
               ) : null}
             </div>
           </div>
+
+          {mode === 'edit' && existing && isOwnCalendar && !proposed && !locked ? (
+            <BlockFeedbackPanel event={existing} />
+          ) : null}
 
           <div className="flex min-h-[48px] items-center gap-2 border-b border-[var(--t-edge)] py-3" dir="rtl">
             <IconClock className="size-5 shrink-0 text-[var(--t-ink-3)]" aria-hidden />
@@ -350,13 +366,47 @@ export function EventModal({
               dir="rtl"
             />
           ) : null}
+
+          {proposed && existing && isOwnCalendar ? (
+            <div className="mt-3 rounded-2xl border border-dashed border-sky-400/40 bg-sky-400/5 p-3" dir="rtl">
+              <p className="text-xs font-semibold text-[var(--t-ink)]">تأیید یا مذاکره</p>
+              <textarea
+                className="mt-2 min-h-[72px] w-full rounded-lg bg-[var(--t-panel)] px-3 py-2 text-sm text-[var(--t-ink)] outline-none focus:ring-2 focus:ring-sky-400"
+                placeholder="اگر رد می‌کنی، دلیل را برای مشاور بنویس…"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+              />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="min-h-[42px] rounded-xl bg-emerald-400 text-sm font-black text-black"
+                  onClick={async () => {
+                    await respondProposed(existing.id, true)
+                    onClose()
+                  }}
+                >
+                  تأیید
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[42px] rounded-xl border border-white/20 text-sm font-bold text-[var(--t-ink)]"
+                  onClick={async () => {
+                    await respondProposed(existing.id, false, rejectReason)
+                    onClose()
+                  }}
+                >
+                  رد / مذاکره
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div
           className="flex shrink-0 flex-col gap-2 border-t border-[var(--t-edge)] px-4 py-3"
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}
         >
-          {mode === 'edit' && onDelete && !locked ? (
+          {mode === 'edit' && onDelete && !locked && !proposed ? (
             <button
               type="button"
               className="min-h-[40px] w-full rounded-xl border border-red-800/50 bg-red-900/20 text-sm font-semibold text-red-400"
@@ -376,7 +426,7 @@ export function EventModal({
           ) : null}
 
           <div className="flex flex-row-reverse justify-between gap-3">
-            {!locked ? (
+            {!locked && !proposed ? (
               <button
                 type="button"
                 className="min-h-[44px] flex-1 rounded-xl bg-[var(--t-brand-2)] text-sm font-semibold text-black"
@@ -404,7 +454,7 @@ export function EventModal({
               className="min-h-[44px] flex-1 rounded-xl text-sm font-semibold text-[var(--t-ink-2)]"
               onClick={onClose}
             >
-              {locked ? 'بستن' : 'انصراف'}
+              {locked || proposed ? 'بستن' : 'انصراف'}
             </button>
           </div>
         </div>

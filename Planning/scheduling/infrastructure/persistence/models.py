@@ -13,7 +13,47 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from ...domain.enums import EventKind, EventOrigin
+from ...domain.services.awake_window_policy import AwakeWindowPolicy
 from ...domain.value_objects.time_range import MINUTES_IN_DAY
+
+_DEFAULT_AWAKE = AwakeWindowPolicy.default().window
+
+
+class StudentAwakeWindowModel(models.Model):
+    """بازه‌ی فعال شبانه‌روز یک دانش‌آموز — قابل ویرایش توسط خودش.
+
+    نبودِ ردیف یعنی «پیش‌فرض سیستم»؛ ردیف فقط وقتی ساخته می‌شود که کاربر بازه را
+    عوض کند، پس این جدول به‌اندازه‌ی تعداد کاربرانِ سفارشی‌ساز بزرگ می‌شود نه کل
+    کاربران.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='planning_awake_window',
+        verbose_name='دانش‌آموز',
+    )
+    start_minutes = models.PositiveSmallIntegerField(
+        default=_DEFAULT_AWAKE.start_minutes, verbose_name='شروع بازه فعال',
+    )
+    end_minutes = models.PositiveSmallIntegerField(
+        default=_DEFAULT_AWAKE.end_minutes, verbose_name='پایان بازه فعال',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.user_id}: {self.start_minutes}–{self.end_minutes}'
+
+    class Meta:
+        db_table = 'planning_studentawakewindow'
+        verbose_name = 'بازه فعال دانش‌آموز'
+        verbose_name_plural = 'بازه‌های فعال دانش‌آموزان'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(start_minutes__lt=models.F('end_minutes'))
+                & models.Q(end_minutes__lte=MINUTES_IN_DAY),
+                name='planning_awake_window_valid_range',
+            ),
+        ]
 
 
 class SavedBlockTemplateModel(models.Model):
@@ -132,6 +172,22 @@ class CalendarEventModel(models.Model):
     version = models.PositiveIntegerField(
         default=1, verbose_name='نسخه',
         help_text='شماره‌ی نسخه برای کنترل همزمانی خوش‌بینانه',
+    )
+    priority = models.PositiveSmallIntegerField(
+        default=3, verbose_name='اهمیت',
+        help_text='۱ تا ۵؛ هنگام کمبود زمان، بلوک‌های کم‌اهمیت‌تر کوتاه یا جابه‌جا می‌شوند',
+    )
+    movability = models.PositiveSmallIntegerField(
+        default=2, verbose_name='شناوری',
+        help_text='۰ تا ۴؛ صفر یعنی میخ‌شده و الگوریتم حق جابه‌جا کردنش را ندارد',
+    )
+    subject_tags = models.JSONField(
+        default=list, blank=True, verbose_name='تگ‌های درس',
+        help_text='کپی غیرنرمال از کاتالوگ درس تا موتور برای هر تصمیم join نزند',
+    )
+    cognitive_load = models.PositiveSmallIntegerField(
+        default=2, verbose_name='بار شناختی',
+        help_text='۱ تا ۳؛ قید «دو بلوک سنگین پشت سر هم نباشند» روی این عدد حساس است',
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

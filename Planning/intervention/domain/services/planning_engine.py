@@ -3,16 +3,25 @@
 هیچ import ای از Django، DRF، مخزن یا ساعت سیستم اینجا نیست. ورودی: پارامترهای
 مشاور + رویدادهای موجود هر دانش‌آموز. خروجی: پیش‌نمایش درون‌حافظه.
 
-خروجی با ورودی یکسان دترمینیستیک است؛ رندوم بودن با ``random.Random`` seeded
-(بر اساس دانش‌آموز و بازه) است تا برنامه طبیعی‌تر به نظر برسد ولی قابل بازتولید بماند.
+خط لوله سه مرحله است:
 
-قواعدی که موتور رعایت می‌کند:
-  • فقط فضاهای خالی پر می‌شوند؛ هیچ رویداد موجودی بازنویسی نمی‌شود.
-  • بین بلوک‌ها استراحت گذاشته می‌شود؛ طول بلوک و استراحت از سطح فشردگی می‌آید.
-  • سقف مطالعه‌ی هر درس (قید فرسودگی) پیش از چیدمان اعمال می‌شود.
-  • تقسیم زمان بین درس‌ها یا صریح است یا از ``SubjectWeightCalculator`` می‌آید.
-  • چیدمان round-robin روی روزهای بازه است تا بلوک‌ها در طول هفته پخش شوند.
-  • هر بلوک رنگ متمایز می‌گیرد (پالت چرخشی بر اساس درس + ترتیب).
+  ۱. **نرمال‌سازی تقاضا** — «۱۰۰ تست ریاضی» با نرخ واقعی همین دانش‌آموز به دقیقه
+     تبدیل می‌شود، سقف فرسودگی اعمال می‌گردد، و هر سهمیه تگ و بار شناختی‌اش را از
+     کاتالوگ درس مدرسه می‌گیرد. خروجی: فهرستی از آیتم‌های قابل جای‌گذاری.
+  ۲. **ساخت اولیه** — درج حریصانه به ترتیب اولویت، با جابه‌جایی اجباریِ بلوک‌های
+     کم‌اهمیت‌ترِ شناور وقتی جای خالی نمانده.
+  ۳. **پالایش** — جست‌وجوی محلی که چیدمان را به‌عنوان یک کل می‌بیند و فقط حرکت‌های
+     بهبوددهنده را می‌پذیرد.
+
+مرحله‌ی دوم و سوم تصادف دارند، اما RNG از خود درخواست دانه می‌گیرد؛ پس همان ورودی
+همیشه همان خروجی را می‌دهد و آنچه مشاور در پیش‌نمایش دید، همان چیزی است که منتشر
+می‌شود.
+
+قواعدی که موتور هرگز نقض نمی‌کند (قید سخت، در ``scheduling.state``):
+  • رویداد ثابت مدرسه و هر رویدادِ دست‌ساز دانش‌آموز یا مشاور، دیوار است.
+  • هیچ بلوکی بیرون از بازه‌ی فعالِ همان دانش‌آموز نمی‌نشیند.
+  • بین دو بلوک، حداقل استراحتِ شکل بلوک رعایت می‌شود.
+  • سقف روزانه‌ی هر درس (قید فرسودگی) شکسته نمی‌شود.
 """
 from __future__ import annotations
 
@@ -21,12 +30,12 @@ from collections import defaultdict
 from typing import Mapping, Sequence
 
 from ....scheduling.domain.entities.calendar_event import CalendarEvent
-from ....scheduling.domain.entities.day_agenda import DayAgenda, group_by_date
+from ....scheduling.domain.entities.day_agenda import group_by_date
 from ....scheduling.domain.services.awake_window_policy import AwakeWindowPolicy
-from ....scheduling.domain.services.free_slot_finder import free_gaps
 from ....scheduling.domain.value_objects.jalali_date import JalaliDate
 from ....scheduling.domain.value_objects.time_range import TimeRange
 from ..entities.plan_draft import (
+    BlockRelocation,
     PlanPreview,
     PlanWarning,
     StudentPlanDraft,
@@ -35,21 +44,30 @@ from ..entities.plan_draft import (
 from ..entities.plan_request import PlanRequest
 from ..enums import PlanWarningCode
 from ..ports.burnout_policy import BurnoutPolicy
+from ..ports.efficiency_profile import EfficiencyProfile, EfficiencyProfileReader
+from ..ports.subject_catalog import SubjectCatalog
 from ..ports.subject_weight_calculator import SubjectWeightCalculator
-from ..value_objects.break_policy import BreakPolicy
+from ..ports.workload_estimator import WorkloadEstimator
+from ..value_objects.intensity_profile import (
+    MIN_TAIL_MINUTES,
+    BlockShape,
+    IntensityProfile,
+)
 from ..value_objects.planned_block import DEFAULT_BLOCK_COLOR, PlannedBlock
+from ..value_objects.schedule_item import ScheduleItem
+from ..value_objects.subject_profile import SubjectProfile
 from ..value_objects.subject_quota import SubjectQuota
+from ..value_objects.subject_tag import parse_tags
+from .scheduling import Placement, ScheduleState, construct, refine
+from .scheduling.cost import DEFAULT_WEIGHTS, CostWeights
 
-#: کوتاه‌ترین بلوکی که ارزش گذاشتن دارد. باقی‌مانده‌ی کمتر از این، فقط اگر آخرین
-#: تکه‌ی یک درس باشد گذاشته می‌شود تا مجموع دقیقاً به سهمیه برسد.
-MIN_BLOCK_MINUTES = 30
-MIN_TAIL_MINUTES = 15
 #: گِرد کردن سهمیه‌های وزنی به پله‌های ۵ دقیقه‌ای (اعداد خوانا برای مشاور).
 QUOTA_STEP_MINUTES = 5
-#: پله‌ی جابه‌جایی شروع داخل شکاف خالی (دقایق).
-START_SNAP_MINUTES = 15
-#: حداکثر جابه‌جایی تصادفی از ابتدای شکاف (تعداد پله‌ی ۱۵ دقیقه‌ای).
-MAX_START_JITTER_SLOTS = 4
+#: زیر این اطمینان، تخمین «تعداد → دقیقه» به مشاور هشدار می‌دهد.
+LOW_CONFIDENCE_THRESHOLD = 0.4
+#: پیشوند شناسه‌ی آیتم‌ها، برای تفکیک کار جدید از بلوک‌های اجراهای قبلی.
+NEW_ITEM_PREFIX = 'q'
+EXISTING_ITEM_PREFIX = 'e'
 
 BLOCK_COLORS = (
     '#10b981',  # emerald
@@ -72,119 +90,221 @@ class PlanningEngine:
         weights: SubjectWeightCalculator,
         burnout: BurnoutPolicy,
         awake_window: AwakeWindowPolicy | None = None,
+        catalog: SubjectCatalog | None = None,
+        workload: WorkloadEstimator | None = None,
+        efficiency: EfficiencyProfileReader | None = None,
+        cost_weights: CostWeights = DEFAULT_WEIGHTS,
+        refine_iterations: int | None = None,
     ) -> None:
         self._weights = weights
         self._burnout = burnout
         self._awake = awake_window or AwakeWindowPolicy.default()
+        self._catalog = catalog
+        self._workload = workload
+        self._efficiency = efficiency
+        self._cost_weights = cost_weights
+        self._refine_iterations = refine_iterations
 
     def plan(
         self,
         request: PlanRequest,
         *,
         existing_events: Mapping[int, Sequence[CalendarEvent]],
+        awake_windows: Mapping[int, AwakeWindowPolicy] | None = None,
+        school_id: int | None = None,
     ) -> PlanPreview:
         """ساخت پیش‌نمایش برای همه‌ی دانش‌آموزان.
 
         کلیدهای ``existing_events`` فهرست دانش‌آموزان است؛ دانش‌آموز بدون رویداد هم
         باید کلید داشته باشد (با لیست خالی) وگرنه در برنامه دیده نمی‌شود.
         """
+        student_ids = sorted(existing_events)
+        profiles = self._subject_profiles(request, school_id)
+        efficiency = self._efficiency_profiles(student_ids)
+        windows = awake_windows or {}
+
         drafts = tuple(
-            self._plan_student(request, student_id, existing_events[student_id])
-            for student_id in sorted(existing_events)
+            self._plan_student(
+                request,
+                student_id,
+                existing_events[student_id],
+                policy=windows.get(student_id, self._awake),
+                profiles=profiles,
+                efficiency=efficiency.get(student_id),
+                school_id=school_id,
+            )
+            for student_id in student_ids
         )
         return PlanPreview(window=request.window, intensity=request.intensity, drafts=drafts)
 
     # ---------- برنامه‌ی یک دانش‌آموز ----------
 
     def _plan_student(
-        self, request: PlanRequest, student_id: int, events: Sequence[CalendarEvent],
+        self,
+        request: PlanRequest,
+        student_id: int,
+        events: Sequence[CalendarEvent],
+        *,
+        policy: AwakeWindowPolicy,
+        profiles: Mapping[str, SubjectProfile],
+        efficiency: EfficiencyProfile | None,
+        school_id: int | None = None,
     ) -> StudentPlanDraft:
-        policy = BreakPolicy.for_level(request.intensity)
-        quotas, warnings = self._resolve_quotas(request, student_id)
-        agendas = self._agendas(student_id, request, events)
-        capacity = self._capacity_minutes(agendas, policy)
+        intensity = IntensityProfile.for_level(request.intensity)
+        quotas, warnings = self._resolve_quotas(request, student_id, profiles, school_id)
 
-        remaining = {quota.subject: quota.minutes for quota in quotas}
-        allocated: dict[str, int] = defaultdict(int)
-        blocks: list[PlannedBlock] = []
-        days = list(request.window.days())
-        daily_left = {
-            date: {
-                subject: self._burnout.max_daily_minutes(subject) for subject in remaining
-            }
-            for date in days
-        }
-        reserved: dict[JalaliDate, list[TimeRange]] = defaultdict(list)
-
-        rng = random.Random(self._seed(student_id, request))
-        if days:
-            rot = rng.randint(0, len(days) - 1)
-            day_order = days[rot:] + days[:rot]
-        else:
-            day_order = []
-
-        idle_rounds = 0
-        while sum(remaining.values()) > 0 and day_order and idle_rounds < len(day_order):
-            placed_any = False
-            for date in day_order:
-                if sum(remaining.values()) <= 0:
-                    break
-                placed = self._place_one(
-                    agendas[date],
-                    reserved[date],
-                    remaining,
-                    daily_left[date],
-                    policy,
-                    rng,
-                    sequence=len(blocks),
-                )
-                if placed is None:
-                    continue
-                block, pads = placed
-                blocks.append(block)
-                remaining[block.subject] -= block.minutes
-                allocated[block.subject] += block.minutes
-                room = daily_left[date][block.subject]
-                if room is not None:
-                    daily_left[date][block.subject] = room - block.minutes
-                reserved[date].extend(pads)
-                reserved[date].append(block.slot)
-                break_end = min(
-                    agendas[date].policy.window.end_minutes,
-                    block.slot.end_minutes + policy.break_minutes,
-                )
-                if break_end > block.slot.end_minutes:
-                    reserved[date].append(TimeRange(block.slot.end_minutes, break_end))
-                placed_any = True
-            if placed_any:
-                idle_rounds = 0
-            else:
-                idle_rounds += 1
-
-        blocks.sort(key=lambda b: (b.date.to_gregorian(), b.slot.start_minutes))
-        draft = StudentPlanDraft(
-            student_id=student_id,
-            blocks=tuple(blocks),
-            quotas=tuple(quotas),
-            allocated_by_subject=dict(allocated),
-            capacity_minutes=capacity,
-            warnings=warnings,
+        days = tuple(request.window.days())
+        walls, seeds = self._partition_events(days, events, intensity)
+        state = ScheduleState(
+            days=days, walls=walls, policy=policy, burnout=self._burnout,
         )
-        return self._with_deadlock_warnings(draft)
+        for placement in seeds:
+            state.place(placement)
 
-    # ---------- سهمیه‌ها ----------
+        items = _build_items(quotas, intensity)
+        result = construct(
+            state, items, weights=self._cost_weights, profile=efficiency,
+        )
+        rng = random.Random(self._seed(student_id, request))
+        refine(
+            state,
+            rng=rng,
+            unplaced=result.unplaced,
+            weights=self._cost_weights,
+            profile=efficiency,
+            **({} if self._refine_iterations is None
+               else {'max_iterations': self._refine_iterations}),
+        )
+
+        return self._draft_from_state(
+            student_id=student_id,
+            state=state,
+            quotas=quotas,
+            unplaced=result.unplaced,
+            shrunk=result.shrunk,
+            warnings=warnings,
+            default_shape=intensity.default_shape,
+        )
+
+    # ---------- مرحله ۱: نرمال‌سازی تقاضا ----------
+
+    def _subject_profiles(
+        self, request: PlanRequest, school_id: int | None,
+    ) -> dict[str, SubjectProfile]:
+        names = request.subject_names
+        if self._catalog is None:
+            return {name: SubjectProfile.fallback(name) for name in names}
+        found = self._catalog.profiles_for(school_id=school_id, names=names)
+        return {name: found.get(name) or SubjectProfile.fallback(name) for name in names}
+
+    def _efficiency_profiles(self, student_ids: Sequence[int]) -> dict[int, EfficiencyProfile]:
+        if self._efficiency is None or not student_ids:
+            return {}
+        return self._efficiency.get_many(student_ids)
 
     def _resolve_quotas(
-        self, request: PlanRequest, student_id: int,
+        self,
+        request: PlanRequest,
+        student_id: int,
+        profiles: Mapping[str, SubjectProfile],
+        school_id: int | None = None,
     ) -> tuple[list[SubjectQuota], tuple[PlanWarning, ...]]:
-        base = (
-            list(request.quotas) if request.quotas
-            else self._weighted_quotas(request, student_id)
-        )
-
-        capped: list[SubjectQuota] = []
         warnings: list[PlanWarning] = []
-        for quota in base:
+        base = (
+            self._weighted_quotas(request, student_id, profiles)
+            if request.is_weight_based
+            else self._demand_quotas(request, student_id, profiles, warnings, school_id)
+        )
+        return self._apply_burnout_caps(base, warnings), tuple(warnings)
+
+    def _demand_quotas(
+        self,
+        request: PlanRequest,
+        student_id: int,
+        profiles: Mapping[str, SubjectProfile],
+        warnings: list[PlanWarning],
+        school_id: int | None,
+    ) -> list[SubjectQuota]:
+        quotas: list[SubjectQuota] = []
+        for demand in request.demands:
+            profile = profiles.get(demand.subject) or SubjectProfile.fallback(demand.subject)
+            minutes, units, confidence = self._demand_minutes(
+                demand, student_id, warnings, school_id,
+            )
+            quotas.append(
+                SubjectQuota(
+                    subject=demand.subject,
+                    minutes=minutes,
+                    priority=demand.resolved_priority(profile),
+                    movability=demand.resolved_movability(profile),
+                    activity=demand.activity,
+                    tags=profile.tags,
+                    cognitive_load=profile.cognitive_load,
+                    requested_units=units,
+                    estimate_confidence=confidence,
+                )
+            )
+        return quotas
+
+    def _demand_minutes(
+        self,
+        demand,
+        student_id: int,
+        warnings: list[PlanWarning],
+        school_id: int | None,
+    ) -> tuple[int, int, float]:
+        if demand.is_time_based:
+            return demand.amount, 0, 1.0
+        if self._workload is None:
+            raise ValueError(
+                'تقاضای تعدادی بدون تخمین‌گر حجم کار قابل برنامه‌ریزی نیست.'
+            )
+        estimate = self._workload.estimate(
+            student_id=student_id,
+            subject=demand.subject,
+            activity=demand.activity,
+            units=demand.amount,
+            school_id=school_id,
+        )
+        if estimate.confidence < LOW_CONFIDENCE_THRESHOLD:
+            warnings.append(
+                PlanWarning(
+                    code=PlanWarningCode.LOW_CONFIDENCE_ESTIMATE,
+                    message=(
+                        f'تخمین زمان «{demand.subject}» بر پایه‌ی میانگین است، نه سابقه‌ی '
+                        f'این دانش‌آموز: {demand.amount} مورد ≈ '
+                        f'{format_minutes(estimate.minutes)}.'
+                    ),
+                    meta={
+                        'subject': demand.subject,
+                        'units': demand.amount,
+                        'estimated_minutes': estimate.minutes,
+                        'confidence': round(estimate.confidence, 2),
+                        'minutes_per_unit': round(estimate.minutes_per_unit, 2),
+                    },
+                )
+            )
+        return estimate.minutes, demand.amount, estimate.confidence
+
+    def _weighted_quotas(
+        self,
+        request: PlanRequest,
+        student_id: int,
+        profiles: Mapping[str, SubjectProfile],
+    ) -> list[SubjectQuota]:
+        raw = self._weights.weights(student_id=student_id, subjects=request.subjects)
+        weights = {
+            subject: max(float(raw.get(subject, 0.0)), 0.0) for subject in request.subjects
+        }
+        if sum(weights.values()) <= 0:
+            weights = {subject: 1.0 for subject in request.subjects}
+        return _split_minutes(request.total_minutes, weights, profiles)
+
+    def _apply_burnout_caps(
+        self, quotas: Sequence[SubjectQuota], warnings: list[PlanWarning],
+    ) -> list[SubjectQuota]:
+        capped: list[SubjectQuota] = []
+        for quota in quotas:
             ceiling = self._burnout.max_window_minutes(quota.subject)
             if ceiling is not None and quota.minutes > ceiling:
                 warnings.append(
@@ -204,194 +324,260 @@ class PlanningEngine:
                 capped.append(quota.with_minutes(ceiling))
             else:
                 capped.append(quota)
-        return capped, tuple(warnings)
+        return capped
 
-    def _weighted_quotas(self, request: PlanRequest, student_id: int) -> list[SubjectQuota]:
-        raw = self._weights.weights(student_id=student_id, subjects=request.subjects)
-        weights = {
-            subject: max(float(raw.get(subject, 0.0)), 0.0) for subject in request.subjects
-        }
-        if sum(weights.values()) <= 0:
-            weights = {subject: 1.0 for subject in request.subjects}
-        return _split_minutes(request.total_minutes, weights)
+    # ---------- مرحله ۲: آماده‌سازی فضا ----------
 
-    # ---------- چیدمان ----------
-
-    def _agendas(
-        self, student_id: int, request: PlanRequest, events: Sequence[CalendarEvent],
-    ) -> dict[JalaliDate, DayAgenda]:
-        by_date = group_by_date(list(events))
-        return {
-            date: DayAgenda.build(student_id, date, by_date.get(date, []), policy=self._awake)
-            for date in request.window.days()
-        }
-
-    def _capacity_minutes(
-        self, agendas: Mapping[JalaliDate, DayAgenda], policy: BreakPolicy,
-    ) -> int:
-        """ظرفیت واقعی: شبیه‌سازی پر کردن شکاف‌ها با بلوک و استراحت."""
-        total = 0
-        for agenda in agendas.values():
-            for gap in agenda.free_slots(min_duration=MIN_BLOCK_MINUTES):
-                cursor = gap.start_minutes
-                while cursor + MIN_BLOCK_MINUTES <= gap.end_minutes:
-                    duration = min(policy.study_minutes, gap.end_minutes - cursor)
-                    total += duration
-                    cursor += duration + policy.break_minutes
-        return total
-
-    def _place_one(
+    def _partition_events(
         self,
-        agenda: DayAgenda,
-        reserved: Sequence[TimeRange],
-        remaining: Mapping[str, int],
-        daily_left: Mapping[str, int | None],
-        policy: BreakPolicy,
-        rng: random.Random,
-        *,
-        sequence: int,
-    ) -> tuple[PlannedBlock, list[TimeRange]] | None:
-        """یک بلوک در زودترین شکاف خالی؛ خروجی: بلوک + بازه‌های رزرو اضافه (پد شروع).
+        days: Sequence[JalaliDate],
+        events: Sequence[CalendarEvent],
+        intensity: IntensityProfile,
+    ) -> tuple[dict[JalaliDate, list[TimeRange]], list[Placement]]:
+        """تفکیک «دیوار» از «بلوک قابل جابه‌جایی».
 
-        برای جلوگیری از تکه‌تکه شدن، همیشه از ابتدای شکاف می‌چینیم. فقط اولین
-        بلوک هر روز می‌تواند با jitter کمی دیرتر شروع شود؛ فضای قبلش رزرو می‌شود
-        تا بعداً بلوک خرد داخل حفره ننشیند.
+        فقط بلوک‌هایی که خود موتور در اجراهای قبلی ساخته و شناوری‌شان صفر نیست
+        قابل جابه‌جایی‌اند. هر چیز دیگری — کلاس مدرسه، قرار شخصی، بلوکی که مشاور با
+        دست گذاشته — دیوار است، حتی اگر از نظر تقویم «قابل ویرایش» باشد.
         """
-        busy = list(agenda.busy_ranges()) + list(reserved)
-        gaps = free_gaps(
-            agenda.policy.window, busy, min_duration=MIN_TAIL_MINUTES,
+        by_date = group_by_date(list(events))
+        walls: dict[JalaliDate, list[TimeRange]] = {day: [] for day in days}
+        seeds: list[Placement] = []
+
+        for day in days:
+            for event in by_date.get(day, []):
+                if event.all_day or not event.is_relocatable_by_engine:
+                    walls[day].append(event.slot)
+                    continue
+                seeds.append(_placement_from_event(event, day, intensity))
+        return walls, seeds
+
+    # ---------- مرحله ۳: تبدیل وضعیت به پیش‌نویس ----------
+
+    def _draft_from_state(
+        self,
+        *,
+        student_id: int,
+        state: ScheduleState,
+        quotas: Sequence[SubjectQuota],
+        unplaced: Sequence[ScheduleItem],
+        shrunk: Sequence[tuple[ScheduleItem, int]],
+        warnings: Sequence[PlanWarning],
+        default_shape: BlockShape,
+    ) -> StudentPlanDraft:
+        blocks: list[PlannedBlock] = []
+        relocations: list[BlockRelocation] = []
+        allocated: dict[str, int] = defaultdict(int)
+
+        for placement in state.placements:
+            if placement.is_existing:
+                if placement.has_moved:
+                    relocations.append(
+                        BlockRelocation(
+                            client_id=placement.existing_client_id,
+                            subject=placement.item.subject,
+                            date=placement.date,
+                            slot=placement.slot,
+                            from_date=placement.origin_date,
+                            from_slot=placement.origin_slot,
+                        )
+                    )
+                continue
+            blocks.append(
+                PlannedBlock.from_item(
+                    placement.item, date=placement.date, slot=placement.slot,
+                )
+            )
+            allocated[placement.item.subject] += placement.minutes
+
+        blocks.sort(key=lambda block: (block.date.to_gregorian(), block.slot.start_minutes))
+        relocations.sort(key=lambda move: (move.date.to_gregorian(), move.slot.start_minutes))
+
+        draft = StudentPlanDraft(
+            student_id=student_id,
+            blocks=tuple(blocks),
+            quotas=tuple(quotas),
+            allocated_by_subject=dict(allocated),
+            capacity_minutes=state.capacity_minutes(
+                default_shape.study_minutes, default_shape.break_minutes,
+            ),
+            warnings=tuple(warnings) + _placement_warnings(unplaced, shrunk),
+            relocations=tuple(relocations),
         )
-        if not gaps:
-            return None
+        return _with_deadlock_warnings(draft)
 
-        gap = gaps[0]
-        available = gap.end_minutes - gap.start_minutes
-        choice = self._choose(remaining, daily_left, available, policy)
-        if choice is None:
-            return None
-        subject, duration = choice
-
-        pads: list[TimeRange] = []
-        first_on_day = not reserved
-        if first_on_day:
-            start = self._pick_start(gap, duration, rng)
-        else:
-            start = gap.start_minutes
-        if start is None:
-            return None
-        if start > gap.start_minutes:
-            pads.append(TimeRange(gap.start_minutes, start))
-
-        block = PlannedBlock(
-            date=agenda.date,
-            slot=TimeRange.of_duration(start, duration),
-            subject=subject,
-            color=_color_for(subject, sequence),
-        )
-        return block, pads
-
-    @staticmethod
-    def _pick_start(gap: TimeRange, duration: int, rng: random.Random) -> int | None:
-        latest = gap.end_minutes - duration
-        if latest < gap.start_minutes:
-            return None
-        starts = list(range(gap.start_minutes, latest + 1, START_SNAP_MINUTES))
-        if not starts:
-            return gap.start_minutes
-        jitter = min(len(starts), 1 + rng.randint(0, MAX_START_JITTER_SLOTS))
-        return rng.choice(starts[:jitter])
+    # ---------- دترمینیسم ----------
 
     @staticmethod
     def _seed(student_id: int, request: PlanRequest) -> str:
         start, end = request.window.start, request.window.end
-        subjects = ','.join(sorted(request.subject_names))
+        demand_signature = ','.join(
+            f'{demand.subject}:{demand.unit.value}:{demand.amount}'
+            for demand in sorted(request.demands, key=lambda item: item.subject)
+        ) or ','.join(sorted(request.subject_names))
         return (
             f'{student_id}:{start.jy}-{start.jm}-{start.jd}:'
             f'{end.jy}-{end.jm}-{end.jd}:{request.intensity.value}:'
-            f'{request.requested_minutes}:{subjects}'
+            f'{request.requested_minutes}:{demand_signature}'
         )
 
-    @staticmethod
-    def _choose(
-        remaining: Mapping[str, int],
-        daily_left: Mapping[str, int | None],
-        available: int,
-        policy: BreakPolicy,
-    ) -> tuple[str, int] | None:
-        """درس بعدی و طول بلوکش؛ ``None`` یعنی در این فضا چیزی جا نمی‌شود.
 
-        اولویت با درسی است که بیشترین کسری را دارد و در تساوی، ترتیب الفبایی —
-        تا خروجی موتور کاملاً قابل بازتولید بماند.
-        """
-        best: tuple[str, int] | None = None
-        best_key: tuple[int, str] | None = None
-        for subject in sorted(remaining):
-            left = remaining[subject]
-            if left <= 0:
-                continue
-            ceiling = min(left, available)
-            room_today = daily_left.get(subject)
-            if room_today is not None:
-                ceiling = min(ceiling, room_today)
-            duration = min(policy.study_minutes, ceiling)
-            # خرده‌ی کمتر از ۱۵ دقیقه به همان بلوک اضافه می‌شود تا بعداً بلوکی
-            # به‌درد‌نخور (یا کسری الکی) تولید نشود.
-            if 0 < left - duration < MIN_TAIL_MINUTES and ceiling >= left:
-                duration = left
-            if duration < min(MIN_BLOCK_MINUTES, left):
-                continue
-            key = (-left, subject)
-            if best_key is None or key < best_key:
-                best, best_key = (subject, duration), key
-        return best
+# ---------- توابع کمکی خالص ----------
 
-    # ---------- تشخیص بن‌بست ----------
-
-    @staticmethod
-    def _with_deadlock_warnings(draft: StudentPlanDraft) -> StudentPlanDraft:
-        warnings = list(draft.warnings)
-        if draft.capacity_minutes == 0:
-            warnings.append(
-                PlanWarning(
-                    code=PlanWarningCode.NO_FREE_SPACE,
-                    message='در این بازه هیچ فضای خالی قابل استفاده‌ای وجود ندارد.',
-                    meta={'capacity_minutes': 0},
+def _build_items(
+    quotas: Sequence[SubjectQuota], intensity: IntensityProfile,
+) -> list[ScheduleItem]:
+    """شکستن هر سهمیه به آیتم‌های قابل جای‌گذاری، با شکل بلوکِ متناسب با تگ درس."""
+    items: list[ScheduleItem] = []
+    for quota in quotas:
+        shape = intensity.shape_for(quota.tags)
+        for index, minutes in enumerate(_chunk_minutes(quota.minutes, shape)):
+            items.append(
+                ScheduleItem(
+                    item_id=f'{NEW_ITEM_PREFIX}:{quota.subject}:{index}',
+                    subject=quota.subject,
+                    duration_minutes=minutes,
+                    shape=shape,
+                    priority=quota.priority,
+                    movability=quota.movability,
+                    activity=quota.activity,
+                    tags=quota.tags,
+                    cognitive_load=quota.cognitive_load,
+                    color=_color_for(quota.subject, index),
                 )
             )
-        if draft.shortfall_minutes > 0:
-            warnings.append(
-                PlanWarning(
-                    code=PlanWarningCode.CAPACITY_SHORTFALL,
-                    message=(
-                        f'{format_minutes(draft.shortfall_minutes)} از برنامه‌ی درخواستی '
-                        'به دلیل نبود فضای خالی جا نشد.'
-                    ),
-                    meta={
-                        'shortfall_minutes': draft.shortfall_minutes,
-                        'required_minutes': draft.required_minutes,
-                        'allocated_minutes': draft.allocated_minutes,
-                        'capacity_minutes': draft.capacity_minutes,
-                    },
-                )
+    return items
+
+
+def _chunk_minutes(total: int, shape: BlockShape) -> list[int]:
+    """تقسیم دقایق یک درس به بلوک‌ها.
+
+    خرده‌ی کمتر از ۱۵ دقیقه به بلوک قبلی چسبانده می‌شود؛ بلوک ۱۰ دقیقه‌ای نه برای
+    دانش‌آموز مفید است نه ارزش اشغال یک شکاف را دارد.
+    """
+    chunks: list[int] = []
+    remaining = total
+    while remaining > 0:
+        take = min(shape.study_minutes, remaining)
+        rest = remaining - take
+        if 0 < rest < MIN_TAIL_MINUTES:
+            take += rest
+            rest = 0
+        chunks.append(take)
+        remaining = rest
+    return chunks
+
+
+def _placement_from_event(
+    event: CalendarEvent, date: JalaliDate, intensity: IntensityProfile,
+) -> Placement:
+    tags = parse_tags(event.subject_tags)
+    shape = intensity.shape_for(tags)
+    item = ScheduleItem(
+        item_id=f'{EXISTING_ITEM_PREFIX}:{event.client_id}',
+        subject=event.title,
+        duration_minutes=event.slot.duration_minutes,
+        shape=shape,
+        priority=event.priority,
+        movability=event.movability,
+        tags=tags,
+        cognitive_load=event.cognitive_load,
+        color=event.color,
+    )
+    return Placement(
+        item=item,
+        date=date,
+        slot=event.slot,
+        existing_client_id=event.client_id,
+        origin_date=date,
+        origin_slot=event.slot,
+    )
+
+
+def _placement_warnings(
+    unplaced: Sequence[ScheduleItem], shrunk: Sequence[tuple[ScheduleItem, int]],
+) -> tuple[PlanWarning, ...]:
+    warnings: list[PlanWarning] = []
+    for item, minutes in sorted(shrunk, key=lambda pair: pair[0].item_id):
+        warnings.append(
+            PlanWarning(
+                code=PlanWarningCode.ITEM_SHRUNK,
+                message=(
+                    f'یک بلوک «{item.subject}» برای جا شدن از '
+                    f'{format_minutes(item.duration_minutes)} به '
+                    f'{format_minutes(minutes)} کوتاه شد.'
+                ),
+                meta={
+                    'subject': item.subject,
+                    'from_minutes': item.duration_minutes,
+                    'to_minutes': minutes,
+                    'priority': item.priority,
+                },
             )
-            for subject, minutes in sorted(draft.shortfall_by_subject().items()):
-                warnings.append(
-                    PlanWarning(
-                        code=PlanWarningCode.SUBJECT_SHORTFALL,
-                        message=f'«{subject}»: {format_minutes(minutes)} کسری دارد.',
-                        meta={'subject': subject, 'shortfall_minutes': minutes},
-                    )
-                )
-        if len(warnings) == len(draft.warnings):
-            return draft
-        return StudentPlanDraft(
-            student_id=draft.student_id,
-            blocks=draft.blocks,
-            quotas=draft.quotas,
-            allocated_by_subject=draft.allocated_by_subject,
-            capacity_minutes=draft.capacity_minutes,
-            warnings=tuple(warnings),
         )
+    for item in sorted(unplaced, key=lambda entry: entry.item_id):
+        warnings.append(
+            PlanWarning(
+                code=PlanWarningCode.UNPLACEABLE_ITEM,
+                message=(
+                    f'یک بلوک «{item.subject}» به طول '
+                    f'{format_minutes(item.duration_minutes)} جایی برای نشستن پیدا نکرد.'
+                ),
+                meta={
+                    'subject': item.subject,
+                    'minutes': item.duration_minutes,
+                    'priority': item.priority,
+                },
+            )
+        )
+    return tuple(warnings)
+
+
+def _with_deadlock_warnings(draft: StudentPlanDraft) -> StudentPlanDraft:
+    warnings = list(draft.warnings)
+    if draft.capacity_minutes == 0:
+        warnings.append(
+            PlanWarning(
+                code=PlanWarningCode.NO_FREE_SPACE,
+                message='در این بازه هیچ فضای خالی قابل استفاده‌ای وجود ندارد.',
+                meta={'capacity_minutes': 0},
+            )
+        )
+    if draft.shortfall_minutes > 0:
+        warnings.append(
+            PlanWarning(
+                code=PlanWarningCode.CAPACITY_SHORTFALL,
+                message=(
+                    f'{format_minutes(draft.shortfall_minutes)} از برنامه‌ی درخواستی '
+                    'به دلیل نبود فضای خالی جا نشد.'
+                ),
+                meta={
+                    'shortfall_minutes': draft.shortfall_minutes,
+                    'required_minutes': draft.required_minutes,
+                    'allocated_minutes': draft.allocated_minutes,
+                    'capacity_minutes': draft.capacity_minutes,
+                },
+            )
+        )
+        for subject, minutes in sorted(draft.shortfall_by_subject().items()):
+            warnings.append(
+                PlanWarning(
+                    code=PlanWarningCode.SUBJECT_SHORTFALL,
+                    message=f'«{subject}»: {format_minutes(minutes)} کسری دارد.',
+                    meta={'subject': subject, 'shortfall_minutes': minutes},
+                )
+            )
+    if len(warnings) == len(draft.warnings):
+        return draft
+    return StudentPlanDraft(
+        student_id=draft.student_id,
+        blocks=draft.blocks,
+        quotas=draft.quotas,
+        allocated_by_subject=draft.allocated_by_subject,
+        capacity_minutes=draft.capacity_minutes,
+        warnings=tuple(warnings),
+        relocations=draft.relocations,
+    )
 
 
 def _color_for(subject: str, sequence: int) -> str:
@@ -401,7 +587,11 @@ def _color_for(subject: str, sequence: int) -> str:
     return BLOCK_COLORS[(base + sequence) % len(BLOCK_COLORS)]
 
 
-def _split_minutes(total_minutes: int, weights: Mapping[str, float]) -> list[SubjectQuota]:
+def _split_minutes(
+    total_minutes: int,
+    weights: Mapping[str, float],
+    profiles: Mapping[str, SubjectProfile],
+) -> list[SubjectQuota]:
     """تقسیم زمان کل بین درس‌ها به نسبت وزن، با پله‌ی ۵ دقیقه‌ای و جمع دقیق.
 
     از روش «بزرگ‌ترین باقی‌مانده» استفاده می‌شود تا مجموع سهمیه‌ها دقیقاً برابر زمان
@@ -425,7 +615,18 @@ def _split_minutes(total_minutes: int, weights: Mapping[str, float]) -> list[Sub
     if leftover and minutes:
         biggest = sorted(minutes, key=lambda s: (-minutes[s], s))[0]
         minutes[biggest] += leftover
-    return [
-        SubjectQuota(subject=subject, minutes=value)
-        for subject, value in sorted(minutes.items())
-    ]
+
+    quotas: list[SubjectQuota] = []
+    for subject, value in sorted(minutes.items()):
+        profile = profiles.get(subject) or SubjectProfile.fallback(subject)
+        quotas.append(
+            SubjectQuota(
+                subject=subject,
+                minutes=value,
+                priority=profile.default_priority,
+                movability=profile.default_movability,
+                tags=profile.tags,
+                cognitive_load=profile.cognitive_load,
+            )
+        )
+    return quotas

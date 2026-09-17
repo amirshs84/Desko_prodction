@@ -27,8 +27,8 @@ export function useEventModalActions(
   const hasGroup = groupSize > 1
 
   const onSave = (p: EventSavePayload, scope: EventEditScope = 'single') => {
-    if (editing?.kind === 'immutable') {
-      alert('این رویداد ثابت مدرسه است و قابل ویرایش نیست.')
+    if (editing?.kind === 'immutable' || editing?.proposed) {
+      alert(editing.proposed ? 'این بلوک پیشنهادی است؛ از تأیید یا رد استفاده کنید.' : 'این رویداد ثابت مدرسه است و قابل ویرایش نیست.')
       return
     }
     if (editing) {
@@ -61,8 +61,8 @@ export function useEventModalActions(
 
   const onDelete = (scope: EventEditScope = 'single') => {
     if (!editing) return
-    if (editing.kind === 'immutable') {
-      alert('این رویداد ثابت مدرسه است و قابل حذف نیست.')
+    if (editing.kind === 'immutable' || editing.proposed) {
+      alert(editing.proposed ? 'این بلوک پیشنهادی است؛ از دکمه رد استفاده کنید.' : 'این رویداد ثابت مدرسه است و قابل حذف نیست.')
       return
     }
     removeEvent(editing.id, scope)

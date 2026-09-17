@@ -17,6 +17,7 @@ export const CONSULTANT_KEYS = {
   snapshots: (userId) => ['consultant', 'snapshots', userId],
   plans: () => ['consultant', 'plans'],
   plan: (id) => ['consultant', 'plans', id],
+  subjects: () => ['consultant', 'subjects'],
   notes: (userId) => ['consultant', 'notes', userId],
   messages: (userId) => ['consultant', 'messages', userId],
 };
@@ -285,4 +286,25 @@ export function useStudentMessageMutations(userId) {
   });
 
   return { sendMessage };
+}
+
+export function useSubjectCatalog() {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.subjects(),
+    queryFn: () => planningAPI.getSubjectCatalog().then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+export function useSubjectCatalogMutations() {
+  const qc = useQueryClient();
+  const upsert = useMutation({
+    mutationFn: (data) => planningAPI.upsertSubjectProfile(data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.subjects() }),
+  });
+  const remove = useMutation({
+    mutationFn: (name) => planningAPI.deleteSubjectProfile(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CONSULTANT_KEYS.subjects() }),
+  });
+  return { upsert, remove };
 }

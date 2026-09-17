@@ -362,3 +362,75 @@ class SnapshotTests(BatchPlanningApiTests):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['reason'], 'plan_publish')
+
+
+class ProposalBlockAndNoticeTests(BatchPlanningApiTests):
+    def publish_suggested(self, **overrides) -> dict:
+        response = self.client.post(PUBLISH_URL, self.plan_body(**overrides), format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        return response.data
+
+    def test_publish_stores_custom_and_generated_goal_message(self):
+        custom = self.publish_suggested(goal_message='هدف این هفته ما: افزایش ۳۰ درصدی تست‌های فیزیک است. آماده‌ای؟')
+        self.assertIn('فیزیک', custom['summary']['goal_message'])
+        auto = self.publish_suggested()
+        self.assertIn('ریاضی', auto['summary']['goal_message'])
+        self.assertIn('آماده‌ای؟', auto['summary']['goal_message'])
+
+    def test_student_sees_goal_and_can_ack_notice(self):
+        self.publish_suggested(goal_message='هدف آزمایشی هفته')
+        self.authenticate(self.ali)
+        inbox = self.client.get(PROPOSALS_URL)
+        self.assertEqual(inbox.status_code, 200)
+        self.assertEqual(inbox.data[0]['goal_message'], 'هدف آزمایشی هفته')
+        self.assertIsNone(inbox.data[0]['notice_seen_at'])
+        proposal_id = inbox.data[0]['id']
+        ack = self.client.post(f'{PROPOSALS_URL}{proposal_id}/notice/', {}, format='json')
+        self.assertEqual(ack.status_code, 200, ack.data)
+        self.assertIsNotNone(ack.data['notice_seen_at'])
+
+    def test_accept_single_block_creates_event(self):
+        run = self.publish_suggested()
+        proposal_id = next(
+            p['id'] for p in run['proposals'] if p['student_id'] == self.ali.id
+        )
+        self.authenticate(self.ali)
+        response = self.client.post(
+            f'{PROPOSALS_URL}{proposal_id}/blocks/respond/',
+            {'block_index': 0, 'accept': True},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data['accepted'])
+        self.assertTrue(response.data['applied'])
+        self.assertEqual(response.data['status'], 'accepted')
+        self.assertEqual(CalendarEventModel.objects.filter(user=self.ali).count(), 1)
+        self.assertIn('event', response.data)
+
+    def test_reject_block_with_reason_sends_message(self):
+        from Planning.models import ConsultantDirectMessageModel
+
+        run = self.publish_suggested()
+        proposal_id = next(
+            p['id'] for p in run['proposals'] if p['student_id'] == self.ali.id
+        )
+        self.authenticate(self.ali)
+        response = self.client.post(
+            f'{PROPOSALS_URL}{proposal_id}/blocks/respond/',
+            {'block_index': 0, 'accept': False, 'reason': 'این ساعت کلاس دارم'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data['accepted'])
+        self.assertTrue(response.data['reason_sent'])
+        self.assertEqual(CalendarEventModel.objects.count(), 0)
+        self.assertEqual(
+            ConsultantDirectMessageModel.objects.filter(
+                student=self.ali, consultant=self.consultant,
+            ).count(),
+            1,
+        )
+        self.assertIn(
+            'کلاس',
+            ConsultantDirectMessageModel.objects.get(student=self.ali).body,
+        )

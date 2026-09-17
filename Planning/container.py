@@ -16,14 +16,25 @@ from typing import Mapping
 from .intervention.application.services import (
     BatchPlanningService,
     ConsultantDashboardService,
+    FeedbackService,
     GroupService,
     MessageService,
     NoteService,
     PreferencesService,
     ProposalService,
     RosterService,
+    SubjectCatalogService,
 )
 from .intervention.domain.ports.subject_weight_calculator import SubjectWeightCalculator
+from .intervention.infrastructure.catalog import DjangoSubjectCatalog
+from .intervention.infrastructure.estimators import HistoricalWorkloadEstimator
+from .intervention.infrastructure.feedback import DjangoEfficiencyProfileReader
+from .intervention.infrastructure.persistence.repositories.block_feedback_repository import (
+    DjangoBlockFeedbackRepository,
+)
+from .intervention.infrastructure.persistence.repositories.subject_profile_repository import (
+    DjangoSubjectProfileRepository,
+)
 from .intervention.infrastructure.persistence.repositories.plan_run_repository import (
     DjangoPlanProposalRepository,
     DjangoPlanRunRepository,
@@ -48,6 +59,7 @@ from .intervention.infrastructure.weights import (
 from .reporting.application.services import AnalyticsHubService, ProgressService
 from .reporting.infrastructure.django_study_report_reader import DjangoStudyReportReader
 from .scheduling.application.services import (
+    AwakeWindowService,
     BlockPlacementService,
     CalendarService,
     ClassFixedEventService,
@@ -55,6 +67,9 @@ from .scheduling.application.services import (
 )
 from .scheduling.domain.services.awake_window_policy import AwakeWindowPolicy
 from .scheduling.infrastructure.id_generator import Uuid4IdGenerator
+from .scheduling.infrastructure.persistence.repositories.awake_window_repository import (
+    DjangoAwakeWindowRepository,
+)
 from .scheduling.infrastructure.persistence.repositories.block_template_repository import (
     DjangoBlockTemplateRepository,
 )
@@ -85,8 +100,20 @@ class Container:
 
     @cached_property
     def awake_window_policy(self) -> AwakeWindowPolicy:
-        """پنجره‌ی بیداری ۰۶:۰۰–۲۳:۰۰. وقتی شخصی‌سازی لازم شد، فقط همین‌جا عوض می‌شود."""
+        """بازه‌ی فعال پیش‌فرض (۰۷:۰۰–۲۳:۰۰) برای کاربری که آن را شخصی‌سازی نکرده."""
         return AwakeWindowPolicy.default()
+
+    @cached_property
+    def efficiency_profiles(self) -> DjangoEfficiencyProfileReader:
+        return DjangoEfficiencyProfileReader()
+
+    @cached_property
+    def subject_catalog(self) -> DjangoSubjectCatalog:
+        return DjangoSubjectCatalog()
+
+    @cached_property
+    def workload_estimator(self) -> HistoricalWorkloadEstimator:
+        return HistoricalWorkloadEstimator(efficiency=self.efficiency_profiles)
 
     # ---------- Repository ها ----------
 
@@ -125,6 +152,18 @@ class Container:
     @cached_property
     def plan_proposals(self) -> DjangoPlanProposalRepository:
         return DjangoPlanProposalRepository()
+
+    @cached_property
+    def awake_windows(self) -> DjangoAwakeWindowRepository:
+        return DjangoAwakeWindowRepository()
+
+    @cached_property
+    def subject_profiles(self) -> DjangoSubjectProfileRepository:
+        return DjangoSubjectProfileRepository()
+
+    @cached_property
+    def block_feedback(self) -> DjangoBlockFeedbackRepository:
+        return DjangoBlockFeedbackRepository()
 
     # ---------- سیاست‌های قابل جایگزینی موتور ----------
 
@@ -165,7 +204,12 @@ class Container:
             uow_factory=self.unit_of_work,
             templates=self.block_templates,
             policy=self.awake_window_policy,
+            windows=self.awake_windows,
         )
+
+    @cached_property
+    def awake_window_service(self) -> AwakeWindowService:
+        return AwakeWindowService(windows=self.awake_windows)
 
     @cached_property
     def class_fixed_event_service(self) -> ClassFixedEventService:
@@ -253,6 +297,22 @@ class Container:
             ids=self.ids,
             uow_factory=self.unit_of_work,
             awake_window=self.awake_window_policy,
+            awake_windows=self.awake_windows,
+            catalog=self.subject_catalog,
+            workload=self.workload_estimator,
+            efficiency=self.efficiency_profiles,
+        )
+
+    @cached_property
+    def subject_catalog_service(self) -> SubjectCatalogService:
+        return SubjectCatalogService(profiles=self.subject_profiles)
+
+    @cached_property
+    def feedback_service(self) -> FeedbackService:
+        return FeedbackService(
+            feedback=self.block_feedback,
+            events=self.calendar_events,
+            efficiency=self.efficiency_profiles,
         )
 
     @cached_property
@@ -264,6 +324,7 @@ class Container:
             ids=self.ids,
             uow_factory=self.unit_of_work,
             awake_window=self.awake_window_policy,
+            messages=self.message_service,
         )
 
     @cached_property

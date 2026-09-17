@@ -6,6 +6,10 @@
 from django.urls import path
 
 from .views import (
+    AwakeWindowView,
+    BlockFeedbackView,
+    SubjectCatalogDetailView,
+    SubjectCatalogView,
     BlockTemplateDetailView,
     BlockTemplateListCreateView,
     CalendarEventDetailView,
@@ -39,6 +43,8 @@ from .views import (
     StudentProgressView,
     StudentProposalListView,
     StudentProposalRespondView,
+    StudentProposalBlockRespondView,
+    StudentProposalNoticeView,
     StudentSchoolConsultantsView,
 )
 
@@ -77,6 +83,32 @@ urlpatterns = [
         'planning/calendar/blocks/<str:client_id>/move/',
         MoveBlockView.as_view(),
         name='planning_move_block',
+    ),
+
+    # بازه‌ی فعال شبانه‌روز (خود دانش‌آموز می‌نویسد؛ مشاور فقط می‌خواند)
+    path(
+        'planning/calendar/awake-window/',
+        AwakeWindowView.as_view(),
+        name='planning_awake_window',
+    ),
+
+    # بازخورد گیمیفای‌شده‌ی پایان بلوک
+    path(
+        'planning/me/block-feedback/',
+        BlockFeedbackView.as_view(),
+        name='planning_block_feedback',
+    ),
+
+    # کاتالوگ درس مدرسه (تگ‌گذاری دروس)
+    path(
+        'planning/consultant/subjects/',
+        SubjectCatalogView.as_view(),
+        name='planning_subject_catalog',
+    ),
+    path(
+        'planning/consultant/subjects/<str:name>/',
+        SubjectCatalogDetailView.as_view(),
+        name='planning_subject_catalog_detail',
     ),
 
     # اسنپ‌شات تقویم (بازگردانی پس از انتشار)
@@ -210,6 +242,16 @@ urlpatterns = [
         'planning/me/proposals/<int:proposal_id>/respond/',
         StudentProposalRespondView.as_view(),
         name='planning_my_proposal_respond',
+    ),
+    path(
+        'planning/me/proposals/<int:proposal_id>/blocks/respond/',
+        StudentProposalBlockRespondView.as_view(),
+        name='planning_my_proposal_block_respond',
+    ),
+    path(
+        'planning/me/proposals/<int:proposal_id>/notice/',
+        StudentProposalNoticeView.as_view(),
+        name='planning_my_proposal_notice',
     ),
 
     # رویدادهای ثابت کلاس (مدیر مدرسه)

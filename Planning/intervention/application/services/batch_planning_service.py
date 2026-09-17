@@ -16,6 +16,9 @@ from ....scheduling.application.services.snapshot_service import SnapshotService
 from ....scheduling.domain.entities.calendar_event import CalendarEvent
 from ....scheduling.domain.entities.calendar_snapshot import SnapshotReason
 from ....scheduling.domain.enums import EventKind
+from ....scheduling.domain.repositories.awake_window_repository import (
+    AwakeWindowRepository,
+)
 from ....scheduling.domain.repositories.calendar_event_repository import (
     CalendarEventRepository,
 )
@@ -31,7 +34,10 @@ from ...domain.entities.plan_draft import PlanPreview, StudentPlanDraft
 from ...domain.entities.plan_run import PlanProposal, PlanRun
 from ...domain.enums import PlanMode, ProposalStatus
 from ...domain.ports.burnout_policy import BurnoutPolicy
+from ...domain.ports.efficiency_profile import EfficiencyProfileReader
+from ...domain.ports.subject_catalog import SubjectCatalog
 from ...domain.ports.subject_weight_calculator import SubjectWeightCalculator
+from ...domain.ports.workload_estimator import WorkloadEstimator
 from ...domain.repositories.plan_run_repository import PlanRunRepository
 from ...domain.repositories.student_group_repository import StudentGroupRepository
 from ...domain.services.planning_engine import PlanningEngine
@@ -57,6 +63,10 @@ class BatchPlanningService:
         ids: IdGenerator,
         uow_factory: Callable[[], UnitOfWork],
         awake_window: AwakeWindowPolicy | None = None,
+        awake_windows: AwakeWindowRepository | None = None,
+        catalog: SubjectCatalog | None = None,
+        workload: WorkloadEstimator | None = None,
+        efficiency: EfficiencyProfileReader | None = None,
     ) -> None:
         self._groups = groups
         self._runs = runs
@@ -68,12 +78,16 @@ class BatchPlanningService:
         self._ids = ids
         self._uow_factory = uow_factory
         self._awake = awake_window or AwakeWindowPolicy.default()
+        self._awake_windows = awake_windows
+        self._catalog = catalog
+        self._workload = workload
+        self._efficiency = efficiency
 
     # ---------- پیش‌نمایش ----------
 
     def preview(self, command: BuildPlanCommand, *, context: RequestContext) -> PlanPreviewDTO:
         students = self._resolve_students(command, context)
-        preview = self._run_engine(command, students)
+        preview = self._run_engine(command, students, school_id=context.school_id)
         return PlanPreviewDTO(
             preview=preview,
             students={student.user_id: student for student in students},
@@ -85,12 +99,13 @@ class BatchPlanningService:
         students = self._resolve_students(command, context)
         # موتور دوباره روی داده‌ی تازه اجرا می‌شود؛ پیش‌نمایشی که مشاور دیده ممکن
         # است چند دقیقه قدیمی باشد و در این فاصله تقویم عوض شده باشد.
-        preview = self._run_engine(command, students)
+        preview = self._run_engine(command, students, school_id=context.school_id)
         group_tag = f'plan-{self._ids.new_id()}'
         # اگر مشاور رنگ اجباری نفرستاده، هر بلوک رنگ خودش را از موتور می‌گیرد.
         color_override = command.color or None
 
         created_events = 0
+        moved_events = 0
         snapshots_taken = 0
         proposals: list[PlanProposal] = []
 
@@ -103,6 +118,7 @@ class BatchPlanningService:
                         plan_run_id=group_tag,
                     )
                     snapshots_taken += 1
+                    moved_events += self._apply_relocations(draft)
                     created_events += self._events.add_many(
                         self._to_events(
                             draft.student_id, draft.blocks, group_tag, color_override,
@@ -121,6 +137,10 @@ class BatchPlanningService:
                         applied_blocks=(
                             len(draft.blocks) if command.mode is PlanMode.FORCED else 0
                         ),
+                        block_decisions=tuple(
+                            ('accepted' if command.mode is PlanMode.FORCED else 'pending')
+                            for _ in draft.blocks
+                        ),
                     )
                 )
 
@@ -133,7 +153,7 @@ class BatchPlanningService:
                     intensity=command.request.intensity,
                     group_tag=group_tag,
                     window=command.request.window,
-                    summary=_summarize(preview),
+                    summary=_summarize(preview, goal_message=command.goal_message),
                     proposals=tuple(proposals),
                 )
             )
@@ -143,6 +163,7 @@ class BatchPlanningService:
             students={student.user_id: student for student in students},
             created_events=created_events,
             snapshots_taken=snapshots_taken,
+            moved_events=moved_events,
         )
 
     def apply_student_blocks(
@@ -223,7 +244,11 @@ class BatchPlanningService:
         return students
 
     def _run_engine(
-        self, command: BuildPlanCommand, students: Sequence[StudentInfo],
+        self,
+        command: BuildPlanCommand,
+        students: Sequence[StudentInfo],
+        *,
+        school_id: int | None = None,
     ) -> PlanPreview:
         window = command.request.window
         student_ids = [student.user_id for student in students]
@@ -238,8 +263,36 @@ class BatchPlanningService:
             weights=self._weights(dict(command.ratios) if command.ratios else None),
             burnout=self._burnout,
             awake_window=self._awake,
+            catalog=self._catalog,
+            workload=self._workload,
+            efficiency=self._efficiency,
         )
-        return engine.plan(command.request, existing_events=by_owner)
+        return engine.plan(
+            command.request,
+            existing_events=by_owner,
+            awake_windows=(
+                self._awake_windows.get_many(student_ids)
+                if self._awake_windows is not None else None
+            ),
+            school_id=school_id,
+        )
+
+    def _apply_relocations(self, draft: StudentPlanDraft) -> int:
+        """اعمال جابه‌جایی بلوک‌هایی که موتور برای باز کردن جا کنار زده است.
+
+        موتور فقط بلوک‌های ساخته‌ی خودش را جابه‌جا می‌کند و تضمین کرده که هرکدام جای
+        تازه‌ای پیدا کرده‌اند؛ پس اینجا چیزی حذف نمی‌شود، فقط جابه‌جا.
+        """
+        moved = 0
+        for move in draft.relocations:
+            ref = EventRef(owner_id=draft.student_id, client_id=move.client_id)
+            event = self._events.get(ref)
+            if event is None or event.is_immutable:
+                continue
+            event.move_to(move.date, move.slot, authority=WriteAuthority.ALGORITHM)
+            self._events.save(event)
+            moved += 1
+        return moved
 
     def _to_events(
         self,
@@ -260,19 +313,51 @@ class BatchPlanningService:
                 group_id=group_tag,
                 kind=EventKind.MUTABLE,
                 authority=WriteAuthority.ALGORITHM,
+                priority=block.priority,
+                movability=block.movability,
+                subject_tags=block.tag_values,
+                cognitive_load=block.cognitive_load,
             )
             for block in blocks
         ]
 
 
-def _summarize(preview: PlanPreview) -> dict:
+def _summarize(preview: PlanPreview, *, goal_message: str = '') -> dict:
     return {
         'students': len(preview.drafts),
         'blocks': preview.total_blocks,
         'allocated_minutes': sum(draft.allocated_minutes for draft in preview.drafts),
         'required_minutes': sum(draft.required_minutes for draft in preview.drafts),
         'students_with_shortfall': len(preview.blocked_students),
+        'goal_message': _goal_message(preview, goal_message),
     }
+
+
+def _goal_message(preview: PlanPreview, custom: str) -> str:
+    text = (custom or '').strip()
+    if text:
+        return text
+    names: list[str] = []
+    seen: set[str] = set()
+    for draft in preview.drafts:
+        for block in draft.blocks:
+            if block.subject in seen:
+                continue
+            seen.add(block.subject)
+            names.append(block.subject)
+            if len(names) >= 3:
+                break
+        if len(names) >= 3:
+            break
+    if not names:
+        return 'برنامهٔ جدید این هفته منتشر شد. آماده‌ای؟'
+    if len(names) == 1:
+        return f'هدف این هفته ما: تسلط روی مبحث {names[0]} است. آماده‌ای؟'
+    if len(names) == 2:
+        joined = f'{names[0]} و {names[1]}'
+    else:
+        joined = '، '.join(names[:-1]) + f' و {names[-1]}'
+    return f'هدف این هفته ما: افزایش تمرین و تسلط روی {joined} است. آماده‌ای؟'
 
 
 def _require_consultant(context: RequestContext) -> int:

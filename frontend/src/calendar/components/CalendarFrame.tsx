@@ -7,8 +7,11 @@ import { jalaliWeekDay } from '../lib/jalaliUtils'
 import { JALALI_MONTHS, WEEKDAY_FULL } from '../lib/labels'
 import { toFaDigits } from '../lib/persianDigits'
 import { calPathDay, calPathMonth, calPathWeek, calPathYear } from '../lib/paths'
-import { IconArrowLeft, IconArrowRight, IconMenu, IconPlus, IconSearch } from './icons'
+import { IconArrowLeft, IconArrowRight, IconMenu, IconPlus, IconSearch, IconUndo } from './icons'
 import { SearchOverlay } from './SearchOverlay'
+import { AwakeWindowEditor } from './AwakeWindowEditor'
+import { WeeklyGoalPopup } from './WeeklyGoalPopup'
+import { useEvents } from '../context/EventsContext'
 
 type Tab = 'year' | 'month' | 'week' | 'day'
 
@@ -26,6 +29,8 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
   const loc = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [awakeOpen, setAwakeOpen] = useState(false)
+  const { isOwnCalendar, ownerUserId, canUndo, undoLabel, undo } = useEvents()
   const menuRef = useRef<HTMLDivElement>(null)
   const { goPrev, goNext, goToday, labels, viewingToday } = usePeriodNavigation(active)
   const swipeEnabled = !menuOpen && !searchOpen
@@ -39,6 +44,19 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
   useEffect(() => {
     setMenuOpen(false)
   }, [loc.pathname])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z' || e.shiftKey) return
+      const target = e.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (!canUndo) return
+      e.preventDefault()
+      void undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canUndo, undo])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -115,6 +133,17 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
                     {active === it.key ? <span aria-hidden>✓</span> : null}
                   </Link>
                 ))}
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-[var(--t-ink)] hover:bg-white/5"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setAwakeOpen(true)
+                  }}
+                >
+                  <span>بازه فعال</span>
+                  <span className="text-[10px] text-[var(--t-ink-3)]">۷–۲۳</span>
+                </button>
               </div>
             ) : null}
           </div>
@@ -147,6 +176,20 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label={undoLabel ? `بازگردانی: ${undoLabel}` : 'بازگردانی'}
+              title={undoLabel ? `Ctrl+Z · ${undoLabel}` : 'Ctrl+Z'}
+              disabled={!canUndo}
+              onClick={() => void undo()}
+              className={`grid h-11 w-11 place-items-center rounded-xl border text-[var(--t-ink)] ${
+                canUndo
+                  ? 'border-[var(--t-edge-2)] hover:bg-white/5'
+                  : 'border-[var(--t-edge)] opacity-35'
+              }`}
+            >
+              <IconUndo className="size-5" />
+            </button>
             <button
               type="button"
               aria-label="جستجو"
@@ -217,6 +260,13 @@ export function CalendarFrame({ title, subtitle, active, onFab, extraFab, childr
       </div>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <WeeklyGoalPopup enabled={isOwnCalendar} />
+      <AwakeWindowEditor
+        open={awakeOpen}
+        onClose={() => setAwakeOpen(false)}
+        userId={isOwnCalendar ? null : ownerUserId}
+        canEdit={isOwnCalendar}
+      />
     </div>
   )
 }
