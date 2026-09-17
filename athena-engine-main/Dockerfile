@@ -3,16 +3,24 @@ FROM ${BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PIP_DEFAULT_TIMEOUT=120
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_DEFAULT_TIMEOUT=60
 
 WORKDIR /app
 
 COPY requirements.txt ./
-# Wheel-only: the uv.lock was generated for Python 3.13 and compiling sdists
-# (psycopg2, markupsafe, …) fails on slim images / flaky Iranian mirrors.
-RUN pip install --no-cache-dir --only-binary=:all: -i https://mirror.arvancloud.ir/pypi/simple --trusted-host mirror.arvancloud.ir -r requirements.txt \
-    || pip install --no-cache-dir --only-binary=:all: -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn -r requirements.txt \
-    || pip install --no-cache-dir --only-binary=:all: -i https://pypi.org/simple -r requirements.txt
+# Wheel-only: compiling sdists (psycopg2, markupsafe, …) fails on slim images.
+# Shared pip cache so a failed mirror does not throw away already-fetched wheels.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --cache-dir /root/.cache/pip --only-binary=:all: --timeout 15 \
+      -i https://mirror.arvancloud.ir/pypi/simple --trusted-host mirror.arvancloud.ir \
+      -r requirements.txt \
+    || pip install --cache-dir /root/.cache/pip --only-binary=:all: --timeout 60 \
+      -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn \
+      -r requirements.txt \
+    || pip install --cache-dir /root/.cache/pip --only-binary=:all: --timeout 120 \
+      -i https://pypi.org/simple \
+      -r requirements.txt
 
 COPY src ./src
 COPY alembic ./alembic

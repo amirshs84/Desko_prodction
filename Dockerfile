@@ -3,15 +3,25 @@ FROM ${BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PIP_DEFAULT_TIMEOUT=120
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_DEFAULT_TIMEOUT=60
 
 WORKDIR /app
 
 COPY requirements.txt /app/
-# Docker Hub / pypi.org often time out from Iranian hosts. Arvan first, then Tsinghua, then official.
-RUN pip install --no-cache-dir -i https://mirror.arvancloud.ir/pypi/simple --trusted-host mirror.arvancloud.ir -r requirements.txt \
-    || pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn -r requirements.txt \
-    || pip install --no-cache-dir -i https://pypi.org/simple -r requirements.txt
+# Keep pip's download cache so a failed mirror (or a failed later layer) does not
+# force a full re-download. First index fails fast; fallbacks reuse the cache.
+# Cache mount needs BuildKit (Docker 23+ default).
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --cache-dir /root/.cache/pip --timeout 15 \
+      -i https://mirror.arvancloud.ir/pypi/simple --trusted-host mirror.arvancloud.ir \
+      -r requirements.txt \
+    || pip install --cache-dir /root/.cache/pip --timeout 60 \
+      -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn \
+      -r requirements.txt \
+    || pip install --cache-dir /root/.cache/pip --timeout 120 \
+      -i https://pypi.org/simple \
+      -r requirements.txt
 
 COPY . /app/
 

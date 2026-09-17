@@ -12,17 +12,21 @@ if [ ! -f .env ]; then
   fi
 fi
 
-echo "=== 1. Build images (backend + frontend) ==="
-docker-compose build --no-cache backend frontend
+# BuildKit: cache mounts in Dockerfiles (pip/npm) survive a failed layer.
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+echo "=== 1. Build images (layer cache kept; do not pass --no-cache) ==="
+docker compose build web frontend athena
 
 echo "=== 2. Restart containers ==="
-docker-compose up -d
+docker compose up -d
 
-echo "=== 3. Run migrations (service name: backend) ==="
-docker-compose exec backend python manage.py migrate --noinput
+echo "=== 3. Run migrations (service name: web) ==="
+docker compose exec web python manage.py migrate --noinput
 
 echo "=== 4. Migration status ==="
-docker-compose exec backend python manage.py showmigrations api
+docker compose exec web python manage.py showmigrations api
 
 echo "=== Done ==="
-docker-compose ps
+docker compose ps

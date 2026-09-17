@@ -85,6 +85,7 @@ services:
       - desko_network
 
   web:
+    image: ${DESKO_APP_IMAGE:-desko-app:local}
     build:
       <<: *app-build
     command: ["web"]
@@ -106,6 +107,7 @@ services:
       - desko_network
 
   worker:
+    image: ${DESKO_APP_IMAGE:-desko-app:local}
     build:
       <<: *app-build
     command: ["worker"]
@@ -121,6 +123,7 @@ services:
       - desko_network
 
   beat:
+    image: ${DESKO_APP_IMAGE:-desko-app:local}
     build:
       <<: *app-build
     command: ["beat"]
@@ -136,6 +139,7 @@ services:
       - desko_network
 
   athena:
+    image: ${ATHENA_IMAGE:-desko-athena:local}
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
@@ -176,6 +180,7 @@ services:
       - desko_network
 
   athena-session-status:
+    image: ${ATHENA_IMAGE:-desko-athena:local}
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
@@ -203,6 +208,7 @@ services:
       - desko_network
 
   athena-attempt-status:
+    image: ${ATHENA_IMAGE:-desko-athena:local}
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
@@ -230,6 +236,7 @@ services:
       - desko_network
 
   athena-grading:
+    image: ${ATHENA_IMAGE:-desko-athena:local}
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
@@ -257,6 +264,7 @@ services:
       - desko_network
 
   frontend:
+    image: ${FRONTEND_IMAGE:-desko-frontend:local}
     build:
       context: ./frontend
       pull: false
