@@ -1,6 +1,7 @@
 # استقرار production-like: web (gunicorn) + worker + beat + Postgres + Redis + frontend.
-# همه‌ی سرویس‌های اپ از یک image واحد ساخته می‌شوند و فقط نقش (command) فرق دارد،
-# تا مقیاس‌دهی افقی هر بخش مستقل ممکن باشد: docker compose up --scale worker=4
+# همه‌ی سرویس‌های اپ از یک image واحد استفاده می‌کنند و فقط نقش (command) فرق دارد.
+# build فقط روی web / athena است؛ Bake اگر چند سرویس همزمان یک تگ را export کنند
+# خطای "image already exists" می‌دهد. مقیاس: docker compose up --scale worker=4
 
 x-app-env: &app-env
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-${SECRET_KEY}}
@@ -86,6 +87,7 @@ services:
 
   web:
     image: ${DESKO_APP_IMAGE:-desko-app:local}
+    pull_policy: build
     build:
       <<: *app-build
     command: ["web"]
@@ -108,8 +110,7 @@ services:
 
   worker:
     image: ${DESKO_APP_IMAGE:-desko-app:local}
-    build:
-      <<: *app-build
+    pull_policy: never
     command: ["worker"]
     environment:
       <<: *app-env
@@ -124,8 +125,7 @@ services:
 
   beat:
     image: ${DESKO_APP_IMAGE:-desko-app:local}
-    build:
-      <<: *app-build
+    pull_policy: never
     command: ["beat"]
     environment:
       <<: *app-env
@@ -140,6 +140,7 @@ services:
 
   athena:
     image: ${ATHENA_IMAGE:-desko-athena:local}
+    pull_policy: build
     build:
       <<: *athena-build
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
@@ -181,8 +182,7 @@ services:
 
   athena-session-status:
     image: ${ATHENA_IMAGE:-desko-athena:local}
-    build:
-      <<: *athena-build
+    pull_policy: never
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
     command: ["python", "-m", "src.worker", "exam_session_status"]
     environment:
@@ -209,8 +209,7 @@ services:
 
   athena-attempt-status:
     image: ${ATHENA_IMAGE:-desko-athena:local}
-    build:
-      <<: *athena-build
+    pull_policy: never
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
     command: ["python", "-m", "src.worker", "session_attempt_status"]
     environment:
@@ -237,8 +236,7 @@ services:
 
   athena-grading:
     image: ${ATHENA_IMAGE:-desko-athena:local}
-    build:
-      <<: *athena-build
+    pull_policy: never
     entrypoint: ["/bin/sh", "/app/docker/entrypoint.sh"]
     command: ["python", "-m", "src.worker", "session_attempt_grading"]
     environment:
@@ -265,6 +263,7 @@ services:
 
   frontend:
     image: ${FRONTEND_IMAGE:-desko-frontend:local}
+    pull_policy: build
     build:
       context: ./frontend
       pull: false
