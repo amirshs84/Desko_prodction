@@ -53,6 +53,7 @@ USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -67,6 +68,8 @@ INSTALLED_APPS = [
     'OnlineClass',
     'Planning',
     'Exam',
+    'notifications',
+    'channels',
 ]
 
 _HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
@@ -114,6 +117,16 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'desko_backend.wsgi.application'
+ASGI_APPLICATION = 'desko_backend.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379/0')],
+        },
+    },
+}
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:

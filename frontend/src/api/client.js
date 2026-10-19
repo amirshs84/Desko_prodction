@@ -311,6 +311,7 @@ export const superadminAPI = {
   updateSchoolMember: (schoolId, userId, data) =>
     api.patch(`superadmin/schools/${schoolId}/members/${userId}/`, data),
   createStudent: (schoolId, data) => api.post(`superadmin/schools/${schoolId}/students/`, data),
+  seedDemo: (schoolId) => api.post(`superadmin/schools/${schoolId}/seed-demo/`),
   getTickets: () => api.get('superadmin/tickets/'),
   replyToTicket: (ticketId, reply) => api.post(`superadmin/tickets/${ticketId}/reply/`, { reply }),
 };

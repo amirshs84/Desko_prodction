@@ -178,6 +178,7 @@ export default function SuperAdminMembersModal({
                       {m.role_display || ROLE_LABELS[m.role]}
                       {m.grade_display ? ` · ${m.grade_display}` : ''}
                       {m.is_password_set ? ' · رمز تنظیم شده' : ' · بدون رمز'}
+                      {m.is_demo ? ' · دمو' : ''}
                     </p>
                   </div>
                   <button

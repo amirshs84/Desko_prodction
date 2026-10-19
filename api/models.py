@@ -21,6 +21,11 @@ class School(models.Model):
         help_text='زمان مطالعه نرمال روزانه به ثانیه'
     )
     is_active = models.BooleanField(default=True, verbose_name='فعال')
+    is_demo = models.BooleanField(
+        default=False,
+        verbose_name='بسته دمو',
+        help_text='روی این مدرسه بسته دموی فروش ساخته شده است',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -98,6 +103,7 @@ class UserProfile(models.Model):
     is_profile_complete = models.BooleanField(default=False)
     is_password_set = models.BooleanField(default=False, verbose_name='رمز عبور تنظیم شده')
     is_studying = models.BooleanField(default=False, verbose_name='در حال مطالعه')
+    is_demo = models.BooleanField(default=False, verbose_name='اکانت دمو')
     athena_id = models.UUIDField(
         unique=True,
         null=True,
@@ -315,6 +321,7 @@ class SchoolClass(models.Model):
         verbose_name='مقطع',
     )
     is_active = models.BooleanField(default=True, verbose_name='فعال')
+    is_demo = models.BooleanField(default=False, verbose_name='کلاس دمو')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

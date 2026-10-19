@@ -2063,6 +2063,7 @@ class SuperAdminSchoolMembersView(views.APIView):
                 'olympiad_display': profile.get_olympiad_field_display() if profile.olympiad_field else '',
                 'is_profile_complete': profile.is_profile_complete,
                 'is_password_set': profile.is_password_set,
+                'is_demo': profile.is_demo,
             })
         
         return Response({
@@ -2098,6 +2099,7 @@ class SuperAdminSchoolMemberDetailView(views.APIView):
             'olympiad_display': profile.get_olympiad_field_display() if profile.olympiad_field else '',
             'is_profile_complete': profile.is_profile_complete,
             'is_password_set': profile.is_password_set,
+            'is_demo': profile.is_demo,
         }
 
     def get(self, request, school_id, user_id):
@@ -2187,25 +2189,35 @@ class SuperAdminCreateStudentView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = User.objects.create(
-            username=phone_number,
-            password=make_password(password),
-        )
-        profile = UserProfile.objects.create(
-            user=user,
-            phone_number=phone_number,
-            full_name=serializer.validated_data.get('full_name') or '',
-            grade=serializer.validated_data.get('grade') or '',
-            olympiad_field=serializer.validated_data.get('olympiad_field') or '',
-            school=school,
-            role='student',
-            is_password_set=True,
-            is_profile_complete=True,
-        )
+        from django.db import transaction
+        from .demo_seed import seed_student_demo_activity
+
+        with transaction.atomic():
+            user = User.objects.create(
+                username=phone_number,
+                password=make_password(password),
+            )
+            profile = UserProfile.objects.create(
+                user=user,
+                phone_number=phone_number,
+                full_name=serializer.validated_data.get('full_name') or '',
+                grade=serializer.validated_data.get('grade') or '',
+                olympiad_field=serializer.validated_data.get('olympiad_field') or '',
+                school=school,
+                role='student',
+                is_password_set=True,
+                is_profile_complete=True,
+            )
+
+            demo_seeded = False
+            if serializer.validated_data.get('seed_demo'):
+                seed_student_demo_activity(profile)
+                demo_seeded = True
 
         return Response(
             {
                 'message': 'دانش‌آموز ثبت شد',
+                'demo_seeded': demo_seeded,
                 'student': {
                     'id': user.id,
                     'full_name': profile.full_name,
@@ -2216,5 +2228,22 @@ class SuperAdminCreateStudentView(views.APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class SuperAdminSeedDemoView(views.APIView):
+    """ساخت یا جایگزینی بسته دموی فروش برای یک مدرسه."""
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, school_id):
+        from .demo_seed import DemoSeedError, seed_school_demo
+
+        school = School.objects.filter(id=school_id).first()
+        if school is None:
+            return Response({'error': 'مدرسه یافت نشد'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            payload = seed_school_demo(school)
+        except DemoSeedError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(payload, status=status.HTTP_201_CREATED)
 
 

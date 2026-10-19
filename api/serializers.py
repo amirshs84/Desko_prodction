@@ -248,11 +248,12 @@ class SchoolSerializer(serializers.ModelSerializer):
             'invitation_code',
             'normal_study_threshold',
             'is_active',
+            'is_demo',
             'member_count',
             'manager_name',
             'created_at'
         ]
-        read_only_fields = ['invitation_code', 'created_at']
+        read_only_fields = ['invitation_code', 'created_at', 'is_demo']
     
     def get_member_count(self, obj):
         return obj.members.filter(role='student').count()
@@ -300,6 +301,7 @@ class SuperAdminManualStudentSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
     grade = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
     olympiad_field = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
+    seed_demo = serializers.BooleanField(required=False, default=False)
 
     def validate_grade(self, value):
         if not value:

@@ -33,7 +33,11 @@ export default function SuperAdminDashboard() {
     full_name: '',
     grade: '',
     olympiad_field: '',
+    seed_demo: false,
   });
+  const [seedingSchoolId, setSeedingSchoolId] = useState(null);
+  const [demoResult, setDemoResult] = useState(null);
+  const [demoCopied, setDemoCopied] = useState(false);
 
   /* ── state های نوتیفیکیشن ── */
   const [sentNotifs,      setSentNotifs]      = useState([]);
@@ -207,10 +211,13 @@ export default function SuperAdminDashboard() {
         full_name: manualStudent.full_name.trim(),
         grade: manualStudent.grade,
         olympiad_field: manualStudent.olympiad_field,
+        seed_demo: manualStudent.seed_demo,
       });
       await queryClient.invalidateQueries({ queryKey: ['manager', 'students'] });
       await queryClient.invalidateQueries({ queryKey: ['manager', 'classes'] });
-      alert('دانش‌آموز با موفقیت ثبت شد');
+      alert(manualStudent.seed_demo
+        ? 'دانش‌آموز با اطلاعات دمو ثبت شد'
+        : 'دانش‌آموز با موفقیت ثبت شد');
       setShowStudentModal(false);
       setStudentTargetSchool(null);
       setManualStudent({
@@ -219,6 +226,7 @@ export default function SuperAdminDashboard() {
         full_name: '',
         grade: '',
         olympiad_field: '',
+        seed_demo: false,
       });
       fetchSchools();
     } catch (error) {
@@ -231,6 +239,57 @@ export default function SuperAdminDashboard() {
         (d && typeof d === 'object' ? 'ورودی‌ها را بررسی کنید' : null) ||
         'خطا در ثبت دانش‌آموز';
       alert(msg);
+    }
+  };
+
+  const handleSeedDemo = async (school) => {
+    const confirmed = confirm(
+      `بسته دمو فروش برای «${school.name}» ساخته شود؟\nاکانت‌های دموی قبلی همین مدرسه جایگزین می‌شوند. اکانت‌های واقعی دست نمی‌خورند.`
+    );
+    if (!confirmed) return;
+    setSeedingSchoolId(school.id);
+    try {
+      const res = await superadminAPI.seedDemo(school.id);
+      setDemoCopied(false);
+      setDemoResult(res.data);
+      fetchSchools();
+    } catch (error) {
+      const msg = error.response?.data?.error || 'خطا در ساخت بسته دمو';
+      alert(msg);
+    } finally {
+      setSeedingSchoolId(null);
+    }
+  };
+
+  const demoCredentialsText = (result) => {
+    if (!result) return '';
+    const lines = [
+      `مدرسه: ${schools.find((s) => s.id === result.school_id)?.name || ''}`,
+      `رمز اکانت‌های تازه‌ساخته: ${result.password}`,
+      '',
+    ];
+    if (result.manager?.created) {
+      lines.push(`مدیر: ${result.manager.full_name} — ${result.manager.username}`);
+    } else if (result.manager) {
+      lines.push(`مدیر واقعی حفظ شد: ${result.manager.full_name} — ${result.manager.username} (رمز قبلی)`);
+    }
+    if (result.consultant) {
+      lines.push(`مشاور: ${result.consultant.full_name} — ${result.consultant.username}`);
+    }
+    if (result.class_name) lines.push(`کلاس: ${result.class_name}`);
+    lines.push('', 'دانش‌آموزها:');
+    (result.students || []).forEach((student) => {
+      lines.push(`${student.full_name} (${student.tier_label}) — ${student.username}`);
+    });
+    return lines.join('\n');
+  };
+
+  const copyDemoCredentials = async () => {
+    try {
+      await navigator.clipboard.writeText(demoCredentialsText(demoResult));
+      setDemoCopied(true);
+    } catch {
+      alert('کپی ممکن نشد. مشخصات را دستی بردارید.');
     }
   };
 
@@ -432,7 +491,14 @@ export default function SuperAdminDashboard() {
                     <HiOfficeBuilding className="text-2xl text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">{school.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-gray-900">{school.name}</h3>
+                      {school.is_demo && (
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                          دمو
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500">{school.member_count} دانش‌آموز</p>
                   </div>
                 </div>
@@ -510,6 +576,14 @@ export default function SuperAdminDashboard() {
                 >
                   <HiUserGroup className="text-lg shrink-0" />
                   مشاهده و ویرایش اعضا
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSeedDemo(school)}
+                  disabled={seedingSchoolId === school.id}
+                  className="w-full px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-semibold text-sm disabled:opacity-60"
+                >
+                  {seedingSchoolId === school.id ? 'در حال ساخت بسته دمو…' : 'ساخت بسته دمو فروش'}
                 </button>
                 <button
                   type="button"
@@ -652,6 +726,20 @@ export default function SuperAdminDashboard() {
                   ))}
                 </select>
               </div>
+              <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={manualStudent.seed_demo}
+                  onChange={(e) => setManualStudent({ ...manualStudent, seed_demo: e.target.checked })}
+                  className="mt-1 accent-amber-600 w-4 h-4"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-amber-900">پر کردن اطلاعات دمو</span>
+                  <span className="block text-xs text-amber-800/80 mt-0.5">
+                    درس، ساعت مطالعهٔ چهار هفته و تقویم دو هفته برای همین دانش‌آموز ساخته می‌شود.
+                  </span>
+                </span>
+              </label>
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -854,6 +942,36 @@ export default function SuperAdminDashboard() {
           onClose={() => setShowMembersModal(false)}
           onChanged={fetchSchools}
         />
+      )}
+
+      {demoResult && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">بسته دمو آماده است</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              رمز اکانت‌های تازه‌ساخته: <span className="font-mono font-bold text-amber-800" dir="ltr">{demoResult.password}</span>
+            </p>
+            <pre className="whitespace-pre-wrap text-sm bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-800 leading-7">
+              {demoCredentialsText(demoResult)}
+            </pre>
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={copyDemoCredentials}
+                className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600 font-semibold"
+              >
+                {demoCopied ? 'کپی شد' : 'کپی مشخصات'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoResult(null)}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold"
+              >
+                بستن
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
