@@ -263,6 +263,34 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False') == 'True'
 CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_ROUTES = {
+    'notifications.dispatch_critical': {'queue': 'notif_critical'},
+    'notifications.dispatch_default': {'queue': 'notif_default'},
+    'notifications.dispatch_bulk': {'queue': 'notif_bulk'},
+    'notifications.*': {'queue': 'notif_default'},
+}
+CELERY_BEAT_SCHEDULE = {
+    'notifications-release-deferred': {
+        'task': 'notifications.release_deferred',
+        'schedule': 60.0,
+    },
+    'notifications-aggregate-daily-stats': {
+        'task': 'notifications.aggregate_daily_stats',
+        'schedule': 60.0 * 30,
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+# inline: ارسال هم‌زمان (dev/test) | celery: صف‌های notif_* (prod)
+NOTIF_DELIVERY_MODE = os.environ.get('NOTIF_DELIVERY_MODE', 'inline')
+# مسیر فایل service-account یا خود JSON آن؛ خالی یعنی push غیرفعال (FakePushGateway)
+FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS', '')
+NOTIF_DEFAULT_QUIET_HOURS = os.environ.get('NOTIF_DEFAULT_QUIET_HOURS', '23:00-07:00')
+NOTIF_DAILY_CAP_NORMAL = int(os.environ.get('NOTIF_DAILY_CAP_NORMAL', '10'))
+NOTIF_DAILY_CAP_LOW = int(os.environ.get('NOTIF_DAILY_CAP_LOW', '3'))
+NOTIF_WEB_LINK_BASE = os.environ.get('NOTIF_WEB_LINK_BASE', 'https://space.mydesko.ir')
 
 # ---------------------------------------------------------------------------
 # Online Class / Skyroom

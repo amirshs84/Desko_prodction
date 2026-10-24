@@ -47,22 +47,12 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      workbox: {
-        cacheId: 'desko-exam-take-v4',
+      // SW اختصاصی: کش + هندل push/notificationclick (src/sw.js)
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
         globPatterns: ['**/' + '*.{js,css,html,ico,png,svg}'],
-        navigateFallbackDenylist: [/\.wasm$/i, /\/pdfium\//],
-        skipWaiting: true,
-        clientsClaim: true,
-        runtimeCaching: [
-          {
-            urlPattern: /\/pdfium\/.+\.(wasm|ttf)$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'desko-pdfium',
-              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            },
-          },
-        ],
       },
       manifest: {
         name: 'Desko',

@@ -1,6 +1,13 @@
 import { queryClient } from '../lib/queryClient'
+import { notificationClient } from '../features/notifications/NotificationClient'
 
 export const performLogout = async () => {
+  // نیاز به accessToken دارد؛ پس قبل از پاک شدن localStorage
+  await Promise.race([
+    notificationClient.stop().catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, 3000)),
+  ]);
+
   const quickNotes = localStorage.getItem('quickNotesList');
   const theme = localStorage.getItem('app-theme');
   

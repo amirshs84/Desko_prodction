@@ -25,6 +25,7 @@ from ..commands.calendar_commands import (
     UpdateEventCommand,
     UpdateGroupCommand,
 )
+from .study_reminder import cancel_study_reminder, sync_study_reminder, sync_study_reminders
 
 
 class CalendarService:
@@ -72,6 +73,7 @@ class CalendarService:
         ]
         with self._uow_factory():
             self._events.add_many(events)
+        sync_study_reminders(events)
         return events
 
     def update_event(
@@ -93,6 +95,7 @@ class CalendarService:
                 all_day=command.all_day,
             )
             self._events.save(event)
+        sync_study_reminder(event)
         return event
 
     def delete_event(self, owner_id: int, client_id: str, *, context: RequestContext) -> None:
@@ -101,6 +104,7 @@ class CalendarService:
         event.ensure_writable_by(context.authority)
         with self._uow_factory():
             self._events.delete(ref)
+        cancel_study_reminder(owner_id, client_id)
 
     def update_group(self, command: UpdateGroupCommand, *, context: RequestContext) -> int:
         events = self._group_or_404(command.owner_id, command.group_id)
@@ -115,6 +119,7 @@ class CalendarService:
                     all_day=command.all_day,
                 )
                 self._events.save(event)
+        sync_study_reminders(events)
         return len(events)
 
     def delete_group(self, owner_id: int, group_id: str, *, context: RequestContext) -> int:
@@ -122,7 +127,10 @@ class CalendarService:
         for event in events:
             event.ensure_writable_by(context.authority)
         with self._uow_factory():
-            return self._events.delete_by_group(group_id, owner_ids=[owner_id])
+            deleted = self._events.delete_by_group(group_id, owner_ids=[owner_id])
+        for event in events:
+            cancel_study_reminder(owner_id, event.client_id)
+        return deleted
 
     # ---------- کمکی ----------
 

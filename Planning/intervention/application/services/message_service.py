@@ -54,6 +54,13 @@ class MessageService:
         bust_dashboard_cache(
             consultant_id=context.actor_user_id, school_id=school_id,
         )
+        consultant = self._directory.get_consultant(
+            context.actor_user_id, school_id=school_id,
+        )
+        _notify_consultant_direct_message(
+            message,
+            sender_name=(consultant.full_name if consultant else '') or 'مشاور',
+        )
         return DirectMessageDTO.from_entity(message)
 
     def list_school_consultants(self, *, context: RequestContext) -> list[ConsultantInfo]:
@@ -107,6 +114,21 @@ class MessageService:
                 'این کاربر دانش‌آموز فعال مدرسه‌ی شما نیست.',
                 meta={'student_id': student_id},
             )
+
+
+def _notify_consultant_direct_message(message: DirectMessage, *, sender_name: str) -> None:
+    from notifications.api import Notifier, Priority
+
+    preview = (message.body or '')[:120]
+    Notifier.notify_safely(
+        recipients=[message.student_id],
+        category='direct_message',
+        template='consultant_direct_message',
+        context={'sender_name': sender_name, 'preview': preview},
+        priority=Priority.HIGH,
+        deeplink='/notifications',
+        collapse_key=f'dm:{message.consultant_id}:{message.student_id}',
+    )
 
 
 def _require_consultant(context: RequestContext) -> int:

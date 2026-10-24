@@ -38,6 +38,7 @@ from ...domain.value_objects.event_ref import EventRef
 from ...domain.value_objects.jalali_date import JalaliDate
 from ...domain.value_objects.time_range import TimeRange
 from ..commands.block_commands import MoveBlockCommand, PlaceBlockCommand
+from .study_reminder import sync_study_reminder
 from ..dto.placement_dto import DayAvailabilityDTO, PlacementResultDTO
 from ..ports.id_generator import IdGenerator
 
@@ -212,6 +213,7 @@ class BlockPlacementService:
         )
         with self._uow_factory():
             self._events.add_many([event])
+        sync_study_reminder(event)
         return PlacementResultDTO(
             event=event,
             requested_start_minutes=command.preferred_start_minutes,
@@ -252,6 +254,7 @@ class BlockPlacementService:
         with self._uow_factory():
             event.move_to(target_date, slot, authority=context.authority)
             self._events.save(event)
+        sync_study_reminder(event)
         return PlacementResultDTO(
             event=event,
             requested_start_minutes=preferred_start,

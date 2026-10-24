@@ -7,15 +7,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { queryClient } from './lib/queryClient.js'
-import { initAndroidPush } from './plugins/androidPush.js'
 
 const persister = createSyncStoragePersister({
   storage: window.localStorage,
   key: 'desko-query-cache-v2',
   throttleTime: 1000,
 })
-
-initAndroidPush()
 
 persistQueryClient({
   queryClient,

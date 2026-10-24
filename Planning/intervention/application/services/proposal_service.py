@@ -12,6 +12,7 @@ from typing import Callable, Sequence
 
 from ....scheduling.application.ports.id_generator import IdGenerator
 from ....scheduling.application.services.snapshot_service import SnapshotService
+from ....scheduling.application.services.study_reminder import sync_study_reminders
 from ....scheduling.domain.entities.calendar_event import DEFAULT_EVENT_COLOR, CalendarEvent
 from ....scheduling.domain.entities.calendar_snapshot import SnapshotReason
 from ....scheduling.domain.entities.day_agenda import DayAgenda
@@ -106,6 +107,7 @@ class ProposalService:
             self._proposals.save(proposal)
             self._events.add_many(placed)
 
+        sync_study_reminders(placed)
         return ProposalResponseDTO(
             proposal_id=proposal.id,
             accepted=True,
@@ -162,6 +164,7 @@ class ProposalService:
             self._proposals.save(proposal)
             self._events.add_many(placed)
 
+        sync_study_reminders(placed)
         return ProposalBlockResponseDTO(
             proposal_id=proposal.id,
             block_index=command.block_index,

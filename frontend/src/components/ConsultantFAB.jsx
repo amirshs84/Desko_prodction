@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { planningAPI, ticketAPI } from '../api/client';
 
 const formatDate = (iso) => {
@@ -17,6 +18,7 @@ const formatDate = (iso) => {
  * - پشتیبانی سایت → تیکت قدیمی (سوپرادمین)
  */
 const ConsultantFAB = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState('consultant'); // consultant | support
   const [error, setError] = useState('');
@@ -89,6 +91,19 @@ const ConsultantFAB = () => {
       setLoadingSupport(false);
     }
   };
+
+  // deep link نوتیف پیام مشاور: ?chat=consultant&consultant_id=<id>
+  useEffect(() => {
+    if (searchParams.get('chat') !== 'consultant') return;
+    const consultantId = Number(searchParams.get('consultant_id'));
+    setChannel('consultant');
+    if (consultantId) setSelectedConsultantId(consultantId);
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('chat');
+    next.delete('consultant_id');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!open) return undefined;

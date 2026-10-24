@@ -14,6 +14,7 @@ from ....shared.domain.errors import PermissionDeniedError
 from ...domain.entities.calendar_snapshot import CalendarSnapshot, SnapshotReason
 from ...domain.repositories.calendar_event_repository import CalendarEventRepository
 from ...domain.repositories.snapshot_repository import CalendarSnapshotRepository
+from .study_reminder import reconcile_study_reminders
 
 SNAPSHOT_RETENTION = 10
 
@@ -68,4 +69,5 @@ class SnapshotService:
             for event in restorable:
                 event.persisted_version = None
             self._events.add_many(restorable)
+        reconcile_study_reminders(owner_id, list(restorable))
         return snapshot, len(restorable)

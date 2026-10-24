@@ -465,6 +465,9 @@ class ConsultantSessionParticipantsView(APIView):
                     'status': SessionParticipantRecord.STATUS_ASSIGNED,
                 },
             )
+        from .notify import notify_exam_session_started
+
+        notify_exam_session_started(record, user_ids)
         return Response(result)
 
     def get(self, request, session_id: int):

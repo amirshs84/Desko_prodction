@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://space.mydesko.ir/schemas/push_payload_v1.json",
+  "title": "Desko push data payload v1",
+  "description": "FCM data-only payload rendered by the Android native service and the web Service Worker. All values are strings (FCM constraint); JSON-typed fields are JSON-encoded strings.",
+  "type": "object",
+  "required": ["v", "nid", "category", "priority", "channel_id", "title", "body", "style"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "const": "1" },
+    "nid": { "type": "string", "format": "uuid" },
+    "category": { "type": "string", "maxLength": 64 },
+    "priority": { "enum": ["CRITICAL", "HIGH", "NORMAL", "LOW"] },
+    "channel_id": { "enum": ["desko_critical", "desko_high", "desko_default", "desko_low"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "body": { "type": "string" },
+    "style": { "enum": ["BASIC", "BIG_TEXT", "BIG_PICTURE", "INBOX", "PROGRESS"] },
+    "deeplink": { "type": "string" },
+    "collapse_key": { "type": "string" },
+    "expires_at": { "type": "string" },
+    "media": { "type": "string", "description": "JSON: {image_url?, large_icon_url?, lottie_url?}" },
+    "actions": { "type": "string", "description": "JSON: [{id, title, type: OPEN|DISMISS|API_CALL, deeplink?, api_path?}] (max 3)" },
+    "lines": { "type": "string", "description": "JSON: string[] for INBOX style" },
+    "progress": { "type": "string", "pattern": "^(100|[0-9]{1,2})$" },
+    "in_app": { "type": "string", "description": "JSON: {layout: MODAL|BOTTOM_SHEET|FULLSCREEN|BANNER, dismissible, background_color?}" },
+    "data": { "type": "string", "description": "JSON object with arbitrary app data" },
+    "link": { "type": "string", "description": "Web only: absolute URL to open" },
+    "truncated": { "const": "1" }
+  }
+}

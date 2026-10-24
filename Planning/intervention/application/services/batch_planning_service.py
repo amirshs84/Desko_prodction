@@ -42,6 +42,7 @@ from ...domain.repositories.plan_run_repository import PlanRunRepository
 from ...domain.repositories.student_group_repository import StudentGroupRepository
 from ...domain.services.planning_engine import PlanningEngine
 from ...domain.value_objects.planned_block import PlannedBlock
+from ....scheduling.application.services.study_reminder import sync_study_reminders
 from ..commands.plan_commands import BuildPlanCommand
 from ..dto.plan_dto import PlanPreviewDTO, PlanRunDTO
 
@@ -108,6 +109,7 @@ class BatchPlanningService:
         moved_events = 0
         snapshots_taken = 0
         proposals: list[PlanProposal] = []
+        to_remind: list[CalendarEvent] = []
 
         with self._uow_factory():
             for draft in preview.drafts:
@@ -118,12 +120,14 @@ class BatchPlanningService:
                         plan_run_id=group_tag,
                     )
                     snapshots_taken += 1
-                    moved_events += self._apply_relocations(draft)
-                    created_events += self._events.add_many(
-                        self._to_events(
-                            draft.student_id, draft.blocks, group_tag, color_override,
-                        )
+                    relocated = self._apply_relocations(draft)
+                    moved_events += len(relocated)
+                    to_remind.extend(relocated)
+                    new_events = self._to_events(
+                        draft.student_id, draft.blocks, group_tag, color_override,
                     )
+                    created_events += self._events.add_many(new_events)
+                    to_remind.extend(new_events)
                 proposals.append(
                     PlanProposal(
                         student_id=draft.student_id,
@@ -158,6 +162,7 @@ class BatchPlanningService:
                 )
             )
 
+        sync_study_reminders(to_remind)
         return PlanRunDTO(
             run=run,
             students={student.user_id: student for student in students},
@@ -190,6 +195,7 @@ class BatchPlanningService:
 
         group_tag = f'plan-manual-{self._ids.new_id()}'
         created = 0
+        events = self._to_events(student_id, blocks, group_tag, None)
         with self._uow_factory():
             if take_snapshot:
                 self._snapshots.capture(
@@ -197,9 +203,8 @@ class BatchPlanningService:
                     reason=SnapshotReason.PLAN_PUBLISH,
                     plan_run_id=group_tag,
                 )
-            created = self._events.add_many(
-                self._to_events(student_id, blocks, group_tag, None),
-            )
+            created = self._events.add_many(events)
+        sync_study_reminders(events)
         return {
             'student_id': student_id,
             'created_events': created,
@@ -277,13 +282,13 @@ class BatchPlanningService:
             school_id=school_id,
         )
 
-    def _apply_relocations(self, draft: StudentPlanDraft) -> int:
+    def _apply_relocations(self, draft: StudentPlanDraft) -> list[CalendarEvent]:
         """اعمال جابه‌جایی بلوک‌هایی که موتور برای باز کردن جا کنار زده است.
 
         موتور فقط بلوک‌های ساخته‌ی خودش را جابه‌جا می‌کند و تضمین کرده که هرکدام جای
         تازه‌ای پیدا کرده‌اند؛ پس اینجا چیزی حذف نمی‌شود، فقط جابه‌جا.
         """
-        moved = 0
+        moved: list[CalendarEvent] = []
         for move in draft.relocations:
             ref = EventRef(owner_id=draft.student_id, client_id=move.client_id)
             event = self._events.get(ref)
@@ -291,7 +296,7 @@ class BatchPlanningService:
                 continue
             event.move_to(move.date, move.slot, authority=WriteAuthority.ALGORITHM)
             self._events.save(event)
-            moved += 1
+            moved.append(event)
         return moved
 
     def _to_events(

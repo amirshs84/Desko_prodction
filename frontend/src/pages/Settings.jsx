@@ -103,6 +103,39 @@ export default function Settings() {
             </div>
           </section>
 
+          <section>
+            <h2 className="text-xs font-semibold text-ink-4 uppercase tracking-wider mb-3 px-1">
+              اعلان‌ها
+            </h2>
+            <div className="bg-panel border border-edge rounded-2xl overflow-hidden">
+              {[
+                { to: '/notifications', title: 'صندوق اعلان‌ها', hint: 'پیام‌ها و یادآورهای دریافتی' },
+                { to: '/settings/notifications', title: 'تنظیمات اعلان‌ها', hint: 'دسته‌ها، ساعات سکوت، توقف موقت' },
+              ].map((item, i) => (
+                <button
+                  key={item.to}
+                  type="button"
+                  onClick={() => navigate(item.to)}
+                  className={`w-full flex items-center gap-3 px-4 py-4 hover:bg-panel-hover transition-colors
+                              active:scale-[0.98] ${i ? 'border-t border-edge' : ''}`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-panel-hover flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-brand"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0" />
+                    </svg>
+                  </div>
+                  <div className="text-right flex-1">
+                    <p className="text-sm font-medium text-ink">{item.title}</p>
+                    <p className="text-xs text-ink-4">{item.hint}</p>
+                  </div>
+                  <ChevronIcon />
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* ─── آپدیت برنامه ─── */}
           <section>
             <h2 className="text-xs font-semibold text-ink-4 uppercase tracking-wider mb-3 px-1">

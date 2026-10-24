@@ -24,6 +24,9 @@ import { UnifiedCalendar } from './calendar/UnifiedCalendar';
 import { EventsProvider } from './calendar/context/EventsContext';
 import { SelectedDayProvider } from './calendar/context/SelectedDayContext';
 import BottomNav from './components/BottomNav';
+import NotificationHost from './features/notifications/components/NotificationHost';
+import NotificationsInbox from './features/notifications/pages/NotificationsInbox';
+import NotificationSettings from './features/notifications/pages/NotificationSettings';
 
 const ExamTake = lazy(() => import('./pages/ExamTake'));
 
@@ -52,6 +55,7 @@ function App() {
   return (
     <ThemeProvider>
       <Router>
+        <NotificationHost />
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
@@ -80,6 +84,8 @@ function App() {
           <Route path="/todos"         element={<TodoList />} />
           <Route path="/pdf-reader"    element={<PDFReader />} />
           <Route path="/settings"      element={<Settings />} />
+          <Route path="/settings/notifications" element={<NotificationSettings />} />
+          <Route path="/notifications" element={<NotificationsInbox />} />
           <Route path="/calendar/*"    element={<CalendarPage />} />
 
           {/* Manager Routes */}

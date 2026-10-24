@@ -1,12 +1,14 @@
 package ir.mindtempo.app;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
+import ir.mindtempo.app.notifications.DeskoNotificationsPlugin;
 import ir.mindtempo.app.plugins.StudyTimerLifecyclePlugin;
 
 public class MainActivity extends BridgeActivity {
@@ -17,6 +19,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(StudyTimerLifecyclePlugin.class);
+        registerPlugin(DeskoNotificationsPlugin.class);
         super.onCreate(savedInstanceState);
 
         // فعال‌سازی edge-to-edge — insets به WebView منتقل می‌شود
@@ -24,6 +27,16 @@ public class MainActivity extends BridgeActivity {
 
         // پاک کردن cache وب‌ویو هنگام نصب نسخه جدید APK
         clearWebViewCacheOnUpdate();
+
+        // باز شدن اپ با تپ روی نوتیف (cold start)
+        DeskoNotificationsPlugin.handleOpenIntent(this, getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // تپ روی نوتیف وقتی اپ در پس‌زمینه باز است (launchMode=singleTask)
+        DeskoNotificationsPlugin.handleOpenIntent(this, intent);
     }
 
     /**

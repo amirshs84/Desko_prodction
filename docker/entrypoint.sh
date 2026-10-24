@@ -20,6 +20,17 @@ case "$1" in
       -l info \
       -Q ai_generation,file_ingestion,embeddings,maintenance
     ;;
+  notif-worker)
+    # notif_critical اول لیست است تا در رقابت با صف‌های دیگر زودتر برداشته شود.
+    exec celery -A desko_backend worker \
+      -l info \
+      -n notif@%h \
+      -Q notif_critical,notif_default,notif_bulk \
+      --concurrency "${NOTIF_WORKER_CONCURRENCY:-4}"
+    ;;
+  asgi)
+    exec daphne -b 0.0.0.0 -p 8002 desko_backend.asgi:application
+    ;;
   beat)
     exec celery -A desko_backend beat -l info
     ;;
