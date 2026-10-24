@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "769793970481",
+    "project_id": "desko-fb8e4",
+    "storage_bucket": "desko-fb8e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:769793970481:android:d29d22b3f5246d82b56010",
+        "android_client_info": {
+          "package_name": "ir.mindtempo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACxA-yUvC-wJsk1TcZQpKFhb86O7wncFQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

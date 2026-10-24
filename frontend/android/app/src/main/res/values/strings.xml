@@ -4,4 +4,5 @@
     <string name="title_activity_main">Desko</string>
     <string name="package_name">ir.mindtempo.app</string>
     <string name="custom_url_scheme">ir.mindtempo.app</string>
+    <string name="default_notification_channel_id">desko_push</string>
 </resources>

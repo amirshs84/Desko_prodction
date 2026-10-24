@@ -10,5 +10,10 @@
     "allowMixedContent": true,
     "captureInput": false,
     "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["alert", "sound", "banner", "list"]
+    }
   }
 }
