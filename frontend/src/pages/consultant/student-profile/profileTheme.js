@@ -1,17 +1,17 @@
 /** پالت اختصاصی پروفایل دانش‌آموز — Light + Mint/Emerald */
 export const PROFILE = {
-  pageBg: '#F4FBF7',
+  pageBg: '#F3F6F4',
   surface: '#FFFFFF',
-  border: '#E5F0EA',
-  ink: '#0F172A',
-  inkMuted: '#64748B',
-  inkSoft: '#94A3B8',
-  brand: '#059669',
-  brandStrong: '#047857',
-  brandSoft: '#ECFDF5',
-  brandMid: '#A7F3D0',
-  brandRing: '#6EE7B7',
-  danger: '#DC2626',
+  border: '#E5EEE9',
+  ink: '#17352C',
+  inkMuted: '#7C8B85',
+  inkSoft: '#9AABA4',
+  brand: '#0F6A49',
+  brandStrong: '#127A45',
+  brandSoft: '#E7F6EC',
+  brandMid: '#B7E0C8',
+  brandRing: '#8FCFAB',
+  danger: '#E25B4A',
   font: "'Vazirmatn', 'IRANSansX', Tahoma, sans-serif",
 };
 

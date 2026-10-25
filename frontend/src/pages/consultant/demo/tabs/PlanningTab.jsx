@@ -16,6 +16,8 @@ import {
 import { planningAPI } from '../../../../api/client';
 import { todayJalali, addDays } from '../../../../calendar/lib/jalaliUtils';
 import { PreviewCalendarModal } from './planning/PreviewCalendarModal';
+import WeeklyPlanDesktop from './planning/WeeklyPlanDesktop';
+import WeeklyPlanMobile from './planning/WeeklyPlanMobile';
 import { STEPS, STUDIO } from './planning/studioTheme';
 
 function newDemand(subject = '') {
@@ -866,16 +868,16 @@ function PlanningBody() {
 
 export function PlanningDesktop() {
   return (
-    <DesktopPageShell title="برنامه‌ریزی گروهی">
-      <PlanningBody />
+    <DesktopPageShell>
+      <WeeklyPlanDesktop />
     </DesktopPageShell>
   );
 }
 
 export function PlanningMobile({ onMenuClick }) {
   return (
-    <MobilePageShell onMenuClick={onMenuClick}>
-      <PlanningBody />
+    <MobilePageShell hideHeader>
+      <WeeklyPlanMobile onMenuClick={onMenuClick} />
     </MobilePageShell>
   );
 }

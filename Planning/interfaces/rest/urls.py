@@ -26,6 +26,8 @@ from .views import (
     ConsultantAnalyticsHubView,
     ConsultantDashboardView,
     ConsultantPreferencesView,
+    CounselingSessionDetailView,
+    CounselingSessionListCreateView,
     ConsultantRosterView,
     ConsultantStudentMessagesView,
     ConsultantStudentNotesView,
@@ -138,6 +140,16 @@ urlpatterns = [
         'planning/consultant/preferences/',
         ConsultantPreferencesView.as_view(),
         name='planning_consultant_preferences',
+    ),
+    path(
+        'planning/consultant/sessions/',
+        CounselingSessionListCreateView.as_view(),
+        name='planning_consultant_sessions',
+    ),
+    path(
+        'planning/consultant/sessions/<int:session_id>/',
+        CounselingSessionDetailView.as_view(),
+        name='planning_consultant_session_detail',
     ),
     path(
         'planning/consultant/students/',

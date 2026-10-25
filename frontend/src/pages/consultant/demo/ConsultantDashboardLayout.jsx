@@ -4,7 +4,7 @@ import CommandPalette from './components/CommandPalette';
 import { ConsultantProvider, useConsultant } from './context/ConsultantContext';
 import { resolveTab } from './tabRegistry';
 import { resolveBottomNavActive } from './constants/navItems';
-import { DEMO_FONT, PAGE_BG } from './constants/theme';
+import { DEMO_FONT, PAGE_BG, SIDEBAR_EXPANDED, SIDEBAR_RAIL } from './constants/theme';
 
 export default function ConsultantDashboardLayout() {
   return (
@@ -42,9 +42,8 @@ function LayoutBody() {
       <div
         className="hidden lg:flex flex-col transition-all duration-300 ease-in-out overflow-hidden"
         style={{
-          width: desktopSidebarCollapsed ? 0 : 280,
+          width: desktopSidebarCollapsed ? SIDEBAR_RAIL : SIDEBAR_EXPANDED,
           flexShrink: 0,
-          opacity: desktopSidebarCollapsed ? 0 : 1,
         }}
       >
         <Sidebar activeItem={activeNav} onNavigate={setActiveNav} />

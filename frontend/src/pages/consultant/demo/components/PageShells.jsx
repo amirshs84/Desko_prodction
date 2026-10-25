@@ -12,7 +12,7 @@ export function DesktopPageShell({ title, children }) {
   );
 }
 
-export function MobilePageShell({ onMenuClick, children }) {
+export function MobilePageShell({ onMenuClick, children, hideHeader = false }) {
   const { mobileSidebarOpen, toggleMobileSidebar } = useConsultant();
 
   return (
@@ -20,10 +20,12 @@ export function MobilePageShell({ onMenuClick, children }) {
       className="flex-1 overflow-y-auto"
       style={{ background: PAGE_BG, paddingBottom: MOBILE_SCROLL_PADDING }}
     >
-      <MobileHeader
-        onMenuClick={onMenuClick ?? toggleMobileSidebar}
-        sidebarOpen={mobileSidebarOpen}
-      />
+      {hideHeader ? null : (
+        <MobileHeader
+          onMenuClick={onMenuClick ?? toggleMobileSidebar}
+          sidebarOpen={mobileSidebarOpen}
+        />
+      )}
       {children}
     </div>
   );

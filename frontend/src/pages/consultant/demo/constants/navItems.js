@@ -1,27 +1,26 @@
 import {
-  LayoutDashboard, Users, CalendarRange, BarChart3, Settings, ClipboardList, FileText,
+  Home, Users, CalendarDays, BarChart3, UserRound,
 } from 'lucide-react';
 
-/** سایدبار دسکتاپ — از بالا به پایین */
+/** سایدبار دسکتاپ — راست به چپ، از بالا به پایین */
 export const NAV_ITEMS = [
-  { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'داشبورد', icon: Home },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
-  { id: 'planning', label: 'برنامه‌ریزی', icon: ClipboardList },
-  { id: 'exams', label: 'آزمون‌ها', icon: FileText },
+  { id: 'planning', label: 'برنامه‌ریزی', icon: CalendarDays },
   { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
-  { id: 'settings', label: 'پروفایل', icon: Settings },
+  { id: 'settings', label: 'پروفایل', icon: UserRound },
 ];
 
 /**
- * نوار پایین موبایل — ترتیب فیزیکی چپ→راست (dir=ltr روی نوار):
- * پروفایل | گزارش‌ها | داشبورد | دانش‌آموزان | برنامه‌ریزی
+ * نوار پایین موبایل — ترتیب DOM در dir=rtl از راست به چپ:
+ * مشاوره | دانش‌آموزان | برنامه‌ریزی | گزارش‌ها | پروفایل
  */
 export const BOTTOM_NAV = [
-  { id: 'settings', label: 'پروفایل', icon: Settings },
-  { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
-  { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'مشاوره', icon: Home },
   { id: 'students', label: 'دانش‌آموزان', icon: Users },
-  { id: 'planning', label: 'برنامه‌ریزی', icon: CalendarRange },
+  { id: 'planning', label: 'برنامه‌ریزی', icon: CalendarDays },
+  { id: 'analytics', label: 'گزارش‌ها', icon: BarChart3 },
+  { id: 'settings', label: 'پروفایل', icon: UserRound },
 ];
 
 export const BOTTOM_NAV_TAB_IDS = BOTTOM_NAV.map((t) => t.id);
@@ -32,5 +31,5 @@ export function resolveBottomNavActive(activeNav) {
 
 export const DEFAULT_TAB_ID = 'dashboard';
 
-/** تب گروه‌ها از ناوبری مخفی است؛ رجیستری و کدش سر جایش مانده. */
-export const HIDDEN_NAV_TAB_IDS = ['groups', 'history'];
+/** تب‌هایی که در طرح جدید منوی اصلی نیستند؛ رجیستری‌شان سر جایش مانده. */
+export const HIDDEN_NAV_TAB_IDS = ['groups', 'history', 'exams'];

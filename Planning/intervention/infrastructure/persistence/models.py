@@ -236,6 +236,9 @@ class ConsultantPreferencesModel(models.Model):
     )
     notifications = models.JSONField(default=dict, blank=True, verbose_name='نوتیفیکیشن‌ها')
     working_hours = models.JSONField(default=dict, blank=True, verbose_name='ساعات کاری')
+    on_leave = models.BooleanField(default=False, verbose_name='در مرخصی')
+    reserve_slots = models.PositiveSmallIntegerField(default=3, verbose_name='تعداد نوبت خالی')
+    smart_alerts = models.JSONField(default=dict, blank=True, verbose_name='هشدارهای هوشمند')
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -246,6 +249,60 @@ class ConsultantPreferencesModel(models.Model):
         db_table = 'planning_consultantpreferences'
         verbose_name = 'ترجیحات مشاور'
         verbose_name_plural = 'ترجیحات مشاوران'
+
+
+class CounselingSessionModel(models.Model):
+    """جلسه‌ی مشاوره بین یک مشاور و یک دانش‌آموز همان مدرسه."""
+
+    SCHEDULED = 'scheduled'
+    IN_PROGRESS = 'in_progress'
+    HELD = 'held'
+    CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (SCHEDULED, 'برنامه‌ریزی شده'),
+        (IN_PROGRESS, 'در حال برگزاری'),
+        (HELD, 'برگزار شده'),
+        (CANCELLED, 'لغو شده'),
+    ]
+
+    school = models.ForeignKey(
+        'api.School', on_delete=models.CASCADE, related_name='planning_counseling_sessions',
+        verbose_name='مدرسه',
+    )
+    consultant = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_counseling_sessions',
+        verbose_name='مشاور',
+    )
+    student = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='planning_counseling_sessions_as_student',
+        verbose_name='دانش‌آموز',
+    )
+    title = models.CharField(max_length=80, verbose_name='موضوع جلسه')
+    starts_at = models.DateTimeField(verbose_name='شروع جلسه')
+    status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default=SCHEDULED, verbose_name='وضعیت',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'session#{self.id} · {self.title}'
+
+    class Meta:
+        db_table = 'planning_counselingsession'
+        ordering = ['starts_at', 'id']
+        verbose_name = 'جلسه مشاوره'
+        verbose_name_plural = 'جلسات مشاوره'
+        indexes = [
+            models.Index(
+                fields=['consultant', 'starts_at'],
+                name='planning_csess_day_idx',
+            ),
+            models.Index(
+                fields=['consultant', 'student', '-starts_at'],
+                name='planning_csess_stu_idx',
+            ),
+        ]
 
 
 class ConsultantDirectMessageModel(models.Model):

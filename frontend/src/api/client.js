@@ -102,6 +102,12 @@ export const planningAPI = {
   getAnalytics: (params) => api.get('planning/consultant/analytics/', { params }),
   getPreferences: () => api.get('planning/consultant/preferences/'),
   updatePreferences: (data) => api.patch('planning/consultant/preferences/', data),
+  getCounselingSessions: (params) => api.get('planning/consultant/sessions/', { params }),
+  createCounselingSession: (data) => api.post('planning/consultant/sessions/', data),
+  updateCounselingSession: (sessionId, data) =>
+    api.patch(`planning/consultant/sessions/${sessionId}/`, data),
+  deleteCounselingSession: (sessionId) =>
+    api.delete(`planning/consultant/sessions/${sessionId}/`),
   getStudents: (params) => api.get('planning/consultant/students/', { params }),
   getGroups: () => api.get('planning/consultant/groups/'),
   createGroup: (data) => api.post('planning/consultant/groups/', data),

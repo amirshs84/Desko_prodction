@@ -20,6 +20,7 @@ export const CONSULTANT_KEYS = {
   subjects: () => ['consultant', 'subjects'],
   notes: (userId) => ['consultant', 'notes', userId],
   messages: (userId) => ['consultant', 'messages', userId],
+  sessions: (filters = {}) => ['consultant', 'sessions', filters],
 };
 
 function normalizeRosterPayload(data) {
@@ -57,6 +58,33 @@ export function useConsultantPreferences() {
     queryFn: () => planningAPI.getPreferences().then((r) => r.data),
     staleTime: 30_000,
   });
+}
+
+export function useCounselingSessions(filters = {}, options = {}) {
+  return useQuery({
+    queryKey: CONSULTANT_KEYS.sessions(filters),
+    queryFn: () => planningAPI.getCounselingSessions(filters).then((r) => r.data),
+    enabled: options.enabled !== false,
+    staleTime: 15_000,
+  });
+}
+
+export function useCounselingSessionMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['consultant', 'sessions'] });
+  const createSession = useMutation({
+    mutationFn: (data) => planningAPI.createCounselingSession(data).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+  const updateSession = useMutation({
+    mutationFn: ({ id, ...data }) => planningAPI.updateCounselingSession(id, data).then((r) => r.data),
+    onSuccess: invalidate,
+  });
+  const deleteSession = useMutation({
+    mutationFn: (id) => planningAPI.deleteCounselingSession(id),
+    onSuccess: invalidate,
+  });
+  return { createSession, updateSession, deleteSession };
 }
 
 export function usePreferencesMutation() {

@@ -22,6 +22,7 @@ from .intervention.application.services import (
     NoteService,
     PreferencesService,
     ProposalService,
+    SessionService,
     RosterService,
     SubjectCatalogService,
 )
@@ -47,6 +48,9 @@ from .intervention.infrastructure.persistence.repositories.direct_message_reposi
 )
 from .intervention.infrastructure.persistence.repositories.preferences_repository import (
     DjangoPreferencesRepository,
+)
+from .intervention.infrastructure.persistence.repositories.counseling_session_repository import (
+    DjangoCounselingSessionRepository,
 )
 from .intervention.infrastructure.persistence.repositories.student_group_repository import (
     DjangoStudentGroupRepository,
@@ -144,6 +148,10 @@ class Container:
     @cached_property
     def consultant_preferences(self) -> DjangoPreferencesRepository:
         return DjangoPreferencesRepository()
+
+    @cached_property
+    def counseling_sessions(self) -> DjangoCounselingSessionRepository:
+        return DjangoCounselingSessionRepository()
 
     @cached_property
     def plan_runs(self) -> DjangoPlanRunRepository:
@@ -266,6 +274,14 @@ class Container:
         return PreferencesService(
             preferences=self.consultant_preferences,
             directory=self.school_directory,
+        )
+
+    @cached_property
+    def session_service(self) -> SessionService:
+        return SessionService(
+            sessions=self.counseling_sessions,
+            directory=self.school_directory,
+            uow_factory=self.unit_of_work,
         )
 
     @cached_property

@@ -36,6 +36,16 @@ DEFAULT_WORKING_HOURS = {
     'end': '18:00',
     'days': ['sat', 'sun', 'mon', 'tue', 'wed'],
 }
+DEFAULT_SMART_ALERTS = {
+    'missed_report': True,
+    'study_drop': True,
+    'study_drop_percent': 20,
+}
+DEFAULT_RESERVE = 3
+MIN_RESERVE_SLOTS = 1
+MAX_RESERVE_SLOTS = 4
+MIN_DROP_PERCENT = 5
+MAX_DROP_PERCENT = 50
 WEEK_DAYS = frozenset({'sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'})
 
 
@@ -66,6 +76,9 @@ class PreferencesService:
         visible = current['visible_roster_columns']
         notifications = current['notifications']
         working_hours = current['working_hours']
+        on_leave = bool(current.get('on_leave'))
+        reserve_slots = int(current.get('reserve_slots') or DEFAULT_RESERVE)
+        smart_alerts = _normalize_smart_alerts(current.get('smart_alerts') or {})
 
         if 'quick_replies' in patch:
             quick_replies = _normalize_quick_replies(patch['quick_replies'])
@@ -75,6 +88,12 @@ class PreferencesService:
             notifications = _normalize_notifications(patch['notifications'])
         if 'working_hours' in patch:
             working_hours = _normalize_working_hours(patch['working_hours'])
+        if 'on_leave' in patch:
+            on_leave = _as_bool(patch['on_leave'], label='وضعیت مرخصی')
+        if 'reserve_slots' in patch:
+            reserve_slots = _normalize_reserve(patch['reserve_slots'])
+        if 'smart_alerts' in patch:
+            smart_alerts = _normalize_smart_alerts(patch['smart_alerts'])
 
         saved = self._preferences.save(
             consultant_id=context.actor_user_id,
@@ -83,6 +102,9 @@ class PreferencesService:
             visible_roster_columns=visible,
             notifications=notifications,
             working_hours=working_hours,
+            on_leave=on_leave,
+            reserve_slots=reserve_slots,
+            smart_alerts=smart_alerts,
         )
         return self._to_payload(context=context, school_id=school_id, raw=saved)
 
@@ -98,6 +120,7 @@ class PreferencesService:
         working = {**DEFAULT_WORKING_HOURS, **(raw['working_hours'] or {})}
         if not working.get('days'):
             working['days'] = list(DEFAULT_WORKING_HOURS['days'])
+        alerts = {**DEFAULT_SMART_ALERTS, **(raw.get('smart_alerts') or {})}
 
         return {
             'identity': {
@@ -117,6 +140,15 @@ class PreferencesService:
             ],
             'notifications': notifications,
             'working_hours': working,
+            'on_leave': bool(raw.get('on_leave')),
+            'reserve_slots': int(raw.get('reserve_slots') or DEFAULT_RESERVE),
+            'smart_alerts': {
+                'missed_report': bool(alerts.get('missed_report')),
+                'study_drop': bool(alerts.get('study_drop')),
+                'study_drop_percent': int(
+                    alerts.get('study_drop_percent') or DEFAULT_SMART_ALERTS['study_drop_percent']
+                ),
+            },
             'support': {
                 'can_create_ticket': True,
                 'ticket_type': 'support',
@@ -204,6 +236,45 @@ def _normalize_working_hours(value: Any) -> dict[str, Any]:
         'end': end,
         'days': days,
     }
+
+
+def _as_bool(value: Any, *, label: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise ValidationError(f'{label} باید درست یا نادرست باشد.')
+
+
+def _normalize_reserve(value: Any) -> int:
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        raise ValidationError('تعداد نوبت خالی نامعتبر است.') from None
+    if count < MIN_RESERVE_SLOTS or count > MAX_RESERVE_SLOTS:
+        raise ValidationError(
+            f'تعداد نوبت خالی باید بین {MIN_RESERVE_SLOTS} و {MAX_RESERVE_SLOTS} باشد.',
+        )
+    return count
+
+
+def _normalize_smart_alerts(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValidationError('فرمت هشدارهای هوشمند نامعتبر است.')
+    result = dict(DEFAULT_SMART_ALERTS)
+    if 'missed_report' in value:
+        result['missed_report'] = _as_bool(value['missed_report'], label='هشدار گزارش')
+    if 'study_drop' in value:
+        result['study_drop'] = _as_bool(value['study_drop'], label='هشدار افت مطالعه')
+    if 'study_drop_percent' in value:
+        try:
+            percent = int(value['study_drop_percent'])
+        except (TypeError, ValueError):
+            raise ValidationError('آستانه‌ی افت مطالعه نامعتبر است.') from None
+        if percent < MIN_DROP_PERCENT or percent > MAX_DROP_PERCENT:
+            raise ValidationError(
+                f'آستانه‌ی افت مطالعه باید بین {MIN_DROP_PERCENT} و {MAX_DROP_PERCENT} باشد.',
+            )
+        result['study_drop_percent'] = percent
+    return result
 
 
 def _valid_hhmm(value: str) -> bool:

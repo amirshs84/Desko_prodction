@@ -14,7 +14,7 @@ export function IdentityTab({ student, userId }) {
       label: 'سطح تحصیلی',
       value: student?.grade
         ? `پایه ${GRADE_LABELS[student.grade] || student.grade}`
-        : '—',
+        : (student?.grade_label || '—'),
     },
     { label: 'رشته / المپیاد', value: student?.olympiad_field || '—' },
     {

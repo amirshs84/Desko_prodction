@@ -4,8 +4,10 @@ import { consumeConsultantReturnTab } from '../lib/navigation';
 
 const ConsultantContext = createContext(null);
 
-export function ConsultantProvider({ children }) {
-  const [activeNav, setActiveNav] = useState(() => consumeConsultantReturnTab(DEFAULT_TAB_ID));
+export function ConsultantProvider({ children, initialNav, preserveReturn = false, onLeave = null }) {
+  const [activeNav, setActiveNav] = useState(() => (
+    preserveReturn ? (initialNav || DEFAULT_TAB_ID) : consumeConsultantReturnTab(initialNav || DEFAULT_TAB_ID)
+  ));
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -46,6 +48,7 @@ export function ConsultantProvider({ children }) {
       planningSeed,
       clearPlanningSeed,
       navigateToTab,
+      onLeave,
     }),
     [
       activeNav,
@@ -58,6 +61,7 @@ export function ConsultantProvider({ children }) {
       planningSeed,
       clearPlanningSeed,
       navigateToTab,
+      onLeave,
     ],
   );
 

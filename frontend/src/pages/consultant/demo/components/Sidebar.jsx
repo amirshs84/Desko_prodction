@@ -1,17 +1,13 @@
-import { GraduationCap, X, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
 import { NAV_ITEMS } from '../constants/navItems';
+import { PANEL } from '../constants/theme';
 import { performLogout } from '../../../../utils/auth';
-
-function profileLabel() {
-  try {
-    const p = JSON.parse(localStorage.getItem('userProfile') || '{}');
-    return p.full_name || p.phone_number || 'مشاور';
-  } catch {
-    return 'مشاور';
-  }
-}
+import { useConsultant } from '../context/ConsultantContext';
 
 export default function Sidebar({ activeItem, onNavigate, onClose }) {
+  const { desktopSidebarCollapsed, toggleDesktopSidebar } = useConsultant();
+  const rail = !onClose && desktopSidebarCollapsed;
+
   const handleLogout = async () => {
     if (!window.confirm('آیا می‌خواهید از حساب کاربری خارج شوید؟')) return;
     onClose?.();
@@ -20,85 +16,79 @@ export default function Sidebar({ activeItem, onNavigate, onClose }) {
 
   return (
     <div
-      className="flex flex-col h-full"
-      style={{ background: '#fff', borderLeft: '1px solid #E5E7EB' }}
+      className="flex flex-col h-full text-white"
+      style={{ background: PANEL.sidebar }}
     >
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
-        <div
-          className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: '#059669' }}
-        >
-          <GraduationCap size={22} color="#fff" />
-        </div>
-        <div>
-          <p className="font-bold text-gray-900 text-base leading-tight">دسکو</p>
-          <p className="text-xs text-emerald-700 font-medium mt-0.5">پنل مشاور</p>
-        </div>
+      <div className={`flex items-center gap-2.5 ${rail ? 'px-2 py-3' : 'px-4 py-5'}`}>
+        {!rail && (
+          <p className="font-bold text-[15px] leading-tight tracking-tight">مشاور تحصیلی</p>
+        )}
         {onClose && (
           <button
+            type="button"
             onClick={onClose}
-            className="mr-auto p-1 rounded-lg hover:bg-gray-100 lg:hidden"
+            className="mr-auto p-1.5 rounded-lg hover:bg-white/10"
+            aria-label="بستن منو"
           >
-            <X size={20} color="#9CA3AF" />
+            <X size={18} />
           </button>
         )}
       </div>
 
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      <nav className={`flex-1 overflow-y-auto ${rail ? 'px-2' : 'px-3'} pb-4`} aria-label="ناوبری پنل مشاور">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = activeItem === item.id;
           return (
             <button
               key={item.id}
+              type="button"
               onClick={() => onNavigate?.(item.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all text-right"
+              title={rail ? item.label : undefined}
+              aria-current={isActive ? 'page' : undefined}
+              className={`w-full flex items-center rounded-xl mb-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                rail ? 'justify-center h-11' : 'gap-3 px-3.5 py-3'
+              }`}
               style={{
-                background: isActive ? '#ECFDF5' : 'transparent',
-                color: isActive ? '#047857' : '#6B7280',
+                background: isActive ? PANEL.sidebarActive : 'transparent',
+                color: isActive ? '#fff' : 'rgba(255,255,255,0.78)',
               }}
             >
-              <Icon size={18} />
-              <span className="font-medium text-sm">{item.label}</span>
-              {isActive && (
-                <div
-                  className="mr-auto w-1.5 h-5 rounded-full"
-                  style={{ background: '#059669' }}
-                />
-              )}
+              <Icon size={18} strokeWidth={1.9} />
+              {!rail && <span className="font-medium text-[13.5px]">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      <div className="px-3 pb-3 border-t border-gray-100 pt-3">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-right hover:bg-red-50"
-          style={{ color: '#DC2626' }}
-        >
-          <LogOut size={18} />
-          <span className="font-medium text-sm">خروج از حساب</span>
-        </button>
-      </div>
-
-      <div className="px-4 py-4 border-t border-gray-100">
-        <div
-          className="flex items-center gap-3 p-3 rounded-2xl"
-          style={{ background: '#F9FAFB' }}
-        >
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: '#0EA5E9' }}
+      {onClose && (
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-white/80 hover:bg-white/10"
           >
-            <span className="text-white text-sm font-bold">م</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-900 truncate">{profileLabel()}</p>
-            <p className="text-xs text-gray-500 truncate">مشاور تحصیلی</p>
-          </div>
+            <LogOut size={18} />
+            <span className="font-medium text-[13.5px]">خروج از حساب</span>
+          </button>
         </div>
-      </div>
+      )}
+
+      {!onClose && (
+        <div className="px-3 pb-4">
+          <button
+            type="button"
+            onClick={toggleDesktopSidebar}
+            className={`w-full flex items-center rounded-xl text-white/75 hover:bg-white/10 hover:text-white ${
+              rail ? 'justify-center h-11' : 'justify-between px-3.5 py-3'
+            }`}
+            aria-label={rail ? 'باز کردن منو' : 'جمع کردن منو'}
+          >
+            {!rail && <span className="text-[13px] font-medium">جمع کردن منو</span>}
+            {rail ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

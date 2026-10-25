@@ -6,9 +6,9 @@ export default function MobileHeader({ onMenuClick, sidebarOpen = false }) {
     <div
       className="flex items-center justify-between px-5 py-4 sticky top-0 z-10"
       style={{
-        background: 'rgba(248,250,252,0.97)',
+        background: 'rgba(243,246,244,0.96)',
         backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid #E5E7EB',
+        borderBottom: '1px solid #E5EEE9',
       }}
     >
       <button

@@ -4,6 +4,7 @@ from __future__ import annotations
 from ....scheduling.domain.value_objects.jalali_date import JalaliDate
 from ....scheduling.domain.value_objects.time_range import TimeRange
 from ...domain.entities.consultant_note import ConsultantNote
+from ...domain.entities.counseling_session import CounselingSession
 from ...domain.entities.direct_message import DirectMessage, MessageSender
 from ...domain.entities.plan_run import PlanProposal, PlanRun
 from ...domain.entities.student_group import StudentGroup
@@ -67,6 +68,34 @@ class ConsultantNoteMapper:
             consultant_id=entity.consultant_id,
             student_id=entity.student_id,
             body=entity.body,
+        )
+
+
+class CounselingSessionMapper:
+    @staticmethod
+    def to_entity(row: m.CounselingSessionModel) -> CounselingSession:
+        return CounselingSession(
+            id=row.id,
+            school_id=row.school_id,
+            consultant_id=row.consultant_id,
+            student_id=row.student_id,
+            title=row.title,
+            starts_at=row.starts_at,
+            status=row.status,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    @staticmethod
+    def to_model(entity: CounselingSession) -> m.CounselingSessionModel:
+        return m.CounselingSessionModel(
+            id=entity.id,
+            school_id=entity.school_id,
+            consultant_id=entity.consultant_id,
+            student_id=entity.student_id,
+            title=entity.title,
+            starts_at=entity.starts_at,
+            status=entity.status,
         )
 
 

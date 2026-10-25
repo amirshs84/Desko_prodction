@@ -14,6 +14,8 @@ import {
   UserRound,
 } from 'lucide-react';
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
+import ProfileDesktop from './profile/ProfileDesktop';
+import ProfileMobile from './profile/ProfileMobile';
 import { performLogout } from '../../../../utils/auth';
 import { ticketAPI } from '../../../../api/client';
 import {
@@ -570,16 +572,16 @@ function SubjectCatalogSection() {
 
 export function SettingsDesktop() {
   return (
-    <DesktopPageShell title="تنظیمات">
-      <SettingsBody />
+    <DesktopPageShell>
+      <ProfileDesktop />
     </DesktopPageShell>
   );
 }
 
 export function SettingsMobile({ onMenuClick }) {
   return (
-    <MobilePageShell onMenuClick={onMenuClick}>
-      <SettingsBody />
+    <MobilePageShell hideHeader>
+      <ProfileMobile onMenuClick={onMenuClick} />
     </MobilePageShell>
   );
 }

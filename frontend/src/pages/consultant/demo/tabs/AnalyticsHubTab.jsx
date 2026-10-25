@@ -7,6 +7,8 @@ import { useConsultantAnalytics, usePlanRun } from '../hooks/useConsultantQuerie
 import { openStudentProfile } from '../lib/navigation';
 import { STUDIO } from './planning/studioTheme';
 import { formatDuration } from './students/rosterUtils';
+import ReportsMobile from './reports/ReportsMobile';
+import { ReportsBody } from './reports/ReportsBody';
 
 const AnalyticsCharts = lazy(() => import('./analytics/AnalyticsCharts'));
 
@@ -293,16 +295,16 @@ function statusLabel(status) {
 
 export function AnalyticsDesktop() {
   return (
-    <DesktopPageShell title="گزارش‌ها">
-      <AnalyticsBody />
+    <DesktopPageShell>
+      <ReportsBody />
     </DesktopPageShell>
   );
 }
 
 export function AnalyticsMobile({ onMenuClick }) {
   return (
-    <MobilePageShell onMenuClick={onMenuClick}>
-      <AnalyticsBody />
+    <MobilePageShell hideHeader>
+      <ReportsMobile onMenuClick={onMenuClick} />
     </MobilePageShell>
   );
 }

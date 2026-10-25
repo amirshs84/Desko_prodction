@@ -9,7 +9,7 @@ class PreferencesRepository(Protocol):
     def get_or_create(
         self, *, consultant_id: int, school_id: int | None,
     ) -> dict[str, Any]:
-        """برمی‌گرداند: quick_replies, visible_roster_columns, notifications, working_hours."""
+        """برمی‌گرداند ترجیحات ذخیره‌شده، از جمله مرخصی و هشدارها."""
         ...
 
     def save(
@@ -21,5 +21,8 @@ class PreferencesRepository(Protocol):
         visible_roster_columns: list,
         notifications: dict,
         working_hours: dict,
+        on_leave: bool,
+        reserve_slots: int,
+        smart_alerts: dict,
     ) -> dict[str, Any]:
         ...

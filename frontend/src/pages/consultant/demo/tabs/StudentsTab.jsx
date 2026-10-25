@@ -1,18 +1,19 @@
 import { DesktopPageShell, MobilePageShell } from '../components/PageShells';
-import { StudentsRoster } from './students/StudentsRoster';
+import StudentsDesktopView from './students/StudentsDesktopView';
+import StudentsMobileView from './students/StudentsMobileView';
 
 export function StudentsDesktop() {
   return (
-    <DesktopPageShell title="دانش‌آموزان">
-      <StudentsRoster />
+    <DesktopPageShell>
+      <StudentsDesktopView />
     </DesktopPageShell>
   );
 }
 
-export function StudentsMobile({ onMenuClick }) {
+export function StudentsMobile() {
   return (
-    <MobilePageShell onMenuClick={onMenuClick}>
-      <StudentsRoster />
+    <MobilePageShell hideHeader>
+      <StudentsMobileView />
     </MobilePageShell>
   );
 }

@@ -5,6 +5,7 @@ from .group_service import GroupService
 from .message_service import MessageService
 from .note_service import NoteService
 from .preferences_service import PreferencesService
+from .session_service import SessionService
 from .proposal_service import ProposalService
 from .roster_service import RosterService
 from .subject_catalog_service import SubjectCatalogService
@@ -17,6 +18,7 @@ __all__ = [
     'MessageService',
     'NoteService',
     'PreferencesService',
+    'SessionService',
     'ProposalService',
     'RosterService',
     'SubjectCatalogService',

@@ -20,6 +20,10 @@ from .class_fixed_event_views import (
 from .consultant_analytics_views import ConsultantAnalyticsHubView
 from .consultant_dashboard_views import ConsultantDashboardView
 from .consultant_preferences_views import ConsultantPreferencesView
+from .counseling_session_views import (
+    CounselingSessionDetailView,
+    CounselingSessionListCreateView,
+)
 from .consultant_group_views import (
     ConsultantGroupDetailView,
     ConsultantGroupListCreateView,
@@ -76,6 +80,8 @@ __all__ = [
     'ConsultantDashboardView',
     'ConsultantAnalyticsHubView',
     'ConsultantPreferencesView',
+    'CounselingSessionDetailView',
+    'CounselingSessionListCreateView',
     'ConsultantNoteDetailView',
     'ConsultantStudentMessagesView',
     'ConsultantStudentNotesView',

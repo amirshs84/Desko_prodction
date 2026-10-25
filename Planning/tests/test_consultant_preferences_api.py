@@ -68,3 +68,33 @@ class ConsultantPreferencesApiTests(APITestCase):
         )
         self.assertFalse(response.data['notifications']['dashboard_alerts'])
         self.assertEqual(response.data['working_hours']['start'], '08:30')
+        self.assertFalse(response.data['on_leave'])
+        self.assertEqual(response.data['reserve_slots'], 3)
+
+    def test_patch_leave_reserve_and_alerts(self):
+        response = self.client.patch(
+            PREFS_URL,
+            {
+                'on_leave': True,
+                'reserve_slots': 2,
+                'smart_alerts': {
+                    'missed_report': False,
+                    'study_drop': True,
+                    'study_drop_percent': 15,
+                },
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data['on_leave'])
+        self.assertEqual(response.data['reserve_slots'], 2)
+        self.assertFalse(response.data['smart_alerts']['missed_report'])
+        self.assertEqual(response.data['smart_alerts']['study_drop_percent'], 15)
+
+        again = self.client.get(PREFS_URL)
+        self.assertTrue(again.data['on_leave'])
+        self.assertEqual(again.data['reserve_slots'], 2)
+
+    def test_reject_reserve_outside_range(self):
+        response = self.client.patch(PREFS_URL, {'reserve_slots': 9}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)

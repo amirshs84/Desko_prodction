@@ -275,6 +275,31 @@ class StudentReplyMessageSerializer(serializers.Serializer):
     body = serializers.CharField(max_length=4000)
 
 
+class CounselingSessionCreateSerializer(serializers.Serializer):
+    student_id = serializers.IntegerField(min_value=1)
+    title = serializers.CharField(max_length=80)
+    starts_at = serializers.DateTimeField()
+
+
+class CounselingSessionUpdateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=80, required=False)
+    starts_at = serializers.DateTimeField(required=False)
+    status = serializers.CharField(max_length=16, required=False)
+
+
+def session_to_dict(session) -> dict:
+    return {
+        'id': session.id,
+        'student_id': session.student_id,
+        'student_name': session.student_name,
+        'title': session.title,
+        'starts_at': _datetime_field.to_representation(session.starts_at),
+        'status': session.status,
+        'created_at': _datetime_field.to_representation(session.created_at) if session.created_at else None,
+        'updated_at': _datetime_field.to_representation(session.updated_at) if session.updated_at else None,
+    }
+
+
 def note_to_dict(note) -> dict:
     return {
         'id': note.id,

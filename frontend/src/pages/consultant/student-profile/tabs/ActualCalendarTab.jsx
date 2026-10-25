@@ -82,23 +82,20 @@ export function ActualCalendarTab({ userId }) {
 
   return (
     <div className="px-4 md:px-6 py-4 pb-10 max-w-6xl mx-auto flex flex-col gap-4">
-      <div
-        className="rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-        style={{ background: '#0F172A', color: '#E2E8F0' }}
-      >
+      <div className="rounded-[22px] border border-[#E5EEE9] bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <p className="text-sm font-bold text-white">تقویم عملی</p>
-          <p className="text-[11px] mt-0.5 text-slate-400 leading-relaxed">
+          <p className="text-sm font-extrabold" style={{ color: PROFILE.ink }}>تقویم عملی</p>
+          <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: PROFILE.inkMuted }}>
             فقط عملکرد واقعی ثبت‌شده (بازه شروع و پایان مطالعه). این نما با تقویم برنامه‌ریزی فرق دارد.
           </p>
         </div>
-        <div className="flex items-center gap-3 text-[11px] shrink-0">
+        <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: PROFILE.ink }}>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm bg-emerald-500" />
+            <span className="w-3 h-3 rounded-sm bg-[#1F9D5A]" />
             عملی · توپر
           </span>
-          <span className="inline-flex items-center gap-1.5 text-slate-400">
-            <span className="w-3 h-3 rounded-sm border border-slate-400 bg-transparent" />
+          <span className="inline-flex items-center gap-1.5" style={{ color: PROFILE.inkMuted }}>
+            <span className="w-3 h-3 rounded-sm border border-[#7C8B85] bg-transparent" />
             برنامه · حاشیه‌دار
           </span>
         </div>
